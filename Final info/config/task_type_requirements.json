@@ -1,0 +1,65 @@
+{
+  "email": {
+    "task_type": "email",
+    "checks": [
+      "Includes a clear message (purpose is obvious)",
+      "Addresses the situation appropriately (inform / request / complain)",
+      "Responds to all parts of the situation"
+    ]
+  },
+  "letter": {
+    "task_type": "letter",
+    "checks": [
+      "Includes a clear message (purpose is obvious)",
+      "Addresses the situation appropriately (inform / request / complain)",
+      "Responds to all parts of the situation"
+    ]
+  },
+  "paragraph": {
+    "task_type": "paragraph",
+    "checks": [
+      "Addresses the topic clearly",
+      "Ideas are connected (not just random sentences)"
+    ]
+  },
+  "article": {
+    "task_type": "article",
+    "checks": [
+      "Engages reader (clear topic or angle)",
+      "Ideas are explained, not just listed",
+      "Has an introduction that sets up the topic"
+    ]
+  },
+  "essay": {
+    "task_type": "essay",
+    "checks": [
+      "Clear position or main idea",
+      "Supporting reasons given",
+      "Some form of conclusion or final point"
+    ]
+  },
+  "report": {
+    "task_type": "report",
+    "checks": [
+      "Uses headings or sections to organise content",
+      "Key points are explained, not just listed",
+      "Purpose is clear (inform / analyse / recommend)"
+    ]
+  },
+  "proposal": {
+    "task_type": "proposal",
+    "checks": [
+      "Problem or situation is clearly described",
+      "Suggestions or solutions are given",
+      "At least one specific recommendation is made"
+    ]
+  },
+  "summary": {
+    "task_type": "summary",
+    "checks": [
+      "Main ideas are included",
+      "Response is shorter than the source text",
+      "Meaning is accurate (not distorted)"
+    ]
+  }
+}

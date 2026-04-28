@@ -1,0 +1,9 @@
+DATA/
+*.xlsx
+*.docx
+.env
+.env.*
+node_modules/
+results*.csv
+.DS_Store
+archive/

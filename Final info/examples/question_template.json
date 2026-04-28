@@ -1,0 +1,41 @@
+{
+  "W-XX-NEW-QUESTION-REF": {
+    "ref": "W-XX-NEW-QUESTION-REF",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "free-text topic label",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "First task requirement (what student must address)",
+      "Second task requirement",
+      "Third task requirement"
+    ],
+    "development_markers": [
+      {
+        "requirement": "First task requirement (what student must address)",
+        "1_mentioned": "describe what 'mentioned' looks like for this requirement",
+        "2_developed": "describe what 'developed' looks like (with reason / how)",
+        "3_extended": "describe what 'extended' looks like (with named example/detail)"
+      },
+      {
+        "requirement": "Second task requirement",
+        "1_mentioned": "...",
+        "2_developed": "...",
+        "3_extended": "..."
+      },
+      {
+        "requirement": "Third task requirement",
+        "1_mentioned": "...",
+        "2_developed": "...",
+        "3_extended": "..."
+      },
+      {
+        "requirement": "Additional on-topic development",
+        "1_mentioned": "introduces a DISTINCT extra on-topic point \u2014 not a rephrasing or repeat of any other requirement \u2014 within the question's subject, with no further detail",
+        "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect \u2014 not just length)",
+        "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+      }
+    ]
+  }
+}
