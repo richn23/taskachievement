@@ -522,8 +522,7 @@
     </div>
   </div>
   <div class="api-row">
-    <label style="margin: 0;">OpenAI API Key</label>
-    <input type="password" id="apiKey" placeholder="sk-..." />
+    <span style="font-size: 12px; color: var(--muted);">Key on server</span>
     <select id="modelSelect" style="width: 180px;">
       <option value="gpt-4o" selected>gpt-4o</option>
       <option value="gpt-4o-mini">gpt-4o-mini</option>
@@ -1119,9 +1118,7 @@ function applyMarkersOverride(q) {
   };
 }
 
-document.getElementById("apiKey").value = localStorage.getItem("aze_api_key") || "";
 document.getElementById("modelSelect").value = localStorage.getItem("aze_model") || "gpt-4o";
-document.getElementById("apiKey").addEventListener("change", e => localStorage.setItem("aze_api_key", e.target.value));
 document.getElementById("modelSelect").addEventListener("change", e => localStorage.setItem("aze_model", e.target.value));
 
 // ============= TABS =============
@@ -1709,8 +1706,6 @@ renderRequirements = function (reqs) {
 };
 
 async function generateQuestion(btn) {
-  const apiKey = document.getElementById("apiKey").value.trim();
-  if (!apiKey) { setAiStatus("Enter an OpenAI API key in the header first.", "error"); return; }
   const cefr = document.getElementById("q_cefr").value;
   const taskType = document.getElementById("q_task_type").value;
   const topic = (document.getElementById("q_topic").value || "").trim();
@@ -1732,7 +1727,7 @@ async function generateQuestion(btn) {
   let validated;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const data = await callOpenAI(fill(PROMPT_GENERATE_QUESTION), apiKey, `gen-question-${attempt}`, {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_QUESTION), null, `gen-question-${attempt}`, {
         max_tokens: 1000,
         system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
       });
@@ -1786,8 +1781,6 @@ async function generateQuestion(btn) {
 }
 
 async function generateTaskRequirements(btn) {
-  const apiKey = document.getElementById("apiKey").value.trim();
-  if (!apiKey) { setAiStatus("Enter an OpenAI API key in the header first.", "error"); return; }
   const stem = stripHtmlToPlain(document.getElementById("q_prompt").value);
   const cefr = document.getElementById("q_cefr").value;
   const taskType = document.getElementById("q_task_type").value;
@@ -1809,7 +1802,7 @@ async function generateTaskRequirements(btn) {
   let validated;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const data = await callOpenAI(fill(PROMPT_GENERATE_TASK_REQS), apiKey, `gen-task-reqs-${attempt}`, {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_TASK_REQS), null, `gen-task-reqs-${attempt}`, {
         max_tokens: 800,
         system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
       });
@@ -1836,8 +1829,6 @@ async function generateTaskRequirements(btn) {
 }
 
 async function generateQualityMarkers(btn) {
-  const apiKey = document.getElementById("apiKey").value.trim();
-  if (!apiKey) { setAiStatus("Enter an OpenAI API key in the header first.", "error"); return; }
   const taskRequirements = reqState.slice(0, 3).map(r => (r.req || "").trim());
   if (!taskRequirements.every(s => s.length > 0)) {
     setAiStatus("Fill in all 3 task requirements first.", "error");
@@ -1869,7 +1860,7 @@ async function generateQualityMarkers(btn) {
   let validated;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const data = await callOpenAI(fill(PROMPT_GENERATE_QUALITY_MARKERS), apiKey, `gen-quality-markers-${attempt}`, {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_QUALITY_MARKERS), null, `gen-quality-markers-${attempt}`, {
         max_tokens: 2000,
         system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
       });
@@ -2411,8 +2402,6 @@ document.getElementById("btn_run_bulk").addEventListener("click", runBulkScoring
 
 async function runBulkScoring() {
   const status = document.getElementById("bulk_run_status");
-  const apiKey = document.getElementById("apiKey").value.trim();
-  if (!apiKey) return setStatus(status, "Enter an OpenAI API key in the header.", "error");
   if (bulkRows.length === 0) return setStatus(status, "Upload a CSV first.", "error");
 
   const btn = document.getElementById("btn_run_bulk");
@@ -2465,7 +2454,7 @@ async function runBulkScoring() {
             newResults[i] = errorPlaceholder(row, "question_id not in markers config", null);
             failures.push({ row: row.row, message: "question_id not in markers config" });
           } else {
-            const r = await scoreSample(q, row.response, row.row, apiKey);
+            const r = await scoreSample(q, row.response, row.row);
             r.question_id = q.question_id;
             r.cefr_level = q.cefr_level;
             r.task_type = q.task_type;
@@ -2508,8 +2497,6 @@ async function runBulkScoring() {
 
 async function runScoring() {
   const status = document.getElementById("run_status");
-  const apiKey = document.getElementById("apiKey").value.trim();
-  if (!apiKey) return setStatus(status, "Enter an OpenAI API key.", "error");
   const sel = document.getElementById("sel_question");
   if (!sel.value) return setStatus(status, "Select a question.", "error");
   const q = getSelectedQuestion(sel.value);
@@ -2555,7 +2542,7 @@ async function runScoring() {
       const i = next++;
       if (i >= filled.length) return;
       try {
-        newResults[i] = await scoreSample(q, filled[i].text, i + 1, apiKey);
+        newResults[i] = await scoreSample(q, filled[i].text, i + 1);
       } catch (err) {
         console.error(`[runScoring] sample ${i+1} failed:`, err);
         failures.push({ sample: i + 1, message: err.message });
@@ -2581,7 +2568,7 @@ async function runScoring() {
   document.querySelector('[data-tab="step3"]').click();
 }
 
-async function scoreSample(qRaw, response, sampleNum, apiKey) {
+async function scoreSample(qRaw, response, sampleNum) {
   const q = applyMarkersOverride(qRaw);
   const wc = wordCount(response);
   const midpoint = (q.min_words + q.max_words) / 2;
@@ -2805,9 +2792,9 @@ Return JSON only:
   let taData, cqData, ieData;
   try {
     [taData, cqData, ieData] = await Promise.all([
-      callOpenAI(taPrompt, apiKey, "TA"),
-      callOpenAI(cqPrompt, apiKey, "CQ"),
-      callOpenAI(iePrompt, apiKey, "IE")
+      callOpenAI(taPrompt, null, "TA"),
+      callOpenAI(cqPrompt, null, "CQ"),
+      callOpenAI(iePrompt, null, "IE")
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -2885,20 +2872,19 @@ function estimateCEFR(score) {
   return "C2";
 }
 
-async function callOpenAI(prompt, apiKey, label = "?", options = {}) {
+async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   const model = document.getElementById("modelSelect").value;
   const max_tokens = options.max_tokens ?? 2000;
   const system = options.system ?? "You are a strict English-writing scorer. Always return valid JSON only — no prose, no markdown fences.";
-  console.log(`[${label}] calling OpenAI`, { model, endpoint: "https://api.openai.com/v1/chat/completions", promptLength: prompt.length, max_tokens });
+  console.log(`[${label}] calling /api/openai`, { model, promptLength: prompt.length, max_tokens });
   const maxAttempts = 4;
   let res, lastErr;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      res = await fetch("https://api.openai.com/v1/chat/completions", {
+      res = await fetch("/api/openai", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           model,
