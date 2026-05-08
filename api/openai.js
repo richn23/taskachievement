@@ -24,8 +24,12 @@ function getAllowedModels() {
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-/** GPT-5 chat completions reject max_tokens; require max_completion_tokens instead. */
-function usesMaxCompletionTokens(model) {
+/**
+ * GPT-5 chat completions differ from gpt-4o:
+ * - use max_completion_tokens (not max_tokens)
+ * - temperature cannot be 0; API only accepts default (1), so we omit the field.
+ */
+function isGpt5ChatModel(model) {
   return /^gpt-5/i.test(model);
 }
 
@@ -93,9 +97,19 @@ export default async function handler(req, res) {
         : 2000;
 
   try {
-    const limitKey = usesMaxCompletionTokens(model)
+    const limitKey = isGpt5ChatModel(model)
       ? { max_completion_tokens: tokenBudget }
       : { max_tokens: tokenBudget };
+
+    const temp =
+      typeof temperature === "number" ? temperature : 0;
+    const upstreamBody = {
+      model,
+      messages,
+      ...limitKey,
+      ...(isGpt5ChatModel(model) ? {} : { temperature: temp }),
+      ...(response_format ? { response_format } : {}),
+    };
 
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -103,13 +117,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        ...limitKey,
-        temperature: temperature ?? 0,
-        ...(response_format ? { response_format } : {}),
-      }),
+      body: JSON.stringify(upstreamBody),
     });
 
     const text = await upstream.text();
