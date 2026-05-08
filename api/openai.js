@@ -33,6 +33,9 @@ function isGpt5ChatModel(model) {
   return /^gpt-5/i.test(model);
 }
 
+/** GPT-5 may spend budget on internal reasoning; low ceilings yield empty message.content. */
+const GPT5_MIN_MAX_COMPLETION_TOKENS = 8192;
+
 async function readJsonBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
   if (typeof req.body === "string") {
@@ -98,7 +101,9 @@ export default async function handler(req, res) {
 
   try {
     const limitKey = isGpt5ChatModel(model)
-      ? { max_completion_tokens: tokenBudget }
+      ? {
+          max_completion_tokens: Math.max(tokenBudget, GPT5_MIN_MAX_COMPLETION_TOKENS),
+        }
       : { max_tokens: tokenBudget };
 
     const temp =

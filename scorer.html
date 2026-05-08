@@ -2408,7 +2408,7 @@ async function runBulkScoring() {
 
   const btn = document.getElementById("btn_run_bulk");
   btn.disabled = true;
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 2;
   const newResults = new Array(bulkRows.length);
   const failures = [];
   let completed = 0;
@@ -2508,7 +2508,7 @@ async function runScoring() {
 
   const btn = document.getElementById("btn_run");
   btn.disabled = true;
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 3;
   const newResults = new Array(filled.length);
   const failures = [];
   let completed = 0;
@@ -2740,9 +2740,9 @@ Score only clarity and communicative effect. Do NOT consider whether the student
   let taData, cqData, ieData;
   try {
     [taData, cqData, ieData] = await Promise.all([
-      callOpenAI(taPrompt, null, "TA"),
-      callOpenAI(cqPrompt, null, "CQ"),
-      callOpenAI(iePrompt, null, "IE")
+      callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
+      callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
+      callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -2832,6 +2832,22 @@ function estimateCEFR(score) {
   return "C2";
 }
 
+/** Normalize Chat Completions message.content (string or multimodal parts). */
+function assistantContentFromCompletion(data) {
+  const msg = data?.choices?.[0]?.message;
+  if (!msg) return "";
+  const c = msg.content;
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) {
+    return c.map(part => {
+      if (typeof part === "string") return part;
+      if (part?.text && typeof part.text === "string") return part.text;
+      return "";
+    }).join("");
+  }
+  return "";
+}
+
 async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   const model = document.getElementById("modelSelect").value;
   const max_tokens = options.max_tokens ?? 2000;
@@ -2890,8 +2906,18 @@ async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   }
   const data = await res.json();
   console.log(`[${label}] raw API response:`, data);
-  const text = data.choices?.[0]?.message?.content || "";
+  const text = assistantContentFromCompletion(data);
   console.log(`[${label}] message.content text:`, text);
+  if (!text || !String(text).trim()) {
+    const ch = data.choices?.[0];
+    console.error(`[${label}] empty assistant content`, {
+      finish_reason: ch?.finish_reason,
+      usage: data.usage
+    });
+    throw new Error(
+      "Empty model response (likely output token budget exhausted after reasoning). Try again or use gpt-4o."
+    );
+  }
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) {
     console.error(`[${label}] no JSON match in:`, text);
