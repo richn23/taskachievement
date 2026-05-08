@@ -92,9 +92,12 @@ address this requirement. Quote them verbatim into the `evidence` field.
   3 = extended   — evidence matches the rung-3 description
 
 - If between two rungs, choose the LOWER rung.
+- If the evidence could plausibly match either rung 2 or rung 3, choose rung 2. Only award rung 3 when the evidence unambiguously satisfies every element of the rung-3 description.
 - A reason or example only counts if it is **concretely specific**
   in any of the four senses above (personal / hypothetical / real /
   developed-generic). Generic statements do not count.
+
+If the same sentence has been used as evidence for another requirement, it is not available as evidence for this one. Treat the evidence field as empty for this requirement and score 0.
 
 
 ## Special rule for the 4th requirement (Additional on-topic development)

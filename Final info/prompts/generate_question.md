@@ -25,9 +25,14 @@ TOPIC: {TOPIC}                 (short topic label, e.g., "workplace and jobs")
    task requirements; the next step expects exactly 3.
 
 3. **Each bullet is a short concrete topic, 4–12 words.**
-   Use concrete asks like "When and why...", "How X affects...",
-   "Examples from your own life".
-   Avoid interpretive verbs ("discuss", "explore", "consider", "reflect").
+   Stem bullets may use a candidate-facing framing such as "Think about..."
+   or "Consider..." (these are common in real exam prompts and are fine
+   here). The underlying topic must still be a concrete noun phrase from
+   which a clean task requirement can be drawn (e.g., bullet "Think about
+   how technology has changed the workplace" → requirement "How technology
+   has changed the workplace").
+   Avoid the interpretive verbs *discuss*, *explore*, *reflect on*,
+   *evaluate* — they describe an abstract task rather than a concrete topic.
 
 4. **Match CEFR level** in vocabulary and grammar:
 
@@ -81,6 +86,12 @@ by the question author — leave a `[SOURCE TEXT GOES HERE]` placeholder).
 Adjust down for short task types (email/letter): use the bottom half
 of the range. Adjust up for report/essay/proposal at higher levels:
 use the top half of the range.
+
+
+9. **Same stem, different level bars.** The same question stem can be
+   used at different CEFR levels. When this happens, the stem does not
+   change — only the quality marker bars change downstream. Do not
+   generate a new stem for each level.
 
 ## Anti-patterns (do NOT do)
 

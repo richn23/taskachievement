@@ -81,6 +81,18 @@ Use "specific" or "concrete" instead.
    personal, hypothetical, and real-world examples** so the model
    doesn't over-anchor on real-world specifics.
 
+
+7. **Rung 2 must include a boundary example.** Every rung-2 descriptor
+   must include a "this scores 2, not 3" boundary example. This should
+   be a response that looks competent and on-topic but stops short of
+   the rung-3 bar — the kind of answer a solid B2 writer produces. The
+   boundary example must closely mirror realistic student writing, not
+   an obvious failure. This anchors the middle rung and prevents the
+   AI from jumping directly from 1 to 3.
+
+   Format: after the `(e.g., ...)` example in rung 2, append
+   `(scores 2, not 3 — lacks [specific missing element])`.
+
 ## CEFR-level rung calibration
 
 The same ladder pattern (1 → mentioned, 2 → developed, 3 → extended)
@@ -105,7 +117,7 @@ Match the rung-3 anti-example to the topic family:
 
 | Topic family       | What "concrete specific" can include                  | What does NOT count                              |
 |--------------------|-------------------------------------------------------|--------------------------------------------------|
-| Music              | song title, artist, real genre, or personal listening | Mood categories ("sad songs", "spiritual songs") |
+| Music              | song title, artist, genre, or personal listening situation with detail | mood categories ("sad songs", "motivational music"), or naming two activities without explaining why music fits each one |
 | Travel / places    | a place (real or personal), a journey detail          | "a beautiful place", "somewhere nice"            |
 | Workplace          | role, tool, or specific task                          | "technology", "the workplace", "things"          |
 | Food               | a dish, a meal, a brand, a personal cooking memory    | "good food", "tasty", "nice meals"               |
@@ -227,4 +239,6 @@ OUTPUT (rung 3):
       real-world / developed-generic) — NOT a single specific real event
 - [ ] Every rung-2 and rung-3 contains a concrete (e.g., …) example
 - [ ] Rung-2 and rung-3 bars are calibrated to the supplied CEFR level
+- [ ] Every rung-2 includes a boundary example showing what scores 2 but not 3
+- [ ] Rung-2 boundary examples mirror realistic student writing, not obvious failures
 - [ ] No rung uses interpretive verbs ("discuss", "explore", "reflect")

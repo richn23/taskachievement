@@ -2579,38 +2579,49 @@ async function scoreSample(qRaw, response, sampleNum) {
     "Additional on-topic development — an extra on-topic point not covered by the listed task requirements (must itself be a complete sentence with a specific detail)"
   ];
 
-  const taPrompt = `Score task achievement for this response. Return JSON only.
+  const taPrompt = `Score task achievement. Return JSON only.
 
 Task: ${q.task_prompt}
-Task requirements: ${JSON.stringify(augmentedTaskRequirements)}
-Task type requirements: ${JSON.stringify(q.task_type_requirements)}
+Requirements: ${JSON.stringify(augmentedTaskRequirements)}
+Task type checks: ${JSON.stringify(q.task_type_requirements)}
+CEFR: ${q.cefr_level}
 Response: ${response}
 
-Note: the LAST task requirement ("Additional on-topic development …") is a GENERIC check applied to every essay. It rewards the student for adding ONE on-topic point beyond the listed requirements. PASS only if such an extra point exists AND it satisfies the PASS rule below (complete sentence, addresses an on-topic angle not already covered, includes a specific detail). The same sentence cannot serve as evidence for both an original requirement and this generic one.
+If requirements or task type checks are empty or missing:
+  return { "error": "missing_requirements", "task_achievement": null }
 
-PASS/FAIL rule for each requirement — PASS requires ALL of the following:
-1. At least one grammatically complete sentence (subject + verb).
-2. The sentence directly addresses the requirement — not just mentions the topic.
-3. A bare word, name, number, or item in a list = FAIL regardless of relevance.
+## PASS test
 
-If any of the three conditions is not met, the result is FAIL. Do not give partial credit. When in doubt, FAIL — a strict gate is preferable to a lenient one. If you cannot point to a specific complete sentence in the response that directly satisfies the requirement, the result is FAIL.
+For each requirement (and each task type check), mark PASS or FAIL.
 
-Examples:
-- "sama.35.iran.dr" → FAIL — no complete sentence, just tokens.
-- "iran" → FAIL — single word, no sentence.
-- "I like food" (with no further detail) → FAIL for a requirement asking for likes WITH a reason — sentence is complete but does not address the "with a reason" part of the requirement.
-- "I am from Iran and I work as a doctor" → PASS — complete sentences that directly address an "introduce yourself" type requirement.
+PASS = the response contains a sentence that BOTH:
+  1. names what the requirement asks about, AND
+  2. gives at least one specific detail (name, place, time, number, reason, example).
 
-Calculate two separate scores:
-- content_score = round((task_passes / task_total) * 100)        — uses task requirements only
-- task_type_score = round((task_type_passes / task_type_total) * 100)   — uses task type requirements only
+Otherwise FAIL. A bare topic mention with no specific detail is FAIL.
 
-Return:
+## Examples
+
+- "I wake up at 6:30 and have toast." → PASS (action + time + food)
+- "I do many things in the morning." → FAIL (no specific detail)
+- "I like it because it helps me relax." → PASS (reason)
+- "I like it a lot." → FAIL (no reason)
+- "Last weekend we went to Lake Como." → PASS (named place)
+- "We went to a beautiful place." → FAIL (no name)
+
+## Calculation
+
+  passes = total PASS count across requirements + task type checks
+  total  = number of requirements + number of task type checks
+  score  = round((passes / total) * 100), clamp 0-100
+
+## Return
+
 {
-  "task_checks": [{ "requirement": "...", "result": "PASS" }],
-  "task_type_checks": [{ "requirement": "...", "result": "PASS" }],
-  "content_score": NUMBER,
-  "task_type_score": NUMBER
+  "checks": [
+    { "requirement": "...", "result": "PASS" or "FAIL" }
+  ],
+  "task_achievement": NUMBER
 }`;
 
   const cqMarkers = q.task_requirements.map((r, i) => {
@@ -2626,165 +2637,100 @@ Return:
     "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
     "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
   });
-  const cqPrompt = `Score content quality for this response. Return JSON only.
+  const cqPrompt = `Score content quality. Return JSON only.
 
 Task: ${q.task_prompt}
-Task requirements with development ladders: ${JSON.stringify(cqMarkers, null, 2)}
-Question CEFR level: ${q.cefr_level}
+Markers (4 ladders): ${JSON.stringify(cqMarkers, null, 2)}
+CEFR: ${q.cefr_level}
 Response: ${response}
 
-If DEVELOPMENT_MARKERS are empty or missing:
+If markers are empty or missing:
   return { "error": "missing_markers", "content_quality": null }
 
-Note: Content Quality scores task requirements only. Task type format requirements are handled by Task Achievement. Do not score format requirements here.
+## Hard rule — explicit only
 
-## CRITICAL RULE — explicit-only
+A requirement is present ONLY if a sentence in the response **explicitly and unambiguously** addresses it. Inference, "could mean", topic-adjacent content, hidden meaning — none of these count. If you cannot quote a clear matching sentence, score 0.
 
-A requirement is only present in the response if a sentence **explicitly and unambiguously** addresses it.
+## Process — for each requirement, in order
 
-- Implications, "this could mean...", topic-adjacent content, things you can infer — these do NOT satisfy the requirement.
-- If you cannot quote a sentence that clearly matches the requirement, the requirement is **absent**. Score 0.
-- If a sentence sits between two rungs, choose the LOWER rung.
-- This rule applies to all requirements, including the 4th.
-- Do not let general impressions of essay quality, length, or topic relevance influence whether a requirement is present.
+**Step 1 — Extract evidence.**
+Quote sentences that explicitly address THIS requirement, verbatim, into the evidence array.
+- A sentence about a different requirement is not evidence here.
+- One sentence may serve as evidence for at most one requirement.
+- If a sentence has already been used as evidence for another requirement, it is not available for this one. If no other evidence exists, score 0.
 
-## CRITICAL RULE — language concreteness, not factual knowledge
+**Step 2 — Score from the evidence.**
+- Empty evidence → score 0. Reason: "absent".
+- Otherwise compare ONLY the quote against the supplied 1/2/3 rungs:
+  - 1 = matches the rung-1 description (mentioned)
+  - 2 = matches the rung-2 description (developed)
+  - 3 = matches the rung-3 description (extended)
+- Between two rungs → choose the LOWER rung.
 
-CQ rewards **language proficiency**, not world knowledge.
-
-A "concrete specific" in rung 3 can be ANY of:
-- a personal anecdote with specific detail
-- a developed hypothetical scenario
-- a real-world reference (event, person, place, programme)
-- a generic concept developed with concrete sub-categories
-
-A student does NOT have to know specific historical events, news stories, or named institutions to reach rung 3. A vivid hypothetical with concrete language scores the same as a real-world citation.
-
-What does NOT count as concrete:
-- Generic statements ("it is good", "many people")
-- Vague quantifiers ("a lot", "most", "some")
-- Adjective-only descriptions ("a beautiful place")
-- Bare topic mentions with no elaboration
+A reason or example only counts as concretely specific if it names a person, place, time, number, song, situation, or similar. Generic statements ("it is good", "many people") do not count.
 
 ## Ignore writing quality
 
-CQ measures idea development only. Do not let grammar errors, spelling, sentence structure, register, or writing quality influence any CQ score. Those are scored under IE. A poorly written but well-developed answer should score the same on CQ as a polished one with the same ideas.
+Grammar, spelling, structure, register — none affect CQ. Those are scored under IE. A messy but well-developed answer scores the same as a polished one with the same ideas.
 
-## How to score each requirement — evidence first, then rung
+## 4th-requirement guard
 
-You MUST follow these steps in order. Do not score from a holistic impression of the response.
-
-**Step 1 — Extract evidence.**
-Find sentences in the response that explicitly and unambiguously address this requirement. Quote them verbatim into the evidence field.
-
-- A sentence about a different requirement does NOT count as evidence for this one.
-- The same sentence may serve as evidence for at most one requirement. If a sentence could plausibly fit two requirements, assign it to the one it most directly addresses; do not use it twice.
-
-**Step 2 — Score from the evidence.**
-
-- If evidence is empty: score **0**. Reason: "absent".
-- If evidence exists, compare ONLY the quoted text against the 3 rungs supplied for that requirement:
-
-  1 = mentioned  — evidence matches the rung-1 description
-  2 = developed  — evidence matches the rung-2 description
-  3 = extended   — evidence matches the rung-3 description
-
-- If between two rungs, choose the LOWER rung.
-- A reason or example only counts if it is **concretely specific** in any of the four senses above (personal / hypothetical / real / developed-generic). Generic statements do not count.
-
-## Special rule for the 4th requirement (Additional on-topic development)
-
-The 4th requirement only credits content that is **semantically distinct** from the other three requirements.
-
-- If the "extra" content paraphrases or repeats an idea you already credited under another requirement, score the 4th requirement **0**. Distinct means semantically distinct, not lexically distinct.
-- The extra point must add something new to the argument — a different angle, a new sub-topic within the question's subject, or a related consequence.
-- Length alone does not count. A long essay that elaborates the same three points repeatedly should score 0 on the 4th requirement.
-
-This guard exists because students sometimes pad an essay with rephrased versions of their main points. The 4th requirement is meant to reward genuinely additional thinking, not waffle.
+The 4th marker ("Additional on-topic development") only credits content **semantically distinct** from the other three. If the extra content paraphrases an idea already credited under another requirement, score 0.
 
 ## Calculation
 
-  total_score = sum of all 0-3 scores
-  max_score   = number_of_requirements × 3
-  CQ          = round((total_score / max_score) * 100), clamp 0-100
+  total_score = sum of 0-3 scores
+  max_score   = number_of_requirements * 3
+  score       = round((total_score / max_score) * 100), clamp 0-100
 
-## Return format
-
-Return ONLY this JSON object — no commentary, no markdown fences.
+## Return
 
 {
   "scores": [
     {
       "requirement": "...",
-      "evidence": ["verbatim quote 1", "verbatim quote 2"],
+      "evidence": ["verbatim quote", "..."],
       "score": 0-3,
-      "reason": "one sentence: which rung the evidence matches, and why"
+      "reason": "one sentence"
     }
   ],
   "content_quality": NUMBER
 }
 
-If a requirement has no evidence, return "evidence": [] and "score": 0.`;
+If absent: "evidence": [] and "score": 0.`;
 
-  const iePrompt = `You are judging the intelligibility and communicative effect of a piece of writing.
+  const iePrompt = `Judge intelligibility and communicative effect. Return JSON only.
 
 STUDENT RESPONSE: ${response}
 
-Score 0–100 using this scale:
+## Score 0-100 by band
 
-  0–20  — Unintelligible. Reader cannot understand the message.
-           Fragments, no sentences, meaning is lost.
-           Example: a single broken sentence covering only a name and age.
+  0-20    Unintelligible. Reader cannot understand. Fragments, no sentences.
+  21-40   Barely intelligible. Isolated facts only. Errors severely impede meaning.
+  41-60   Partially intelligible. General idea comes through but errors cause confusion.
+  61-75   Mostly intelligible. Message gets through. Some communicative effect, no strong impression.
+  76-90   Clear and effective. Real impression. Errors do not impede meaning.
+  91-100  Fluent and compelling. Engages, informs, leaves vivid impression.
 
-  21–40 — Barely intelligible. Reader gets isolated facts but struggles
-           significantly. Meaning frequently lost. Errors severely impede
-           understanding. Writing leaves almost no impression.
-           Example: dot-separated lists, broken fragments, misspellings
-           that obscure meaning.
+## Hard rules
 
-  41–60 — Partially intelligible. Reader understands the general idea but
-           errors and gaps cause confusion. Limited communicative effect —
-           reader is informed of some points but writing leaves little impression.
+- Single broken sentence → max 5
+- Dot-separated lists with no sentences → max 25
+- Errors that obscure meaning → below 45
+- Above 75 requires real impression, not just understandability
+- Above 90 requires fluent AND engaging AND vivid
 
-  61–75 — Mostly intelligible. Message gets through despite errors.
-           Reader is informed and can follow the writing. Some communicative
-           effect but writing does not create a strong impression.
+Use the full scale. Do not compress into 60-75.
 
-  76–90 — Clear and effective. Reader understands everything intended.
-           Writing creates a real impression — reader feels informed and engaged.
-           Errors present but do not impede meaning or effect.
+## Independence
 
-  91–100 — Fluent and compelling. Fully intelligible with strong communicative
-            effect. Writing engages, informs and leaves a vivid impression.
-            Errors rare or absent.
+Score only clarity and communicative effect. Do NOT consider whether the student answered the question, addressed requirements, or developed points.
 
-RULES:
-- A single broken sentence = maximum 5
-- Dot-separated lists with no sentences = maximum 25
-- Grammar errors that obscure meaning = keep score below 45
-- Grammar errors that do not obscure meaning = can score 75
-- To score above 75 the writing must create a real impression, not just be understandable
-- To score above 90 the writing must be fluent AND engaging AND leave a vivid impression
-- Do not compress scores into the 60–75 range — use the full scale
+## Return
 
-CALIBRATION EXAMPLES:
-- "I'm mohsen i have 20 year old i am emirates and i looking to job" = 4
-  (single broken sentence, covers only name/age/nationality, almost nothing communicated)
-- Dot-separated lists covering several topics = 18-22
-- Paragraphs with frequent errors but understandable = 55-65
-- Clear, detailed writing with minor errors = 78-85
-- Fluent, engaging, vivid writing = 90+
-
-IMPORTANT: Return any whole number between 0 and 100.
-Do NOT round to the nearest 10.
-Examples of valid scores: 7, 23, 58, 74, 88.
-Examples of invalid scores: 10, 20, 30, 70, 80.
-Use precise scores that reflect the exact quality of the response.
-
-Return JSON only:
 {
-  "score": NUMBER,
-  "reason": "one sentence explaining your decision"
+  "intelligibility_effect_score": NUMBER,
+  "reason": "one short sentence"
 }`;
 
   console.log("[IE prompt sent]", iePrompt);
@@ -2804,16 +2750,28 @@ Return JSON only:
   console.log("[IE parsed object]", ieData);
   console.log("[IE keys]", ieData ? Object.keys(ieData) : "(no ieData)");
 
-  const contentScore = taData.content_score ?? 0;
-  const taskTypeScore = taData.task_type_score ?? 0;
-  const ieScoreRaw = ieData?.score ?? ieData?.intelligibility_effect_score ?? ieData?.effect_score ?? null;
+  // Lean TA returns a single combined { checks: [...], task_achievement: NUMBER }.
+  // Legacy split { task_checks, task_type_checks, content_score, task_type_score } is also accepted.
+  const taChecksLean = Array.isArray(taData?.checks) ? taData.checks : null;
+  const taChecks = taChecksLean
+    ? taChecksLean
+    : [...(Array.isArray(taData?.task_checks) ? taData.task_checks : []),
+       ...(Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [])];
+  const taScore = (typeof taData?.task_achievement === "number")
+    ? taData.task_achievement
+    : (((taData?.content_score ?? 0) + (taData?.task_type_score ?? 0)) / 2);
+  // Back-compat shadow fields so old downstream readers/CSV stay populated.
+  const contentScore = (typeof taData?.content_score === "number") ? taData.content_score : taScore;
+  const taskTypeScore = (typeof taData?.task_type_score === "number") ? taData.task_type_score : null;
+
+  const ieScoreRaw = ieData?.intelligibility_effect_score ?? ieData?.score ?? ieData?.effect_score ?? null;
   const ieScore = (typeof ieScoreRaw === "number") ? ieScoreRaw
                 : (typeof ieScoreRaw === "string" && !isNaN(+ieScoreRaw)) ? +ieScoreRaw
                 : null;
   const ieReason = ieData?.reason ?? ieData?.explanation ?? "";
   console.log("[IE extracted]", { ieScoreRaw, ieScore, ieReason });
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
-  const taRequirementsMet = (contentScore * 0.40) + (taskTypeScore * 0.40) + (ieForFormula * 0.20);
+  const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
   const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
   const cqFinal = cqData.content_quality ?? 0;
 
@@ -2858,8 +2816,8 @@ Return JSON only:
     task_achievement: taFinal,
     content_quality: cqFinal,
     cefr_estimate: cefrEstimate,
-    task_checks: taData.task_checks || [],
-    task_type_checks: taData.task_type_checks || [],
+    task_checks: taChecks,
+    task_type_checks: Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [],
     cq_scores: cqData.scores || [],
     cq_evidence_duplicates: cqEvidenceDuplicates
   };
@@ -3005,7 +2963,7 @@ function renderResults() {
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
             <div class="detail-section">
-              <h4>Task Achievement Breakdown — TA final: ${s.task_achievement ?? "—"} (content: ${s.content_score ?? "—"} · task type: ${s.task_type_score ?? "—"} · intel&amp;effect: ${ieScoreVal})</h4>
+              <h4>Task Achievement Breakdown — TA final: ${s.task_achievement ?? "—"} (TA pass-rate: ${s.content_score ?? "—"} · intel&amp;effect: ${ieScoreVal})</h4>
               <div style="margin-bottom: 8px;"><strong style="font-size: 12px; color: var(--muted);">Task requirements</strong>
                 <ul>${taskChecks.map(c => `<li><span class="pill ${c.result === "PASS" ? "pass" : "fail"}">${escapeHtml(c.result || "")}</span> ${escapeHtml(c.requirement || "")}</li>`).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
               </div>

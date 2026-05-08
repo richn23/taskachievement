@@ -1,0 +1,128 @@
+{
+  "W-B1-20260401081828": {
+    "ref": "W-B1-20260401081828",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "workplace and jobs",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How technology has changed the workplace",
+      "Benefits of these changes",
+      "Challenges these changes bring"
+    ],
+    "development_markers": [
+      { "requirement": "How technology has changed the workplace", "1_mentioned": "names a tech change with no detail of how it changed work", "2_developed": "names a tech change AND describes a specific behaviour change (e.g., email replaced memos so people respond faster)", "3_extended": "all of 2 AND a named tool, place, or comparison (e.g., at my office email replaced memos and meetings dropped from daily to weekly)" },
+      { "requirement": "Benefits of these changes", "1_mentioned": "names a benefit with no further detail (e.g., it is faster)", "2_developed": "names a benefit AND says who benefits or how (e.g., remote work helps parents stay near their children)", "3_extended": "all of 2 AND a specific person, place, or measurable outcome (e.g., my colleague Anna saves 2 hours commute every day)" },
+      { "requirement": "Challenges these changes bring", "1_mentioned": "names a challenge with no further detail (e.g., some lose jobs)", "2_developed": "names a challenge AND explains its impact (e.g., automation replaces factory workers so many become unemployed)", "3_extended": "all of 2 AND a specific industry, group, or example (e.g., in my hometown the textile factory closed and 200 workers lost their jobs)" }
+    ]
+  },
+  "W-B1-20260401081932": {
+    "ref": "W-B1-20260401081932",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "natural world and environment",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "Everyday actions people can take to help the environment",
+      "Role of local government in helping the environment",
+      "Examples from own life and community"
+    ],
+    "development_markers": [
+      { "requirement": "Everyday actions people can take to help the environment", "1_mentioned": "names an everyday action (e.g., recycle, plant trees) with no detail of how it helps", "2_developed": "names an everyday action AND explains how it helps the environment (e.g., plant trees to replace those cut for charcoal)", "3_extended": "all of 2 AND a specific behaviour, place, or example (e.g., in my community people cut trees for charcoal so we plant new ones every season)" },
+      { "requirement": "Role of local government in helping the environment", "1_mentioned": "states the local government has a role with no specific action", "2_developed": "names a specific government action AND its purpose (e.g., strict laws on bush burning to protect soil)", "3_extended": "all of 2 AND a specific policy, programme, or named example (e.g., in my district the council fines bush burning and runs tree-planting days)" },
+      { "requirement": "Examples from own life and community", "1_mentioned": "vague reference to community without a specific example (e.g., people in my area do this)", "2_developed": "a specific example from own life or community AND a clear environmental link", "3_extended": "a fully developed personal or community example with a named place, group, or outcome" }
+    ]
+  },
+  "W-B1-20260401082137": {
+    "ref": "W-B1-20260401082137",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "shopping, money, and personal finance",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How shopping habits have changed over time",
+      "Benefits of online shopping",
+      "Drawbacks of online shopping"
+    ],
+    "development_markers": [
+      { "requirement": "How shopping habits have changed over time", "1_mentioned": "mentions a change without comparing past and present (e.g., people shop online)", "2_developed": "clearly compares past and present (e.g., before people went to the high street, now most order on apps)", "3_extended": "all of 2 AND a specific behaviour, year, or platform (e.g., in 2020 my mother started using Amazon for groceries; she used to walk to the corner shop)" },
+      { "requirement": "Benefits of online shopping", "1_mentioned": "names a benefit with no detail (e.g., it is convenient)", "2_developed": "names a benefit AND explains who or why it helps (e.g., online shopping helps elderly people who cannot easily leave home)", "3_extended": "all of 2 AND a specific person, situation, or example (e.g., my grandmother orders her medicine online and it arrives the same day)" },
+      { "requirement": "Drawbacks of online shopping", "1_mentioned": "names a drawback with no detail (e.g., it is risky)", "2_developed": "names a drawback AND explains the impact (e.g., scams cost shoppers money because there is no shop to return to)", "3_extended": "all of 2 AND a specific case, number, or example (e.g., last year I paid 30 euros for shoes that never arrived)" }
+    ]
+  },
+  "W-B1-20260401082235": {
+    "ref": "W-B1-20260401082235",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "holidays, travel, and transportation",
+    "word_count_min": 25,
+    "word_count_max": 900,
+    "task_requirements": [
+      "Positive effects of tourism",
+      "Negative effects of tourism",
+      "Impact on local people, businesses, and environment"
+    ],
+    "development_markers": [
+      { "requirement": "Positive effects of tourism", "1_mentioned": "names a positive effect with no detail (e.g., tourism brings jobs)", "2_developed": "names a positive effect AND explains who benefits or how (e.g., tourism brings jobs to hotels and restaurants)", "3_extended": "all of 2 AND a named place, sector, or number (e.g., in my city thousands work in tourism — hotels, restaurants and tour guides)" },
+      { "requirement": "Negative effects of tourism", "1_mentioned": "names a negative effect with no detail (e.g., there is pollution)", "2_developed": "names a negative effect AND explains the impact (e.g., crowds make daily life harder for locals)", "3_extended": "all of 2 AND a named place, situation, or example (e.g., in Venice the canals are overcrowded and rents have doubled)" },
+      { "requirement": "Impact on local people, businesses, and environment", "1_mentioned": "mentions only one of [people / businesses / environment]", "2_developed": "covers at least two of the three AND describes a specific impact for each", "3_extended": "covers all three AND each with a specific impact, named place, or example" }
+    ]
+  },
+  "W-B1-20260401093728": {
+    "ref": "W-B1-20260401093728",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "people, relationships, and family",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "Qualities that make someone a good friend",
+      "How friendships change as people get older",
+      "Personal example to support argument"
+    ],
+    "development_markers": [
+      { "requirement": "Qualities that make someone a good friend", "1_mentioned": "names one or more qualities (e.g., trust, honesty) with no explanation", "2_developed": "names at least two qualities AND explains why each matters", "3_extended": "all of 2 AND links a quality to a real person or situation (e.g., my friend David showed loyalty when I failed an exam — he stayed and helped me)" },
+      { "requirement": "How friendships change as people get older", "1_mentioned": "states friendships change without explaining how", "2_developed": "describes a specific change AND a reason (e.g., we have fewer friends because work and family take more time)", "3_extended": "all of 2 AND a personal or specific example (e.g., after I moved cities for university I lost touch with most school friends)" },
+      { "requirement": "Personal example to support argument", "1_mentioned": "a vague personal reference (e.g., my friend is great)", "2_developed": "a specific anecdote with at least one named person or situation", "3_extended": "a fully developed anecdote with a named person, situation, AND outcome or feeling" }
+    ]
+  },
+  "W-B1-20260401093829": {
+    "ref": "W-B1-20260401093829",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "natural world and environment",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How different seasons affect daily routine and mood",
+      "Positive effects of different weather types",
+      "Negative effects of different weather types"
+    ],
+    "development_markers": [
+      { "requirement": "How different seasons affect daily routine and mood", "1_mentioned": "names one season or weather type with no specific routine or mood change", "2_developed": "names at least two seasons AND describes a specific routine or mood change for each", "3_extended": "all of 2 AND a specific activity, place, or feeling (e.g., in summer I cycle to work; in winter I stay home reading)" },
+      { "requirement": "Positive effects of different weather types", "1_mentioned": "names a positive effect (e.g., sunny days are nice) with no reason", "2_developed": "names a weather type AND a specific positive effect (e.g., sunny days give me energy to exercise outdoors)", "3_extended": "all of 2 AND a specific activity, place, or example (e.g., last summer I started running in the park every morning)" },
+      { "requirement": "Negative effects of different weather types", "1_mentioned": "names a negative effect (e.g., winter is bad) with no reason", "2_developed": "names a weather type AND a specific negative effect (e.g., rainy days make me feel low and I cancel plans)", "3_extended": "all of 2 AND a specific situation, illness, or impact (e.g., every winter I get a cold and miss work for a week)" }
+    ]
+  },
+  "W-B1-20260401093929": {
+    "ref": "W-B1-20260401093929",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "media, arts, literature, and entertainment",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "When and why you listen to music",
+      "How music affects your mood",
+      "Personal example to support argument"
+    ],
+    "development_markers": [
+      { "requirement": "When and why you listen to music", "1_mentioned": "says they listen to music with no specific time or reason", "2_developed": "names at least one specific time/situation AND a specific reason (e.g., I listen on the bus to work because it makes the commute pass faster)", "3_extended": "all of 2 AND a NAMED song title (e.g., 'Yesterday'), artist name (Coldplay, Beyoncé), or real genre (gospel, amapiano, hip-hop, classical, rock). Mood-based or function-based categories like 'spiritual songs', 'motivational songs', 'sad songs' do NOT count." },
+      { "requirement": "How music affects your mood", "1_mentioned": "states music affects mood with no specific change", "2_developed": "describes a specific mood change AND links it to a type of music (e.g., fast songs energise me; slow songs calm me)", "3_extended": "all of 2 AND a NAMED song, artist, or specific situation. Categorical descriptions like 'spiritual songs' or 'motivational songs' do NOT satisfy 'named song/artist'." },
+      { "requirement": "Personal example to support argument", "1_mentioned": "vague reference to a personal music experience (e.g., I love music)", "2_developed": "a specific anecdote with at least one named song, occasion, or feeling", "3_extended": "a fully developed anecdote with NAMED music (actual title or artist), specific situation, AND emotional outcome. A description like 'a song I memorised' does NOT count as named music." }
+    ]
+  }
+}

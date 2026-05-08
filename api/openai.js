@@ -2,10 +2,10 @@
 // using the OPENAI_API_KEY env var. The browser never sees the key.
 //
 // Required env var (set via Vercel dashboard or `vercel env add`):
-//   OPENAI_API_KEY  — sk-...
+//   OPENAI_API_KEY  ï¿½ sk-...
 //
 // Optional env vars:
-//   OPENAI_ALLOWED_MODELS  — comma-separated allowlist (default: gpt-4o,gpt-4o-mini,gpt-4.1,gpt-4.1-mini)
+//   OPENAI_ALLOWED_MODELS  ï¿½ comma-separated allowlist (default: gpt-4o,gpt-4o-mini,gpt-4.1,gpt-4.1-mini)
 
 export const config = { runtime: "nodejs" };
 

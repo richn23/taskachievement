@@ -17,7 +17,7 @@ TOPIC: {TOPIC}
 ## Rules
 
 1. **Always 3 requirements.** Not 2, not 4.
-2. **Short noun phrase, 4–10 words each.** Do not write full sentences.
+2. **Short, concrete requirement label, 4–10 words each.** May start with *how / why / when / what* phrasing where natural (e.g., "When and why you listen to music"). Do not write full sentences and do not use interpretive verbs (*discuss / consider / reflect on*) — see anti-patterns.
 3. **Testable.** The scorer must be able to ask: "Can I quote a sentence
    that names this topic AND gives a specific detail (name, place, time,
    number, reason, example)?". If you can't imagine that test passing or
@@ -32,6 +32,15 @@ TOPIC: {TOPIC}
 7. **Avoid interpretive verbs** like "discuss", "explore", "consider",
    "reflect on", "evaluate". Replace with concrete asks: "name", "give",
    "explain why", "compare", "describe".
+
+
+8. **CEFR level affects requirement phrasing.** At B2 and above,
+   requirement labels should imply comparison, categorisation, or
+   evaluation — not just "write about X". A B1 label might be
+   "How music affects your mood". The same requirement at B2 should
+   be "How music affects mood in different situations" or "Comparison
+   of music's effects on mood". The label itself should signal the
+   level of thinking required.
 
 ## Anti-patterns (do NOT do these)
 

@@ -93,3 +93,10 @@ rather than authoring from scratch.
   guard to the CQ scoring prompt: rephrasing an already-credited
   idea scores 0 on the 4th. Prevents long essays that repeat the
   same three points from inflating CQ via the 4th requirement.
+
+- v1.3 (this) — added Rule 7 to the Generate Quality Markers prompt:
+  every rung-2 must include a "scores 2, not 3" boundary example that
+  mirrors realistic student writing. Anchors the middle rung and stops
+  the AI from jumping straight from 1 to 3. Music topic-family row also
+  tightened to flag the "two activities without explaining why music
+  fits each" pattern.
