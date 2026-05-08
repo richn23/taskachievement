@@ -1,0 +1,42 @@
+{
+  "W-B2-3": {
+    "ref": "W-B2-3",
+    "cefr_level": "b2",
+    "task_type": "essay",
+    "topic": "people, relationships, and family (b2)",
+    "word_count_min": 100,
+    "word_count_max": 400,
+    "task_prompt": "Social media has changed how people maintain friendships.\n\nWrite an essay discussing how online communication affects relationships today.\n\n- Think about the positive and negative consequences of online communication for friendships\n- Consider how online and in-person communication styles differ\n- Use a personal example to show the impact",
+    "task_requirements": [
+      "Positive and/or negative consequences of online communication for maintaining friendships",
+      "Differences between online and in-person communication styles",
+      "Personal example showing the impact"
+    ],
+    "development_markers": [
+      {
+        "requirement": "Positive and/or negative consequences of online communication for maintaining friendships",
+        "1_mentioned": "states a consequence exists with no specific detail (e.g., 'social media changes friendships').",
+        "2_developed": "names two distinct consequences OR weighs a positive against a negative with explanation (e.g., 'online communication helps friends stay in touch when they live far away, but it also reduces deep face-to-face conversation'). (scores 2, not 3 — names two consequences but does not anchor either with a meaningful specific that develops the idea.)",
+        "3_extended": "all of 2 AND TWO meaningful concrete specifics that materially develop each consequence (e.g., 'WhatsApp group chats let me share daily moments with old school friends in three different countries, but I noticed I now only see my best friend Sara twice a year, and our conversations have become shorter and less personal'). Bare token-stuffing — listing a name, a platform, and a place without genuine elaboration (e.g., 'My friend Ahmed used WhatsApp in Dubai') — does NOT count. The specifics must materially advance the consequence being argued."
+      },
+      {
+        "requirement": "Differences between online and in-person communication styles",
+        "1_mentioned": "notes there is a stylistic difference with no specific contrast (e.g., 'online is different from face-to-face').",
+        "2_developed": "names a specific stylistic aspect that differs AND explains how or why (e.g., 'online messages let you think before replying, while face-to-face conversations require quick responses'). (scores 2, not 3 — explains one contrast but lacks a concrete situation showing the styles in practice.)",
+        "3_extended": "all of 2 AND TWO meaningful concrete specifics — situations, platforms, or named contexts that materially show each communication style in practice (e.g., 'in our weekly Zoom team calls colleagues focus on the agenda and rarely make small talk, whereas at our office Christmas dinner last year we spent two hours sharing personal stories that would never come up over Slack'). Generic statements like 'people behave differently online' or shallow name-drops without elaboration do NOT count."
+      },
+      {
+        "requirement": "Personal example showing the impact",
+        "1_mentioned": "a vague reference to personal experience (e.g., 'I have used social media').",
+        "2_developed": "a specific situation from own life with one detail and a clear link to the topic (e.g., 'I reconnected with a school friend through Instagram after ten years'). (scores 2, not 3 — the situation is named but lacks a concrete outcome or development that shows the impact materially.)",
+        "3_extended": "a fully developed personal example with TWO meaningful concrete specifics — a named person/place/platform AND a clear outcome or change that materially shows the impact (e.g., 'through Instagram I reconnected with my secondary school friend Carlos, and we now message every Sunday — last summer we met in Madrid for the first time in ten years and have stayed close ever since'). Shallow name-drops without development (e.g., 'My friend Ahmed used WhatsApp in Dubai') do NOT count."
+      },
+      {
+        "requirement": "Additional on-topic development",
+        "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+        "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+        "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+      }
+    ]
+  }
+}
