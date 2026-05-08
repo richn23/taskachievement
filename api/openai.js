@@ -24,6 +24,11 @@ function getAllowedModels() {
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+/** GPT-5 chat completions reject max_tokens; require max_completion_tokens instead. */
+function usesMaxCompletionTokens(model) {
+  return /^gpt-5/i.test(model);
+}
+
 async function readJsonBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
   if (typeof req.body === "string") {
@@ -60,7 +65,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid JSON body" });
   }
 
-  const { model, messages, max_tokens, temperature, response_format } = body || {};
+  const {
+    model,
+    messages,
+    max_tokens,
+    max_completion_tokens,
+    temperature,
+    response_format,
+  } = body || {};
   if (!model || typeof model !== "string") {
     return res.status(400).json({ error: "Missing or invalid 'model'" });
   }
@@ -73,7 +85,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Model '${model}' is not allowed`, allowed });
   }
 
+  const tokenBudget =
+    typeof max_completion_tokens === "number"
+      ? max_completion_tokens
+      : typeof max_tokens === "number"
+        ? max_tokens
+        : 2000;
+
   try {
+    const limitKey = usesMaxCompletionTokens(model)
+      ? { max_completion_tokens: tokenBudget }
+      : { max_tokens: tokenBudget };
+
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -83,7 +106,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: max_tokens ?? 2000,
+        ...limitKey,
         temperature: temperature ?? 0,
         ...(response_format ? { response_format } : {}),
       }),
