@@ -2581,50 +2581,93 @@ async function scoreSample(qRaw, response, sampleNum) {
     "Additional on-topic development — an extra on-topic point not covered by the listed task requirements (must itself be a complete sentence with a specific detail)"
   ];
 
-  const taPrompt = `Score task achievement. Return JSON only.
+  const taPrompt = `You are a writing assessment engine. Score the student response for task achievement. Return JSON only.
 
-Task: ${q.task_prompt}
-Requirements: ${JSON.stringify(augmentedTaskRequirements)}
-Task type checks: ${JSON.stringify(q.task_type_requirements)}
-CEFR: ${q.cefr_level}
-Response: ${response}
+<guard:missing_inputs>
+If <requirements> or <task_type_checks> is empty or absent:
+  → Return immediately: { "error": "missing_requirements", "task_achievement": 0 }
+Do not proceed.
+</guard:missing_inputs>
 
-If requirements or task type checks are empty or missing:
-  return { "error": "missing_requirements", "task_achievement": null }
+<definition:pass_criteria>
+A requirement is PASS only when <response> contains a sentence that satisfies BOTH conditions simultaneously:
 
-## PASS test
+Condition 1 — TOPIC NAMED
+The sentence explicitly names what the requirement asks about.
 
-For each requirement (and each task type check), mark PASS or FAIL.
+Condition 2 — SPECIFIC DETAIL PRESENT
+The sentence includes at least one concrete specific: a name, place, time, number, reason, or example.
 
-PASS = the response contains a sentence that BOTH:
-  1. names what the requirement asks about, AND
-  2. gives at least one specific detail (name, place, time, number, reason, example).
+If either condition is missing → FAIL.
+A sentence that mentions the topic but gives no specific detail → FAIL.
+</definition:pass_criteria>
 
-Otherwise FAIL. A bare topic mention with no specific detail is FAIL.
+<definition:specificity>
+Concrete specific = a person's name, a place name, a time (clock or date), a number, a named object, a reason ("because …"), or a concrete example.
 
-## Examples
+These are NOT specific:
+- Vague quantifiers ("many", "a lot", "very")
+- Generic statements ("it is good", "it helps me")
+- Topic repetition without added detail
+</definition:specificity>
 
-- "I wake up at 6:30 and have toast." → PASS (action + time + food)
-- "I do many things in the morning." → FAIL (no specific detail)
-- "I like it because it helps me relax." → PASS (reason)
-- "I like it a lot." → FAIL (no reason)
-- "Last weekend we went to Lake Como." → PASS (named place)
-- "We went to a beautiful place." → FAIL (no name)
+<calibration:examples>
+The following examples are ground truth. Apply the same standard to all checks.
 
-## Calculation
+PASS — "I wake up at 6:30 and have toast."
+  Reason: action (wake up) + time (6:30) + named food (toast).
 
-  passes = total PASS count across requirements + task type checks
-  total  = number of requirements + number of task type checks
-  score  = round((passes / total) * 100), clamp 0-100
+FAIL — "I do many things in the morning."
+  Reason: topic present, but no specific detail.
 
-## Return
+PASS — "I like it because it helps me relax."
+  Reason: explicit reason provided ("because it helps me relax").
 
+FAIL — "I like it a lot."
+  Reason: sentiment only, no reason.
+
+PASS — "Last weekend we went to Lake Como."
+  Reason: named place (Lake Como) + time reference (last weekend).
+
+FAIL — "We went to a beautiful place."
+  Reason: no named place, no specific detail.
+</calibration:examples>
+
+<scoring_process>
+Apply to EVERY item in <requirements> AND every item in <task_type_checks>.
+
+For each item:
+1. Locate a sentence in <response> that addresses this item.
+2. Check Condition 1 (topic named) and Condition 2 (specific detail).
+3. Both met → PASS. Either missing → FAIL.
+4. Record the item label and result.
+
+Do not infer, paraphrase, or assume implied details. Score only what is explicitly stated.
+</scoring_process>
+
+<calculation>
+passes = count of PASS results across all requirements + task_type_checks
+total = number of requirements + number of task_type_checks
+task_achievement = clamp(round(passes / total × 100), 0, 100)
+</calculation>
+
+<output_format>
+Return exactly:
 {
-  "checks": [
-    { "requirement": "...", "result": "PASS" or "FAIL" }
-  ],
+  "checks": [{ "requirement": "...", "result": "PASS" or "FAIL" }],
   "task_achievement": NUMBER
-}`;
+}
+
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<task>${q.task_prompt}</task>
+<requirements>${JSON.stringify(augmentedTaskRequirements)}</requirements>
+<task_type_checks>${JSON.stringify(q.task_type_requirements)}</task_type_checks>
+<task_cefr_level>${q.cefr_level}</task_cefr_level>
+<response>${response}</response>
+</inputs>`;
 
   const cqMarkers = q.task_requirements.map((r, i) => {
     const m = q.development_markers[i];
@@ -2639,101 +2682,137 @@ Otherwise FAIL. A bare topic mention with no specific detail is FAIL.
     "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
     "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
   });
-  const cqPrompt = `Score content quality. Return JSON only.
+  const cqPrompt = `You are a writing assessment engine. Score the student response for content quality. Return JSON only.
 
-Task: ${q.task_prompt}
-Markers (4 ladders): ${JSON.stringify(cqMarkers, null, 2)}
-CEFR: ${q.cefr_level}
-Response: ${response}
+<guard:missing_markers>
+If <markers> is empty or absent:
+  → Return immediately: { "content_quality": 0 }
+Do not proceed.
+</guard:missing_markers>
 
-If markers are empty or missing:
-  return { "error": "missing_markers", "content_quality": null }
+<definition:explicit_only>
+A requirement is MET only when a sentence in <response> explicitly and unambiguously addresses it.
 
-## Hard rule — explicit only
+The following do NOT count as evidence:
+- Inference or implied meaning
+- Topic-adjacent content
+- Hidden or indirect meaning
+- Content that "could mean" the requirement
 
-A requirement is present ONLY if a sentence in the response **explicitly and unambiguously** addresses it. Inference, "could mean", topic-adjacent content, hidden meaning — none of these count. If you cannot quote a clear matching sentence, score 0.
+If you cannot quote a verbatim sentence from <response> that directly addresses the requirement, the requirement is NOT met.
+</definition:explicit_only>
 
-## Process — for each requirement, in order
+<scoring_process>
+Apply this process to EACH requirement from <markers>, in order.
 
-**Step 1 — Extract evidence.**
-Quote sentences that explicitly address THIS requirement, verbatim, into the evidence array.
-- A sentence about a different requirement is not evidence here.
-- One sentence may serve as evidence for at most one requirement.
-- If a sentence has already been used as evidence for another requirement, it is not available for this one. If no other evidence exists, score 0.
+Step 1 — EXTRACT EVIDENCE
+Quote sentences from <response> that explicitly address THIS requirement. Record them verbatim in the evidence array.
 
-**Step 2 — Score from the evidence.**
-- Empty evidence → score 0. Reason: "absent".
-- Otherwise compare ONLY the quote against the supplied 1/2/3 rungs:
-  - 1 = matches the rung-1 description (mentioned)
-  - 2 = matches the rung-2 description (developed)
-  - 3 = matches the rung-3 description (extended)
-- Between two rungs → choose the LOWER rung.
+Constraints:
+- A sentence used as evidence for requirement N is consumed and unavailable for all subsequent requirements.
+- A sentence about a different requirement is not evidence for this one.
+- If no unconsumed sentence explicitly addresses this requirement → evidence = []
 
-A reason or example only counts as concretely specific if it names a person, place, time, number, song, situation, or similar. Generic statements ("it is good", "many people") do not count.
+Step 2 — ASSIGN SCORE
+- evidence = [] → score = 0, reason = "absent"
+- evidence is non-empty → compare ONLY the quoted sentence(s) against the rung descriptors in <markers>:
+    1 = mentioned   (matches rung-1 description)
+    2 = developed   (matches rung-2 description)
+    3 = extended    (matches rung-3 description)
+- If evidence falls between two rungs → assign the LOWER rung.
 
-## Ignore writing quality
+Specificity rule:
+A reason or example is "concretely specific" only if it names a person, place, time, number, song, event, or similar concrete referent. Generic statements ("it is good", "many people") are NOT specific.
+</scoring_process>
 
-Grammar, spelling, structure, register — none affect CQ. Those are scored under IE. A messy but well-developed answer scores the same as a polished one with the same ideas.
+<rule:ignore_writing_quality>
+Grammar, spelling, vocabulary, register, and structure do not affect the content quality score. A grammatically broken but idea-rich response scores the same as a polished one with identical ideas.
+</rule:ignore_writing_quality>
 
-## 4th-requirement guard
+<rule:fourth_marker_guard>
+The 4th marker ("Additional on-topic development") credits only content that is SEMANTICALLY DISTINCT from ideas already credited under requirements 1-3. If the extra content restates or paraphrases any previously credited idea → score = 0 for requirement 4.
+</rule:fourth_marker_guard>
 
-The 4th marker ("Additional on-topic development") only credits content **semantically distinct** from the other three. If the extra content paraphrases an idea already credited under another requirement, score 0.
+<calculation>
+total_score = sum of all requirement scores  (range: 0 - n×3)
+max_score = number_of_requirements × 3
+content_quality = clamp(round(total_score / max_score × 100), 0, 100)
+</calculation>
 
-## Calculation
-
-  total_score = sum of 0-3 scores
-  max_score   = number_of_requirements * 3
-  score       = round((total_score / max_score) * 100), clamp 0-100
-
-## Return
-
+<output_format>
+Return exactly:
 {
   "scores": [
-    {
-      "requirement": "...",
-      "evidence": ["verbatim quote", "..."],
-      "score": 0-3,
-      "reason": "one sentence"
-    }
+    { "requirement": "...", "evidence": ["..."], "score": 0-3, "reason": "one sentence" }
   ],
-  "content_quality": NUMBER
+  "content_quality": INTEGER
 }
 
-If absent: "evidence": [] and "score": 0.`;
+No extra keys. No explanation. No markdown fences.
+</output_format>
 
-  const iePrompt = `Judge intelligibility and communicative effect. Return JSON only.
+<inputs>
+<task>${q.task_prompt}</task>
+<markers>${JSON.stringify(cqMarkers, null, 2)}</markers>
+<task_cefr_level>${q.cefr_level}</task_cefr_level>
+<response>${response}</response>
+</inputs>`;
 
-STUDENT RESPONSE: ${response}
+  const iePrompt = `You are a writing assessment engine. Judge intelligibility and communicative effect. Return JSON only.
 
-## Score 0-100 by band
+<definition:scope>
+Score ONLY:
+1. How clearly the reader can understand the text (intelligibility).
+2. How effectively the text communicates and leaves an impression (effect).
 
-  0-20    Unintelligible. Reader cannot understand. Fragments, no sentences.
-  21-40   Barely intelligible. Isolated facts only. Errors severely impede meaning.
-  41-60   Partially intelligible. General idea comes through but errors cause confusion.
-  61-75   Mostly intelligible. Message gets through. Some communicative effect, no strong impression.
-  76-90   Clear and effective. Real impression. Errors do not impede meaning.
-  91-100  Fluent and compelling. Engages, informs, leaves vivid impression.
+OUT OF SCOPE — must not influence the score:
+- Whether the student answered the question
+- Whether task requirements were addressed
+- Whether ideas were developed
+- Grammar and spelling errors that do NOT obscure meaning
+</definition:scope>
 
-## Hard rules
+<scoring:bands>
+Score 0–100. Use the full range.
 
-- Single broken sentence → max 5
-- Dot-separated lists with no sentences → max 25
-- Errors that obscure meaning → below 45
-- Above 75 requires real impression, not just understandability
-- Above 90 requires fluent AND engaging AND vivid
+  0–20    Unintelligible. Reader cannot extract meaning. Fragments only; no complete sentences.
+  21–40   Barely intelligible. A few isolated facts may be extracted. Errors severely impede meaning throughout.
+  41–60   Partially intelligible. General idea comes through but errors cause confusion at multiple points.
+  61–75   Mostly intelligible. Core message reaches the reader. Some communicative effect; no strong or memorable impression.
+  76–90   Clear and effective. Text leaves a real impression. Errors present but do not impede meaning.
+  91–100  Fluent and compelling. Engages, informs, and leaves a vivid impression. All three qualities must be present.
+</scoring:bands>
 
-Use the full scale. Do not compress into 60-75.
+<rule:hard_caps>
+These caps override band placement. Check before assigning final score.
+  → Single broken sentence (entire response): cap at 5.
+  → Dot-separated lists with no complete sentences: cap at 25.
+  → Errors that obscure meaning at multiple points: cap at 44.
+</rule:hard_caps>
 
-## Independence
+<rule:upper_thresholds>
+These are GATES — a score may not cross them unless the condition is fully met.
+  → Score ≥ 76 requires a real impression. Understandability alone is not enough.
+  → Score ≥ 91 requires ALL THREE: fluent AND engaging AND vivid. Meeting only one or two → score must stay ≤ 90.
+</rule:upper_thresholds>
 
-Score only clarity and communicative effect. Do NOT consider whether the student answered the question, addressed requirements, or developed points.
+<rule:scale_usage>
+Use the full 0–100 range. If most scores fall in 60–75, recalibrate — that band is for responses that are merely clear but leave no impression.
+</rule:scale_usage>
 
-## Return
-
+<output_format>
+Return exactly:
 {
   "intelligibility_effect_score": NUMBER,
   "reason": "one short sentence"
-}`;
+}
+
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<response>${response}</response>
+</inputs>`;
 
   console.log("[IE prompt sent]", iePrompt);
 
