@@ -1,0 +1,3220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="AZE Arabic Writing Scorer — Task Achievement, Content Quality, and Intelligibility & Effect scoring for Arabic (MSA) writing samples." />
+<meta name="color-scheme" content="light" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%271%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%236366f1%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%238b5cf6%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ctext%20x%3D%2716%27%20y%3D%2722%27%20text-anchor%3D%27middle%27%20font-family%3D%27-apple-system%2Csans-serif%27%20font-size%3D%2718%27%20font-weight%3D%27700%27%20fill%3D%27%23fff%27%3EA%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<title>AZE Arabic Writing Scorer</title>
+<style>
+  :root {
+    --bg: #f5f6fb;
+    --card: #ffffff;
+    --border: #e5e7ee;
+    --border-strong: #d4d7e0;
+    --text: #1a1f2c;
+    --muted: #6b7280;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --primary-soft: #f5f3ff;
+    --primary-soft-2: #eef2ff;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warn: #d97706;
+    --pill: #eef2ff;
+    --pill-text: #4338ca;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(99, 102, 241, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  header .subtitle { font-size: 12px; color: var(--muted); }
+  .api-row { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .api-row input { width: 280px; }
+  .container { max-width: 1140px; margin: 0 auto; padding: 28px 32px 96px; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+  .tab {
+    padding: 11px 20px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: color 120ms ease;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .card .hint { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  .card.banded { padding: 0; overflow: hidden; }
+  .card.banded > .card-band {
+    background: var(--primary-soft);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card.banded > .card-band h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .card.banded > .card-band .band-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .card.banded > .card-body { padding: 26px 28px; }
+  .card.banded .toolbar { padding: 0 0 16px; }
+
+  .field-section {
+    background: var(--primary-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 18px 0;
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 16px; }
+  .row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 18px; margin-bottom: 16px; }
+  .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 0; }
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  label.required::after {
+    content: " *";
+    color: var(--danger);
+    font-weight: 700;
+  }
+  input, select, textarea {
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+    color: var(--text);
+    width: 100%;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  }
+  textarea { resize: vertical; min-height: 96px; font-family: inherit; }
+
+  button {
+    border: 1px solid var(--border-strong);
+    background: #fff;
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  }
+  button:hover { background: #f3f4f6; }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: var(--primary-gradient);
+    border-color: transparent;
+    color: #fff;
+    padding: 10px 20px;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(99, 102, 241, 0.25), 0 6px 16px rgba(99, 102, 241, 0.18);
+  }
+  button.primary:hover { filter: brightness(1.05); }
+  button.danger { color: var(--danger); border-color: #f3c2c2; background: #fff; }
+  button.danger:hover { background: #fef2f2; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--primary); padding: 4px 8px; }
+  button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+  /* ===== Writing Task Editor (Step 1 redesign) ===== */
+  .editor-header {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 22px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  .editor-title-row { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .editor-back {
+    width: 36px; height: 36px; padding: 0;
+    border-radius: 50%;
+    font-size: 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .editor-icon-square {
+    width: 46px; height: 46px;
+    background: var(--primary-gradient);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 22px;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    flex-shrink: 0;
+  }
+  .editor-title-text h2 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .editor-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .editor-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-soft {
+    background: var(--primary-soft);
+    border: 1px solid #e0e7ff;
+    color: var(--primary-hover);
+    font-weight: 600;
+    padding: 8px 14px;
+  }
+  .btn-soft:hover { background: #ede9fe; }
+  .pill-warn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 7px 12px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .editor-inner-tabs {
+    display: flex;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    margin-bottom: 18px;
+    gap: 4px;
+    box-shadow: var(--shadow-sm);
+  }
+  .editor-inner-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .editor-inner-tab.active {
+    background: var(--primary-gradient);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  }
+  .editor-inner-tab:disabled { cursor: not-allowed; opacity: 0.5; }
+  .editor-inner-tab:hover:not(.active):not(:disabled) { background: #f3f4f6; color: var(--text); }
+
+  .editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 22px;
+    align-items: start;
+  }
+  .editor-main { min-width: 0; }
+  .editor-aside .ai-assistant-card {
+    position: sticky;
+    top: 88px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .ai-assistant-card .ai-header {
+    background: var(--primary-gradient);
+    color: #fff;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .ai-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .difficulty-section {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .difficulty-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 600; margin-bottom: 10px;
+  }
+  .difficulty-pill {
+    background: var(--pill);
+    color: var(--pill-text);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    border: 1px solid #c7d2fe;
+    font-size: 13px;
+  }
+  .difficulty-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .difficulty-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, #34d399, #6366f1, #ec4899);
+    border-radius: 999px;
+    transition: width 200ms ease;
+  }
+  .difficulty-bands {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    font-size: 11px; color: var(--muted);
+    text-align: center;
+  }
+  .difficulty-bands span { display: block; }
+  .difficulty-bands .lvl { font-weight: 700; color: var(--text); font-size: 12px; }
+  .difficulty-current { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .ai-action {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: left;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    width: 100%;
+    line-height: 1.4;
+  }
+  .ai-action:hover { background: #f9fafb; border-color: var(--primary); }
+  .ai-action .ai-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+  .ai-action .ai-text { flex: 1; min-width: 0; }
+  .ai-action .ai-text strong { display: block; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .ai-action .ai-text small { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .ai-validate {
+    margin-top: 4px;
+    padding: 12px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .req-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .req-tab {
+    border: 1px solid var(--border);
+    background: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .req-tab.active {
+    background: var(--primary-gradient);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  }
+  .req-tab.locked {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+  .req-tab.locked.active {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .auto-list-inline {
+    background: var(--primary-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 42px;
+  }
+  .auto-list-inline > strong { display: block; margin-bottom: 4px; }
+  .auto-list-inline ul { margin: 0; padding-left: 20px; }
+
+  @media (max-width: 980px) {
+    .editor-grid { grid-template-columns: 1fr; }
+    .editor-aside .ai-assistant-card { position: static; }
+  }
+
+  .req-block {
+    border: 1px solid var(--border);
+    background: #fdfdff;
+    border-radius: 12px;
+    padding: 18px 20px 18px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .req-block:hover { border-color: #d8dbeb; }
+  .req-block .req-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .req-block .req-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pill-text);
+    background: var(--pill);
+    padding: 4px 12px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .req-block .field { margin-bottom: 12px; }
+  .req-block .field:last-child { margin-bottom: 0; }
+  .req-block label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .req-block textarea { min-height: 64px; font-size: 13px; }
+  .req-block input { font-size: 13px; }
+  .sample-block {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #fafbfc;
+  }
+  .sample-block .sample-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+    font-weight: 600; font-size: 13px;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+  .pill.pass { background: #dcfce7; color: #166534; }
+  .pill.fail { background: #fee2e2; color: #991b1b; }
+  .pill.score-0 { background: #fee2e2; color: #991b1b; }
+  .pill.score-1 { background: #fef3c7; color: #92400e; }
+  .pill.score-2 { background: #e0f2fe; color: #075985; }
+  .pill.score-3 { background: #dcfce7; color: #166534; }
+
+  .auto-list {
+    background: #f3f4f6;
+    border: 1px dashed var(--border-strong);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .auto-list ul { margin: 4px 0 0; padding-left: 20px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { background: #f9fafb; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  tr.expandable { cursor: pointer; }
+  tr.expandable:hover { background: #f9fafb; }
+  tr.detail-row td { background: #fafbfc; padding: 16px 24px; }
+  .detail-section { margin-bottom: 12px; }
+  .detail-section h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+  .detail-section li { margin-bottom: 4px; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+  .empty-state { color: var(--muted); font-style: italic; padding: 12px 0; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .status.success { color: var(--success); }
+
+  .question-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .question-list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px;
+  }
+
+  details summary { cursor: pointer; font-weight: 500; padding: 4px 0; }
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid #e5e7eb; border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Arabic / RTL support */
+  .rtl-content {
+    direction: rtl !important;
+    text-align: right !important;
+    font-family: "Noto Naskh Arabic", "Amiri", "Cairo", "Scheherazade New", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  textarea.rtl-content { line-height: 1.85; }
+  /* Subtle visual cue for RTL fields */
+  .rtl-content::placeholder { color: #94a3b8; font-style: italic; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AZE Arabic Writing Scorer</h1>
+    <div class="subtitle">Task Achievement, Content Quality &amp; Intelligibility &amp; Effect scoring</div>
+    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+      Markers config: <span id="markers_status">not loaded</span>
+      <button type="button" id="btn_load_markers" style="margin-left: 8px; padding: 2px 8px; font-size: 11px;">Upload question_markers.json</button>
+      <input type="file" id="file_load_markers" accept=".json" style="display:none" />
+      <span style="margin-left: 16px;" id="storageIndicator">Storage: —</span>
+    </div>
+  </div>
+  <div class="api-row">
+    <span style="font-size: 12px; color: var(--muted);">Key on server</span>
+    <select id="modelSelect" style="width: 180px;">
+      <option value="gpt-5">gpt-5</option>
+      <option value="gpt-5-mini">gpt-5-mini</option>
+      <option value="gpt-4o" selected>gpt-4o</option>
+      <option value="gpt-4o-mini">gpt-4o-mini</option>
+      <option value="gpt-4.1">gpt-4.1</option>
+      <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+    </select>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" data-tab="step0">Scoring System</button>
+    <button class="tab" data-tab="step1">1. Create Question</button>
+    <button class="tab" data-tab="step2">2. Test Samples</button>
+    <button class="tab" data-tab="step3">3. Results</button>
+  </div>
+
+  <!-- ========== STEP 0 ========== -->
+  <div class="view active" id="view-step0">
+    <div class="card">
+      <h2 style="margin-bottom: 8px;">Scoring System</h2>
+      <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px;">Each response is scored on four metrics, then combined into a single Total Score.</p>
+
+      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">WCC — Word Count Compliance</h3>
+      <p style="margin: 0 0 4px; font-size: 13px;">Did the student write within the question's target word range?</p>
+      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Scored 0–100 by comparing word count to the midpoint of the min/max range.</p>
+
+      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">TA — Task Achievement</h3>
+      <p style="margin: 0 0 4px; font-size: 13px;">Did the student address each task requirement?</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement is marked PASS or FAIL using a strict test: the response must name the topic AND give at least one specific detail (a name, place, time, number, reason, or example).</p>
+      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Score = (PASS count + bonus) / (total + 1) × 100. A bonus point is awarded for one extra developed on-topic point.</p>
+
+      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">IE — Intelligibility &amp; Effect</h3>
+      <p style="margin: 0 0 4px; font-size: 13px;">Is the writing clear and effective?</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Scored 0–100 against a banded scale:</p>
+      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted); padding-left: 12px;">
+        0–20 unintelligible · 21–40 barely intelligible · 41–60 partial · 61–75 mostly clear · 76–90 clear and effective · 91–100 fluent and compelling
+      </p>
+
+      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">CQ — Content Quality</h3>
+      <p style="margin: 0 0 4px; font-size: 13px;">For each requirement, how developed is the answer?</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement scored 0–3 against a ladder:</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted); padding-left: 12px;">
+        0 absent · 1 mentioned · 2 developed (with reason or cause) · 3 extended (with reason AND specific example)
+      </p>
+      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Score = sum / max possible × 100.</p>
+
+      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">Total Score</h3>
+      <p style="margin: 0 0 4px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">Total = (TA × 0.4) + (IE × 0.1) + (CQ × 0.5)</p>
+      <p style="margin: 8px 0 4px; font-size: 13px; color: var(--muted);">TA and IE together account for 50% (weighted 80/20 toward TA).</p>
+      <p style="margin: 0; font-size: 13px; color: var(--muted);">CQ accounts for the other 50%.</p>
+    </div>
+  </div>
+
+  <!-- ========== STEP 1 ========== -->
+  <div class="view" id="view-step1">
+
+    <!-- Editor Header Bar -->
+    <div class="editor-header">
+      <div class="editor-title-row">
+        <button type="button" class="editor-back" title="Back">←</button>
+        <div class="editor-icon-square">📝</div>
+        <div class="editor-title-text">
+          <h2>Writing Task Editor</h2>
+          <div class="editor-subtitle">CEFR <span id="editor_cefr_label">B2</span> · 1 Question</div>
+        </div>
+      </div>
+      <div class="editor-actions">
+        <button type="button" id="btn_toggle_assistant" class="btn-soft">🤖 Hide Assistant</button>
+        <span class="pill-warn">⚠ Unverified</span>
+        <button class="primary" id="btn_save_q">📝 Save Question</button>
+      </div>
+    </div>
+
+    <!-- Editor Inner Tabs -->
+    <div class="editor-inner-tabs">
+      <button type="button" class="editor-inner-tab active">📄 Content &amp; Questions</button>
+      <button type="button" class="editor-inner-tab" disabled>🖼 Visual Media</button>
+      <button type="button" class="editor-inner-tab" disabled>⚙ Settings</button>
+    </div>
+
+    <!-- Two-column grid -->
+    <div class="editor-grid">
+
+      <div class="editor-main">
+
+        <!-- Writing Task Details -->
+        <div class="card">
+          <h2 style="margin-bottom: 18px;">Writing Task Details</h2>
+          <div class="row">
+            <div class="field">
+              <label class="required">Reference Number</label>
+              <input type="text" id="q_id" placeholder="e.g. W-A1-9" />
+            </div>
+            <div class="field">
+              <label>Task Title</label>
+              <input type="text" id="q_title" placeholder="Enter Title" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label class="required">CEFR Level</label>
+              <select id="q_cefr">
+                <option>A1</option><option>A2</option><option>A2+</option>
+                <option>B1</option><option>B1+</option><option selected>B2</option>
+                <option>B2+</option><option>C1</option><option>C2</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>CEFR Descriptor</label>
+              <input type="text" id="q_cefr_desc" placeholder="Select CEFR Descriptor" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Topic</label>
+              <input type="text" id="q_topic" placeholder="e.g. people, relationships, and family" />
+            </div>
+            <div class="field">
+              <label>Skill Focus</label>
+              <input type="text" id="q_skill_focus" placeholder="e.g. holistic" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Domain</label>
+              <input type="text" id="q_domain" placeholder="General" />
+            </div>
+            <div class="field">
+              <label>Learning Objective</label>
+              <input type="text" id="q_learning_obj" placeholder="e.g. To write simple phrases…" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label class="required">Word Limit Min</label>
+              <input type="number" id="q_min" value="120" />
+            </div>
+            <div class="field">
+              <label class="required">Word Limit Max</label>
+              <input type="number" id="q_max" value="180" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Box -->
+        <div class="card">
+          <h2 style="margin-bottom: 18px;">Questions <span style="color: var(--muted); font-weight: 500;">(1)</span></h2>
+
+          <div class="row">
+            <div class="field">
+              <label class="required">Task Type</label>
+              <select id="q_task_type">
+                <option value="essay">essay</option>
+                <option value="email">email</option>
+                <option value="letter">letter</option>
+                <option value="article">article</option>
+                <option value="report">report</option>
+                <option value="paragraph">paragraph</option>
+                <option value="proposal">proposal</option>
+                <option value="summary">summary</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Task Type Requirements <span style="color: var(--muted); font-weight: 400; text-transform: none;">(auto)</span></label>
+              <div class="auto-list-inline" id="task_type_reqs"></div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label>Instruction</label>
+            <input type="text" id="q_instruction" value="Read the task below and write your response in the space provided." />
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label class="required">Question</label>
+            <textarea id="q_prompt" dir="rtl" class="rtl-content" placeholder="اكتب نص المهمة التي سيراها الطالب..."></textarea>
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label>Subtype</label>
+            <input type="text" id="q_subtype" placeholder="e.g. inform (a1)" />
+          </div>
+        </div>
+
+        <!-- Task Requirements (tabbed) -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h2 style="margin: 0;">Task Requirements &amp; Development Markers</h2>
+            <button type="button" id="btn_add_req">+ Add Requirement</button>
+          </div>
+          <div class="hint" style="margin-bottom: 14px;">At least 3 question-specific requirements. Click a tab to edit. Requirement N+1 is generic and applies to every question.</div>
+          <div class="req-tabs" id="req_tabs"></div>
+          <div id="req_list"></div>
+        </div>
+
+        <!-- Footer action row -->
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 22px;">
+          <span id="save_status" class="status"></span>
+          <div class="actions">
+            <button id="btn_clear_q">Clear Form</button>
+            <button class="primary" id="btn_save_q_2">📝 Save Question</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Assistant sidebar -->
+      <div class="editor-aside" id="ai_aside">
+        <div class="ai-assistant-card">
+          <div class="ai-header">🤖 AI Assistant</div>
+          <div class="ai-body">
+            <div class="difficulty-section">
+              <div class="difficulty-row">
+                <span>Difficulty Level</span>
+                <span class="difficulty-pill" id="difficulty_pill">B2</span>
+              </div>
+              <div class="difficulty-bar"><div id="difficulty_fill" style="width: 70%;"></div></div>
+              <div class="difficulty-bands">
+                <span><span class="lvl">A1</span><br>10–29</span>
+                <span><span class="lvl">A2</span><br>30–42</span>
+                <span><span class="lvl">B1</span><br>43–58</span>
+                <span><span class="lvl">B2</span><br>59–75</span>
+                <span><span class="lvl">C1</span><br>76–84</span>
+                <span><span class="lvl">C2</span><br>85–90</span>
+              </div>
+              <div class="difficulty-current" id="difficulty_current">Current: B2 (GSE: 59–75)</div>
+            </div>
+            <button type="button" class="ai-action" data-ai="populate">
+              <span class="ai-icon">🪄</span>
+              <span class="ai-text"><strong>Populate Missing Fields</strong><small>AI fills in empty required fields automatically</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-question">
+              <span class="ai-icon">✨</span>
+              <span class="ai-text"><strong>Generate Question</strong><small>AI creates a level-appropriate task prompt</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-task-reqs">
+              <span class="ai-icon">📋</span>
+              <span class="ai-text"><strong>Generate Task Requirements</strong><small>AI suggests 3 task requirements from the prompt</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-quality-markers">
+              <span class="ai-icon">📊</span>
+              <span class="ai-text"><strong>Generate Quality Markers</strong><small>AI fills score 1–3 descriptors for each requirement</small></span>
+            </button>
+            <button type="button" class="primary ai-validate" data-ai="validate">▶ Run EFL Validation</button>
+            <div id="ai_status" style="margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--muted); min-height: 18px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Questions -->
+    <div class="card" style="margin-top: 28px;">
+      <div class="toolbar">
+        <h2 style="margin: 0;">Saved Questions</h2>
+        <div class="actions">
+          <button id="btn_import_qbank">Import CSV</button>
+          <input type="file" id="file_import_qbank" accept=".csv" style="display:none" />
+          <button id="btn_export_qbank">Export CSV</button>
+          <button class="danger" id="btn_clear_qbank">Clear All</button>
+        </div>
+      </div>
+      <div id="import_status" class="status" style="margin-bottom: 8px;"></div>
+      <div id="qbank_list" class="question-list"></div>
+    </div>
+  </div>
+
+  <!-- ========== STEP 2 ========== -->
+  <div class="view" id="view-step2">
+    <div class="card">
+      <h2>Test Samples</h2>
+      <div class="hint">Pick a saved question, paste up to 5 student responses, and run scoring.</div>
+
+      <div class="field" style="margin-bottom: 14px;">
+        <label>Question</label>
+        <select id="sel_question"></select>
+      </div>
+
+      <div id="question_preview" style="display:none; padding: 12px; background: #f9fafb; border-radius: 6px; margin-bottom: 16px; font-size: 13px;"></div>
+
+      <div style="margin: 18px 0 8px; display: flex; justify-content: space-between; align-items: center;">
+        <label style="margin: 0;">Student Responses</label>
+        <div class="actions">
+          <button type="button" id="btn_import_samples">Import CSV</button>
+          <input type="file" id="file_import_samples" accept=".csv" style="display:none" />
+          <button type="button" id="btn_add_sample">+ Add Sample</button>
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom: 8px;">CSV import: one column, one response per row. Multi-line responses must be wrapped in double quotes.</div>
+      <div id="samples_import_status" class="status" style="margin-bottom: 8px;"></div>
+      <div id="samples_list"></div>
+
+      <div class="actions" style="margin-top: 22px;">
+        <button class="primary" id="btn_run">Run Scoring</button>
+        <span id="run_status" class="status"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Bulk CSV scoring</h2>
+      <div class="hint">Upload a CSV with two columns: <code>question_id</code>, <code>response</code>. Each row is scored against its own question_id (looked up in the markers config or your saved bank). Multi-line responses must be wrapped in double quotes. Header row is optional.</div>
+      <div class="actions" style="margin-bottom: 12px;">
+        <button id="btn_bulk_upload">Upload Bulk CSV</button>
+        <input type="file" id="file_bulk_upload" accept=".csv" style="display:none" />
+        <span id="bulk_summary" class="status"></span>
+      </div>
+      <div id="bulk_match_banner" style="display:none; margin-bottom: 12px;"></div>
+      <div id="bulk_preview" style="display:none; margin-bottom: 12px; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 12px;"></div>
+      <div class="actions">
+        <button class="primary" id="btn_run_bulk" disabled>Run Bulk Scoring</button>
+        <span id="bulk_run_status" class="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== STEP 3 ========== -->
+  <div class="view" id="view-step3">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin: 0;">Results</h2>
+        <div class="actions">
+          <button id="btn_export_results">Export CSV</button>
+          <button class="danger" id="btn_clear_results">Clear Results</button>
+        </div>
+      </div>
+      <div id="results_table_wrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============= CONSTANTS =============
+const TASK_TYPE_REQUIREMENTS = {
+  essay: ["Clear position or main idea", "Supporting reasons given", "Some form of conclusion or final point"],
+  email: ["Includes a clear message", "Addresses the situation appropriately", "Responds to all parts of the situation"],
+  letter: ["Includes a clear message", "Addresses the situation appropriately", "Responds to all parts of the situation"],
+  paragraph: ["Addresses the topic clearly", "Ideas are connected"],
+  article: ["Engages reader with clear topic or angle", "Ideas are explained not just listed", "Has an introduction that sets up the topic"],
+  report: ["Uses headings or sections", "Key points are explained not just listed", "Purpose is clear"],
+  proposal: ["Problem or situation clearly described", "Suggestions or solutions given", "At least one specific recommendation made"],
+  summary: ["Main ideas are included", "Response is shorter than source text", "Meaning is accurate"]
+};
+
+const CEFR_LEVELS = ["A1","A2","A2+","B1","B1+","B2","B2+","C1","C2"];
+
+const CEFR_ESTIMATE_THRESHOLDS = [
+  ["A1", 32], ["A2", 38], ["A2+", 46], ["B1", 54], ["B1+", 62],
+  ["B2", 70], ["B2+", 80], ["C1", 93], ["C2", 100]
+];
+
+const EMBEDDED_QUESTION_MARKERS = {
+  "W-B1-20260401081932": {
+    "ref": "W-B1-20260401081932",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "natural world and environment",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "Everyday actions people can take to help the environment",
+      "Role of local government in helping the environment",
+      "Examples from own life and community"
+    ],
+    "development_markers": [
+      { "requirement": "Everyday actions people can take to help the environment", "1_mentioned": "names an everyday action (e.g., recycle, plant trees) with no detail of how it helps", "2_developed": "names an everyday action AND explains how it helps the environment (e.g., plant trees to replace those cut for charcoal)", "3_extended": "all of 2 AND a specific behaviour, place, or example (e.g., in my community people cut trees for charcoal so we plant new ones every season)" },
+      { "requirement": "Role of local government in helping the environment", "1_mentioned": "states the local government has a role with no specific action", "2_developed": "names a specific government action AND its purpose (e.g., strict laws on bush burning to protect soil)", "3_extended": "all of 2 AND a specific policy, programme, or named example (e.g., in my district the council fines bush burning and runs tree-planting days)" },
+      { "requirement": "Examples from own life and community", "1_mentioned": "vague reference to community without a specific example (e.g., people in my area do this)", "2_developed": "a specific example from own life or community AND a clear environmental link", "3_extended": "a fully developed personal or community example with a named place, group, or outcome" }
+    ]
+  },
+  "W-B1-20260401081828": {
+    "ref": "W-B1-20260401081828",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "workplace and jobs",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How technology has changed the workplace",
+      "Benefits of these changes",
+      "Challenges these changes bring"
+    ],
+    "development_markers": [
+      { "requirement": "How technology has changed the workplace", "1_mentioned": "names a tech change with no detail of how it changed work", "2_developed": "names a tech change AND describes a specific behaviour change (e.g., email replaced memos so people respond faster)", "3_extended": "all of 2 AND a named tool, place, or comparison (e.g., at my office email replaced memos and meetings dropped from daily to weekly)" },
+      { "requirement": "Benefits of these changes", "1_mentioned": "names a benefit with no further detail (e.g., it is faster)", "2_developed": "names a benefit AND says who benefits or how (e.g., remote work helps parents stay near their children)", "3_extended": "all of 2 AND a specific person, place, or measurable outcome (e.g., my colleague Anna saves 2 hours commute every day)" },
+      { "requirement": "Challenges these changes bring", "1_mentioned": "names a challenge with no further detail (e.g., some lose jobs)", "2_developed": "names a challenge AND explains its impact (e.g., automation replaces factory workers so many become unemployed)", "3_extended": "all of 2 AND a specific industry, group, or example (e.g., in my hometown the textile factory closed and 200 workers lost their jobs)" }
+    ]
+  },
+  "W-B1-20260401082137": {
+    "ref": "W-B1-20260401082137",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "shopping, money, and personal finance",
+    "word_count_min": 25,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How shopping habits have changed over time",
+      "Benefits of online shopping",
+      "Drawbacks of online shopping"
+    ],
+    "development_markers": [
+      { "requirement": "How shopping habits have changed over time", "1_mentioned": "mentions a change without comparing past and present (e.g., people shop online)", "2_developed": "clearly compares past and present (e.g., before people went to the high street, now most order on apps)", "3_extended": "all of 2 AND a specific behaviour, year, or platform (e.g., in 2020 my mother started using Amazon for groceries; she used to walk to the corner shop)" },
+      { "requirement": "Benefits of online shopping", "1_mentioned": "names a benefit with no detail (e.g., it is convenient)", "2_developed": "names a benefit AND explains who or why it helps (e.g., online shopping helps elderly people who cannot easily leave home)", "3_extended": "all of 2 AND a specific person, situation, or example (e.g., my grandmother orders her medicine online and it arrives the same day)" },
+      { "requirement": "Drawbacks of online shopping", "1_mentioned": "names a drawback with no detail (e.g., it is risky)", "2_developed": "names a drawback AND explains the impact (e.g., scams cost shoppers money because there is no shop to return to)", "3_extended": "all of 2 AND a specific case, number, or example (e.g., last year I paid 30 euros for shoes that never arrived)" }
+    ]
+  },
+  "W-B1-20260401082235": {
+    "ref": "W-B1-20260401082235",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "holidays, travel, and transportation",
+    "word_count_min": 25,
+    "word_count_max": 900,
+    "task_requirements": [
+      "Positive effects of tourism",
+      "Negative effects of tourism",
+      "Impact on local people, businesses, and environment"
+    ],
+    "development_markers": [
+      { "requirement": "Positive effects of tourism", "1_mentioned": "names a positive effect with no detail (e.g., tourism brings jobs)", "2_developed": "names a positive effect AND explains who benefits or how (e.g., tourism brings jobs to hotels and restaurants)", "3_extended": "all of 2 AND a named place, sector, or number (e.g., in my city thousands work in tourism — hotels, restaurants and tour guides)" },
+      { "requirement": "Negative effects of tourism", "1_mentioned": "names a negative effect with no detail (e.g., there is pollution)", "2_developed": "names a negative effect AND explains the impact (e.g., crowds make daily life harder for locals)", "3_extended": "all of 2 AND a named place, situation, or example (e.g., in Venice the canals are overcrowded and rents have doubled)" },
+      { "requirement": "Impact on local people, businesses, and environment", "1_mentioned": "mentions only one of [people / businesses / environment]", "2_developed": "covers at least two of the three AND describes a specific impact for each", "3_extended": "covers all three AND each with a specific impact, named place, or example" }
+    ]
+  },
+  "W-B1-20260401093728": {
+    "ref": "W-B1-20260401093728",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "people, relationships, and family",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "Qualities that make someone a good friend",
+      "How friendships change as people get older",
+      "Personal example to support argument"
+    ],
+    "development_markers": [
+      { "requirement": "Qualities that make someone a good friend", "1_mentioned": "names one or more qualities (e.g., trust, honesty) with no explanation", "2_developed": "names at least two qualities AND explains why each matters", "3_extended": "all of 2 AND links a quality to a real person or situation (e.g., my friend David showed loyalty when I failed an exam — he stayed and helped me)" },
+      { "requirement": "How friendships change as people get older", "1_mentioned": "states friendships change without explaining how", "2_developed": "describes a specific change AND a reason (e.g., we have fewer friends because work and family take more time)", "3_extended": "all of 2 AND a personal or specific example (e.g., after I moved cities for university I lost touch with most school friends)" },
+      { "requirement": "Personal example to support argument", "1_mentioned": "a vague personal reference (e.g., my friend is great)", "2_developed": "a specific anecdote with at least one named person or situation", "3_extended": "a fully developed anecdote with a named person, situation, AND outcome or feeling" }
+    ]
+  },
+  "W-B1-20260401093829": {
+    "ref": "W-B1-20260401093829",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "natural world and environment",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "How different seasons affect daily routine and mood",
+      "Positive effects of different weather types",
+      "Negative effects of different weather types"
+    ],
+    "development_markers": [
+      { "requirement": "How different seasons affect daily routine and mood", "1_mentioned": "names one season or weather type with no specific routine or mood change", "2_developed": "names at least two seasons AND describes a specific routine or mood change for each", "3_extended": "all of 2 AND a specific activity, place, or feeling (e.g., in summer I cycle to work; in winter I stay home reading)" },
+      { "requirement": "Positive effects of different weather types", "1_mentioned": "names a positive effect (e.g., sunny days are nice) with no reason", "2_developed": "names a weather type AND a specific positive effect (e.g., sunny days give me energy to exercise outdoors)", "3_extended": "all of 2 AND a specific activity, place, or example (e.g., last summer I started running in the park every morning)" },
+      { "requirement": "Negative effects of different weather types", "1_mentioned": "names a negative effect (e.g., winter is bad) with no reason", "2_developed": "names a weather type AND a specific negative effect (e.g., rainy days make me feel low and I cancel plans)", "3_extended": "all of 2 AND a specific situation, illness, or impact (e.g., every winter I get a cold and miss work for a week)" }
+    ]
+  },
+  "W-B1-20260401093929": {
+    "ref": "W-B1-20260401093929",
+    "cefr_level": "b1",
+    "task_type": "essay",
+    "topic": "media, arts, literature, and entertainment",
+    "word_count_min": 50,
+    "word_count_max": 300,
+    "task_requirements": [
+      "When and why you listen to music",
+      "How music affects your mood",
+      "Personal example to support argument"
+    ],
+    "development_markers": [
+      { "requirement": "When and why you listen to music", "1_mentioned": "says they listen to music with no specific time or reason", "2_developed": "names at least one specific time/situation AND a specific reason (e.g., I listen on the bus to work because it makes the commute pass faster)", "3_extended": "all of 2 AND a NAMED song title (e.g., 'Yesterday'), artist name (Coldplay, Beyoncé), or real genre (gospel, amapiano, hip-hop, classical, rock). Mood-based or function-based categories like 'spiritual songs', 'motivational songs', 'sad songs' do NOT count." },
+      { "requirement": "How music affects your mood", "1_mentioned": "states music affects mood with no specific change", "2_developed": "describes a specific mood change AND links it to a type of music (e.g., fast songs energise me; slow songs calm me)", "3_extended": "all of 2 AND a NAMED song, artist, or specific situation. Categorical descriptions like 'spiritual songs' or 'motivational songs' do NOT satisfy 'named song/artist'." },
+      { "requirement": "Personal example to support argument", "1_mentioned": "vague reference to a personal music experience (e.g., I love music)", "2_developed": "a specific anecdote with at least one named song, occasion, or feeling", "3_extended": "a fully developed anecdote with NAMED music (actual title or artist), specific situation, AND emotional outcome. A description like 'a song I memorised' does NOT count as named music." }
+    ]
+  }
+};
+
+// ============= STATE =============
+let questionBank = JSON.parse(localStorage.getItem("aze_qbank_arabic") || "[]");
+let resultsStore = JSON.parse(localStorage.getItem("aze_results_arabic") || "[]");
+let samples = [{ text: "" }];
+let questionMarkersConfig = {};
+
+function setMarkersStatus(msg, kind) {
+  const el = document.getElementById("markers_status");
+  el.textContent = msg;
+  el.style.color = kind === "success" ? "#16a34a" : kind === "error" ? "#dc2626" : "var(--muted)";
+}
+
+function ingestMarkersConfig(obj, sourceLabel) {
+  if (!obj || typeof obj !== "object") throw new Error("Config must be a JSON object keyed by question ref.");
+  const refs = Object.keys(obj);
+  if (refs.length === 0) throw new Error("Config has no entries.");
+  for (const ref of refs) {
+    const entry = obj[ref];
+    if (!entry || typeof entry !== "object") throw new Error(`Entry "${ref}" is not an object.`);
+    if (!Array.isArray(entry.task_requirements)) throw new Error(`Entry "${ref}" missing task_requirements array.`);
+    if (!Array.isArray(entry.development_markers)) throw new Error(`Entry "${ref}" missing development_markers array.`);
+  }
+  questionMarkersConfig = obj;
+  setMarkersStatus(`${refs.length} ref(s) loaded from ${sourceLabel}`, "success");
+  console.log("[markers config loaded]", refs);
+  if (typeof renderQBank === "function" && document.getElementById("qbank_list")) {
+    renderQBank();
+  }
+  if (document.getElementById("view-step2")?.classList.contains("active")) {
+    refreshStep2();
+  }
+}
+
+document.getElementById("btn_load_markers").addEventListener("click", () => {
+  document.getElementById("file_load_markers").click();
+});
+document.getElementById("file_load_markers").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const obj = JSON.parse(text);
+    ingestMarkersConfig(obj, file.name);
+  } catch (err) {
+    setMarkersStatus(`load failed: ${err.message}`, "error");
+  }
+  e.target.value = "";
+});
+
+try {
+  ingestMarkersConfig(EMBEDDED_QUESTION_MARKERS, "embedded");
+} catch (err) {
+  console.error("[markers] embedded load failed:", err);
+}
+updateStorageIndicator();
+
+(async () => {
+  try {
+    const res = await fetch("./config/question_markers_arabic.json", { cache: "no-store" });
+    if (res.ok) {
+      const obj = await res.json();
+      ingestMarkersConfig(obj, "config/question_markers.json");
+    }
+  } catch {
+    // file:// fetches will fail silently — embedded version stays in place
+  }
+})();
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    updateStorageIndicator();
+    return { ok: true };
+  } catch (err) {
+    const isQuota = err && (err.name === "QuotaExceededError" || err.code === 22 || /quota/i.test(err.message || ""));
+    console.error(`[localStorage] setItem("${key}") failed:`, err);
+    if (isQuota) {
+      const current = (localStorage.getItem(key) || "").length;
+      const attempted = value.length;
+      const msg = `Storage full. Could not save. Current: ${(current / 1024).toFixed(0)} KB · attempted: ${(attempted / 1024).toFixed(0)} KB. Export CSV and clear results to continue.`;
+      alert("⚠ " + msg);
+    } else {
+      alert("Save failed: " + err.message);
+    }
+    return { ok: false, error: err };
+  }
+}
+
+function updateStorageIndicator() {
+  const el = document.getElementById("storageIndicator");
+  if (!el) return;
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    total += (k.length + (localStorage.getItem(k) || "").length);
+  }
+  const kb = total / 1024;
+  const limitKb = 5 * 1024;
+  const pct = Math.min(100, (kb / limitKb) * 100);
+  let color = "var(--muted)";
+  if (pct > 80) color = "#dc2626";
+  else if (pct > 60) color = "#d97706";
+  el.innerHTML = `Storage: <span style="color:${color}; font-weight:600;">${kb.toFixed(0)} KB / ~${(limitKb / 1024).toFixed(0)} MB (${pct.toFixed(0)}%)</span>`;
+}
+
+function applyMarkersOverride(q) {
+  const ref = q.question_id;
+  const cfg = questionMarkersConfig[ref];
+  if (!cfg) return q;
+  console.log(`[markers override] applying config for "${ref}"`);
+  return {
+    ...q,
+    task_requirements: cfg.task_requirements,
+    development_markers: cfg.development_markers
+  };
+}
+
+document.getElementById("modelSelect").value = localStorage.getItem("aze_model") || "gpt-4o";
+document.getElementById("modelSelect").addEventListener("change", e => localStorage.setItem("aze_model", e.target.value));
+
+// ============= TABS =============
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("view-" + btn.dataset.tab).classList.add("active");
+    if (btn.dataset.tab === "step2") refreshStep2();
+    if (btn.dataset.tab === "step3") renderResults();
+  });
+});
+
+// ============= STEP 1: CREATE QUESTION =============
+function emptyReq() {
+  return { req: "", score_0: "", score_1: "", score_2: "", score_3: "" };
+}
+
+let activeReqTab = 0;
+
+function renderRequirements(reqs) {
+  const tabsEl = document.getElementById("req_tabs");
+  const container = document.getElementById("req_list");
+  if (!tabsEl || !container) return;
+  if (activeReqTab > reqs.length) activeReqTab = reqs.length;
+
+  let tabsHtml = "";
+  reqs.forEach((r, idx) => {
+    tabsHtml += `<button type="button" class="req-tab${activeReqTab === idx ? " active" : ""}" data-tab-idx="${idx}">Requirement ${idx + 1}</button>`;
+  });
+  tabsHtml += `<button type="button" class="req-tab locked${activeReqTab === reqs.length ? " active" : ""}" data-tab-idx="${reqs.length}">Requirement ${reqs.length + 1} · generic</button>`;
+  tabsEl.innerHTML = tabsHtml;
+  tabsEl.querySelectorAll(".req-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeReqTab = +btn.dataset.tabIdx;
+      renderRequirements(reqState);
+    });
+  });
+
+  container.innerHTML = "";
+
+  if (activeReqTab < reqs.length) {
+    const idx = activeReqTab;
+    const r = reqs[idx];
+    const block = document.createElement("div");
+    block.className = "req-block";
+    block.innerHTML = `
+      <div class="req-head">
+        <span class="req-num">Requirement ${idx + 1}</span>
+        <button type="button" class="danger" data-action="del" data-idx="${idx}">Remove</button>
+      </div>
+      <div class="field">
+        <label>Requirement</label>
+        <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: وصف ما فعلوه أمس" data-field="req" data-idx="${idx}" value="${escapeHtml(r.req || "")}" />
+      </div>
+      <div class="field">
+        <label>Score 0 — absent or completely off-topic</label>
+        <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: لم يُذكر" data-field="score_0" data-idx="${idx}" value="${escapeHtml(r.score_0 || "")}" />
+      </div>
+      <div class="field">
+        <label>Score 1 — mentioned but not developed</label>
+        <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: ذكر نشاط واحد بشكل مبهم" data-field="score_1" data-idx="${idx}" value="${escapeHtml(r.score_1 || "")}" />
+      </div>
+      <div class="field">
+        <label>Score 2 — developed with reason or explanation</label>
+        <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: نشاط محدد مع بعض التفاصيل" data-field="score_2" data-idx="${idx}" value="${escapeHtml(r.score_2 || "")}" />
+      </div>
+      <div class="field">
+        <label>Score 3 — extended with specific example or detail</label>
+        <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: نشاطان أو أكثر مع الوقت أو المكان أو التفاصيل" data-field="score_3" data-idx="${idx}" value="${escapeHtml(r.score_3 || "")}" />
+      </div>
+    `;
+    container.appendChild(block);
+    container.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("input", e => {
+        const i = +e.target.dataset.idx;
+        reqState[i][e.target.dataset.field] = e.target.value;
+      });
+    });
+    container.querySelectorAll("[data-action='del']").forEach(btn => {
+      btn.addEventListener("click", e => {
+        const i = +e.currentTarget.dataset.idx;
+        reqState.splice(i, 1);
+        if (reqState.length === 0) reqState.push(emptyReq());
+        if (activeReqTab >= reqState.length) activeReqTab = Math.max(0, reqState.length - 1);
+        renderRequirements(reqState);
+      });
+    });
+  } else {
+    const generic = document.createElement("div");
+    generic.className = "req-block";
+    generic.style.background = "#fef3c7";
+    generic.style.borderColor = "#fde68a";
+    generic.innerHTML = `
+      <div class="req-head">
+        <span class="req-num" style="background: #fde68a; color: #92400e;">Requirement ${reqs.length + 1} · auto-applied to every question</span>
+        <span style="font-size: 11px; color: #92400e; font-weight: 600;">read-only</span>
+      </div>
+      <div class="field">
+        <label>Requirement</label>
+        <input type="text" disabled value="Additional on-topic development" style="background: #fffbeb; cursor: not-allowed;" />
+      </div>
+      <div class="field">
+        <label>Score 0 — absent (or paraphrase of another requirement)</label>
+        <input type="text" disabled value="no semantically distinct extra on-topic point, OR the 'extra' content paraphrases an idea already credited under another requirement" style="background: #fffbeb; cursor: not-allowed;" />
+      </div>
+      <div class="field">
+        <label>Score 1 — mentioned but not developed</label>
+        <input type="text" disabled value="introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail" style="background: #fffbeb; cursor: not-allowed;" />
+      </div>
+      <div class="field">
+        <label>Score 2 — developed with reason or explanation</label>
+        <input type="text" disabled value="introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)" style="background: #fffbeb; cursor: not-allowed;" />
+      </div>
+      <div class="field">
+        <label>Score 3 — extended with specific example or detail</label>
+        <input type="text" disabled value="introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument" style="background: #fffbeb; cursor: not-allowed;" />
+      </div>
+      <div style="font-size: 11px; color: #92400e; margin-top: 10px;">This requirement is appended to every question at scoring time for both Task Achievement (PASS/FAIL) and Content Quality (0–3). It cannot be edited or removed.</div>
+    `;
+    container.appendChild(generic);
+  }
+}
+
+let reqState = [emptyReq(), emptyReq(), emptyReq()];
+renderRequirements(reqState);
+
+document.getElementById("btn_add_req").addEventListener("click", () => {
+  reqState.push(emptyReq());
+  activeReqTab = reqState.length - 1;
+  renderRequirements(reqState);
+});
+
+const CEFR_GSE_RANGES = { "A1": "10–29", "A2": "30–42", "A2+": "30–42", "B1": "43–58", "B1+": "43–58", "B2": "59–75", "B2+": "59–75", "C1": "76–84", "C2": "85–90" };
+const CEFR_PCT = { "A1": 8, "A2": 24, "A2+": 30, "B1": 42, "B1+": 50, "B2": 62, "B2+": 70, "C1": 84, "C2": 95 };
+
+function updateDifficultyMeter() {
+  const lvl = document.getElementById("q_cefr").value;
+  const pill = document.getElementById("difficulty_pill");
+  const fill = document.getElementById("difficulty_fill");
+  const cur = document.getElementById("difficulty_current");
+  const headerLbl = document.getElementById("editor_cefr_label");
+  if (pill) pill.textContent = lvl;
+  if (fill) fill.style.width = (CEFR_PCT[lvl] || 50) + "%";
+  if (cur) cur.textContent = `Current: ${lvl} (GSE: ${CEFR_GSE_RANGES[lvl] || "—"})`;
+  if (headerLbl) headerLbl.textContent = lvl;
+}
+document.getElementById("q_cefr").addEventListener("change", updateDifficultyMeter);
+updateDifficultyMeter();
+
+document.getElementById("btn_save_q_2").addEventListener("click", () => {
+  document.getElementById("btn_save_q").click();
+});
+
+document.getElementById("btn_toggle_assistant").addEventListener("click", () => {
+  const aside = document.getElementById("ai_aside");
+  const grid = aside.parentElement;
+  const btn = document.getElementById("btn_toggle_assistant");
+  const hidden = aside.style.display === "none";
+  aside.style.display = hidden ? "" : "none";
+  grid.style.gridTemplateColumns = hidden ? "minmax(0, 1fr) 320px" : "1fr";
+  btn.innerHTML = hidden ? "🤖 Hide Assistant" : "🤖 Show Assistant";
+});
+
+// ===== AI authoring prompts (embedded so file:// works) =====
+const PROMPT_GENERATE_TASK_REQS = `# Generate Task Requirements (AI authoring prompt)
+
+Given a question stem, generate exactly **3 task requirements**.
+These are the bullet points the scorer's TA prompt will mark PASS/FAIL on.
+
+---
+
+## Inputs
+
+QUESTION STEM:
+{QUESTION_STEM}
+
+CEFR LEVEL: {CEFR_LEVEL}
+TASK TYPE: {TASK_TYPE}
+TOPIC: {TOPIC}
+
+## Rules
+
+1. **Always 3 requirements.** Not 2, not 4.
+2. **Short noun phrase, 4–10 words each.** Do not write full sentences.
+3. **Testable.** The scorer must be able to ask: "Can I quote a sentence that names this topic AND gives a specific detail (name, place, time, number, reason, example)?". If you can't imagine that test passing or failing cleanly, the requirement is too vague.
+4. **Map to the question stem's bullets when present.** If the stem already has 3 bullet points (e.g., "Think about X, consider Y, include Z"), use them as-is or with light rephrasing. Do NOT invent new topics not implied by the stem.
+5. **Distinct topics.** No two requirements should overlap.
+6. **Plain language at the CEFR level.** No academic jargon, no abstract nouns where a concrete one works.
+7. **Avoid interpretive verbs** like "discuss", "explore", "consider", "reflect on", "evaluate". Replace with concrete asks: "name", "give", "explain why", "compare", "describe".
+
+## Anti-patterns (do NOT do these)
+
+| Bad                                | Good                                          |
+|------------------------------------|-----------------------------------------------|
+| "Discuss the importance of X"      | "Why X matters in daily life"                 |
+| "Explore both sides"               | "Arguments for and against X"                 |
+| "Give your opinion on X"           | "Your opinion AND a reason for it"            |
+| "Reflect on technology"            | "How technology has changed the workplace"    |
+| "Consider the environment"         | "Effects of X on the environment"             |
+| "Talk about your experience"       | "Personal example to support argument"        |
+
+## Worked example
+
+QUESTION STEM:
+> Music is something most people enjoy in their daily lives.
+> Write an essay discussing the role of music in your life.
+> - Think about when and why you listen to music
+> - Consider how music can affect your mood
+> - Use examples from your own experience
+
+OUTPUT:
+{
+  "task_requirements": [
+    "When and why you listen to music",
+    "How music affects your mood",
+    "Personal example to support argument"
+  ]
+}
+
+## Output format (JSON only, no commentary)
+
+{
+  "task_requirements": ["...", "...", "..."]
+}`;
+
+const PROMPT_GENERATE_QUALITY_MARKERS = `# Generate Quality Markers (AI authoring prompt) — v1.1
+
+Given the 3 task requirements, generate the full development_markers array. The output must contain **4 entries**: the 3 question-specific ladders + the verbatim generic 4th.
+
+---
+
+## Inputs
+
+TASK REQUIREMENTS (3 entries, in order):
+{TASK_REQUIREMENTS}
+
+QUESTION STEM (for context):
+{QUESTION_STEM}
+
+CEFR LEVEL: {CEFR_LEVEL}
+TOPIC: {TOPIC}
+
+## Rules
+
+1. **Output 4 markers, in this order:** the 3 task requirements (in same order as input), then the generic 4th: "Additional on-topic development".
+2. **The generic 4th is verbatim.** Copy it from the bottom of this prompt. Do not modify any wording.
+3. **Each ladder has 3 rungs (1, 2, 3).** Score 0 is implicit ("absent").
+4. **Use this exact rung pattern:**
+   - **1_mentioned** — names the topic, no further detail.
+   - **2_developed** — names the topic AND adds a reason, cause, effect, or how/why explanation. The bar at this rung scales with CEFR level — see calibration table below.
+   - **3_extended** — all of rung 2 AND a **concrete specific** that adds meaningful elaboration. The bar at this rung also scales with CEFR level.
+
+## CRITICAL — what "concrete specific" means in rung 3
+
+The rung-3 anchor is about **language concreteness**, NOT factual or world knowledge. We are scoring language proficiency, not encyclopedic recall.
+
+**Any of the following count as a concrete specific:**
+
+| Type                  | Example                                                 |
+|-----------------------|---------------------------------------------------------|
+| Personal anecdote     | "my colleague Anna saves 2 hours commute every day"     |
+| Hypothetical scenario | "imagine a parent who can drop their child at school"   |
+| Developed-generic     | "tourism creates jobs in hotels, restaurants, and tour guides" |
+| Real-world reference  | "the EU ban on factory farming"                         |
+| Personal observation  | "my own family started using delivery apps in 2020"     |
+
+A response should NOT need to know specific historical events, news stories, or named institutions to reach rung 3. A student inventing a vivid hypothetical with concrete language is at the same level as a student citing a real event.
+
+**What does NOT count as a concrete specific:**
+- Generic statements: "it is good", "many people", "in some places"
+- Vague quantifiers: "a lot", "lots of", "many", "most"
+- Topic-only mentions without elaboration
+- Adjective-only descriptions: "a beautiful place", "a difficult job"
+
+**Do NOT use the literal word "NAMED" in capitals in any rung.** The previous version did, and the AI started demanding real-world proper nouns (specific historical events, branded products) which biased the scoring toward learners with cultural / news exposure. Use "specific" or "concrete" instead.
+
+5. **Every rung-3 MUST include a "do NOT count" anti-example.** Pick what the topic most often gets wrong from students. Phrase as "...do NOT count" or "X does NOT satisfy the rung".
+6. **Provide a concrete (e.g., ...) example in rung 2 and rung 3.** The example should match the topic, the CEFR level, and what a student at that level would plausibly write at that rung. **Mix personal, hypothetical, and real-world examples** so the model doesn't over-anchor on real-world specifics.
+
+## CEFR-level rung calibration
+
+The same ladder pattern (1 → mentioned, 2 → developed, 3 → extended) applies to all levels, but **the bar at each rung scales with CEFR**:
+
+| Level | Rung 2 — "developed" expects                                     | Rung 3 — "extended" expects                                                   |
+|-------|-------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| A1    | one reason or one specific detail                                | a concrete specific (a person, place, time, or object the student can describe) |
+| A2    | one reason linked with "because" / "so" / "but"                  | a concrete specific + a brief link or reason                                  |
+| B1    | one reason AND a specific link or example                        | a concrete specific that develops the point with a clear example              |
+| B2    | TWO distinct points OR a comparison (X vs Y) with explanation    | TWO concrete specifics that distinguish or categorise                         |
+| C1    | evaluative reasoning, hedged generalisation, or a trade-off      | a concrete specific + counter-evidence, qualification, or evaluation          |
+
+**Why level matters:** a B2 student writing "I went to Paris because it was nice" should NOT score rung 3 — that's a B1-level answer. For B2, rung 3 should require categorisation (multiple specifics that group the reasons), comparison, or qualification.
+
+## Anti-example pattern by topic family
+
+Match the rung-3 anti-example to the topic family:
+
+| Topic family       | What "concrete specific" can include                  | What does NOT count                              |
+|--------------------|-------------------------------------------------------|--------------------------------------------------|
+| Music              | song title, artist, real genre, or personal listening | Mood categories ("sad songs", "spiritual songs") |
+| Travel / places    | a place (real or personal), a journey detail          | "a beautiful place", "somewhere nice"            |
+| Workplace          | role, tool, or specific task                          | "technology", "the workplace", "things"          |
+| Food               | a dish, a meal, a brand, a personal cooking memory    | "good food", "tasty", "nice meals"               |
+| People             | a person (real or hypothetical with detail)           | "someone", "people", role-only "my friend"       |
+| Time               | a specific time, occasion, or year                    | "in the past", "long time ago"                   |
+| Numbers / scale    | numbers, fractions, frequencies                       | "many", "most", "some", "a lot"                  |
+| Government policy  | a programme, law, action, or local detail             | "the government should", "they need to"          |
+| Environment        | an action, place, or observed habit                   | bare verbs ("recycling"), no agent               |
+| Historical / world | a real event OR a hypothetical scenario               | demanding only real events; vague ("in history") |
+
+For "historical / world" topics, accept hypothetical scenarios just as readily as real events. A student writing a vivid hypothetical ("imagine two countries fighting over the same river…") at B2 should score the same as one citing a real event.
+
+## Worked examples
+
+### B1 example (calibration baseline)
+
+INPUT: TASK REQUIREMENTS: ["When and why you listen to music", ...] / CEFR: B1
+
+OUTPUT (rung 3 for first requirement):
+"all of 2 AND a concrete specific — could be a song or artist (Coldplay, 'Yesterday'), a real genre (gospel, amapiano, classical), or a specific personal listening situation (e.g., on the bus to work, before a family dinner). Mood categories like 'spiritual songs' or 'motivational songs' do NOT count as concrete specifics."
+
+### B2 example (note the extra demand at rung 3)
+
+INPUT: TASK REQUIREMENTS: ["Reasons why people choose to travel"] / CEFR: B2
+
+OUTPUT (rung 3):
+"all of 2 AND TWO concrete specifics that distinguish the reasons. These can be real or personal or hypothetical (e.g., 'tourists go to a relaxing beach destination while professionals go to a major business city'; or 'in my family, my mother travels for cultural festivals while my brother travels for work conferences'). A single example with no comparison, or generic descriptors like 'a beautiful place', do NOT count."
+
+### B2 example with a knowledge-heavy topic
+
+INPUT: TASK REQUIREMENTS: ["Causes of war with specific examples"] / CEFR: B2
+
+OUTPUT (rung 3):
+"all of 2 AND a concrete specific cause that the student develops with detail — could be a real historical event, a present-day situation, OR a clearly developed hypothetical (e.g., 'if a country runs out of water, it might invade its neighbour to control the river'). Vague phrases like 'people fight for resources' with no specific cause or scenario do NOT count. The student does NOT have to cite a particular historical event — a developed hypothetical is equally valid."
+
+### C1 example (rung 3 demands evaluation)
+
+INPUT: TASK REQUIREMENTS: ["Effects of remote work on productivity"] / CEFR: C1
+
+OUTPUT (rung 3):
+"all of 2 AND a concrete specific + counter-evidence or trade-off (e.g., 'remote work helps office workers focus, but factory workers cannot benefit because their jobs need physical presence'; or a personal example with a balanced reflection). A single supportive example without nuance does NOT count at C1."
+
+## Verbatim generic 4th marker (always include, never modify)
+
+{
+  "requirement": "Additional on-topic development",
+  "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+  "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+  "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+}
+
+## Output format (JSON only, no commentary)
+
+{
+  "development_markers": [
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "Additional on-topic development", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." }
+  ]
+}
+
+## Self-check before returning
+
+- Exactly 4 markers
+- Order: input requirement #1, #2, #3, then the generic 4th
+- The 4th marker is byte-identical to the verbatim block
+- No rung uses the literal word NAMED in capitals
+- Every rung-3 says "do NOT count" with a topic-relevant anti-example
+- Every rung-3 lists multiple anchor types (personal / hypothetical / real-world / developed-generic) — NOT a single specific real event
+- Every rung-2 and rung-3 contains a concrete (e.g., …) example
+- Rung-2 and rung-3 bars are calibrated to the supplied CEFR level
+- No rung uses interpretive verbs ("discuss", "explore", "reflect")`;
+
+const PROMPT_GENERATE_QUESTION = `# Generate Question (AI authoring prompt)
+
+Given a CEFR level, task type, and topic, generate a level-appropriate question stem that the student will see when answering.
+
+The stem must contain 3 bullet points. Those bullets will be turned into task requirements by the next step (generate_task_requirements.md).
+
+---
+
+## Inputs
+
+CEFR LEVEL: {CEFR_LEVEL}     (one of: A1, A2, B1, B2, C1)
+TASK TYPE: {TASK_TYPE}        (one of: email, letter, paragraph, article, essay, report, proposal, summary)
+TOPIC: {TOPIC}                 (short topic label, e.g., "workplace and jobs")
+
+## Rules
+
+1. **Output a question stem with this structure:**
+   - **Framing line:** 1 short sentence introducing the topic.
+   - **Instruction line:** 1 short sentence telling the student what to write.
+   - **3 bullet points:** what they must address.
+
+2. **Always 3 bullet points.** Not 2, not 4. These are the seeds for task requirements; the next step expects exactly 3.
+
+3. **Each bullet is a short concrete topic, 4–12 words.** Use concrete asks like "When and why...", "How X affects...", "Examples from your own life". Avoid interpretive verbs ("discuss", "explore", "consider", "reflect").
+
+4. **Match CEFR level** in vocabulary and grammar:
+
+| Level | Vocabulary             | Grammar features                              |
+|-------|------------------------|------------------------------------------------|
+| A1    | basic, common words    | present simple, basic plurals                  |
+| A2    | familiar everyday      | + past simple, future plans, can/must          |
+| B1    | gives opinions         | + present perfect, conditionals, comparison    |
+| B2    | abstract topics ok     | + hypotheticals, modal speculation             |
+| C1    | nuanced vocabulary     | + complex clauses, hedging, register shifts    |
+
+The question stem itself should be readable at the student's level. Don't write a B1 question with C1 vocabulary in the framing.
+
+5. **Match task type conventions:**
+
+| Task type | Conventional phrasing                              |
+|-----------|----------------------------------------------------|
+| essay     | "Write an essay discussing..."                     |
+| email     | "Write an email to [person] about..."              |
+| letter    | "Write a letter to [authority] to..."              |
+| paragraph | "Write a paragraph about..."                       |
+| article   | "Write an article for [magazine/blog]..."          |
+| report    | "Write a report on..."                             |
+| proposal  | "Write a proposal for..."                          |
+| summary   | "Read the text below and summarise..."             |
+
+For **email** and **letter**, the framing line should set up a real situation. For **summary**, the bullets describe what the summary should focus on, not new content (and the actual source text must be supplied separately by the question author — leave a [SOURCE TEXT GOES HERE] placeholder).
+
+6. **Topic must be on-topic.** The framing sentence must relate directly to the supplied topic.
+
+7. **Bullets must be answerable** — each bullet should naturally yield a paragraph of writing at the supplied CEFR level.
+
+8. **Suggest word_count_min and word_count_max** based on level and task type:
+
+| Level | Range          |
+|-------|----------------|
+| A1    | 25–80          |
+| A2    | 40–120         |
+| B1    | 50–300         |
+| B2    | 100–400        |
+| C1    | 150–500        |
+
+Adjust down for short task types (email/letter): use the bottom half. Adjust up for report/essay/proposal at higher levels: use the top half.
+
+## Anti-patterns (do NOT do)
+
+| Bad                                      | Good                                        |
+|------------------------------------------|---------------------------------------------|
+| 4 bullets ("just one extra...")          | Always exactly 3                            |
+| Bullets that overlap topics              | Each bullet covers a distinct angle         |
+| Interpretive verb in a bullet            | Concrete topic noun phrase                  |
+| C1-level vocabulary in a B1 question     | Match vocabulary to the level               |
+| Multi-clause framing line                | Keep framing to 1 short sentence            |
+| Bullet containing a question mark        | Bullets are noun phrases, not questions     |
+
+## Worked examples
+
+### Example 1 — B1 essay
+
+INPUT: CEFR LEVEL: B1, TASK TYPE: essay, TOPIC: media, arts, literature, and entertainment
+
+OUTPUT:
+{
+  "question_stem": "Music is something most people enjoy in their daily lives.\\n\\nWrite an essay discussing the role of music in your life and how it affects you.\\n\\n- Think about when and why you listen to music\\n- Consider how music can affect your mood and the way you feel\\n- Use examples from your own experience and hobbies",
+  "word_count_min": 50,
+  "word_count_max": 300
+}
+
+### Example 2 — A2 email
+
+INPUT: CEFR LEVEL: A2, TASK TYPE: email, TOPIC: holidays, travel, and transportation
+
+OUTPUT:
+{
+  "question_stem": "You went to a place last weekend with your family.\\n\\nWrite an email to your friend telling them about it.\\n\\n- Where you went\\n- What you did there\\n- What you liked most",
+  "word_count_min": 40,
+  "word_count_max": 120
+}
+
+### Example 3 — B2 article
+
+INPUT: CEFR LEVEL: B2, TASK TYPE: article, TOPIC: workplace and jobs
+
+OUTPUT:
+{
+  "question_stem": "Many people now work remotely instead of going to an office.\\n\\nWrite an article for a careers blog about whether remote work helps or harms employees.\\n\\n- Effects on productivity and work-life balance\\n- Impact on relationships with colleagues\\n- Which workers or jobs benefit most",
+  "word_count_min": 100,
+  "word_count_max": 400
+}
+
+## Output format (JSON only, no commentary, no markdown fences)
+
+{
+  "question_stem": "Framing line.\\n\\nInstruction line.\\n\\n- Bullet 1\\n- Bullet 2\\n- Bullet 3",
+  "word_count_min": NUMBER,
+  "word_count_max": NUMBER
+}
+
+## Self-check before returning
+
+- Question stem has framing + instruction + exactly 3 bullets
+- Bullets are noun phrases (no question marks, no "discuss/consider")
+- Vocabulary matches the supplied CEFR level
+- Phrasing matches the task type convention
+- Word count range matches the level + task type rules
+- Topic is reflected in the framing
+- No more than one short framing sentence`;
+
+const WORD_COUNT_DEFAULTS = {
+  "A1": [25, 80], "A2": [40, 120], "A2+": [40, 120],
+  "B1": [50, 300], "B1+": [50, 300],
+  "B2": [100, 400], "B2+": [100, 400],
+  "C1": [150, 500], "C2": [150, 500]
+};
+
+const VERBATIM_GENERIC_4TH = {
+  requirement: "Additional on-topic development",
+  "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+  "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+  "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+};
+
+function stripHtmlToPlain(s) {
+  return String(s || "").replace(/<\/?[^>]+>/g, "").trim();
+}
+
+function setAiStatus(msg, kind) {
+  const el = document.getElementById("ai_status");
+  if (!el) return;
+  el.style.color = kind === "success" ? "#16a34a" : kind === "error" ? "#dc2626" : "var(--muted)";
+  el.innerHTML = msg || "";
+}
+
+function setBtnBusy(btn, busyText) {
+  if (!btn._origHtml) btn._origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="ai-icon">⏳</span><span class="ai-text"><strong>${busyText}…</strong></span>`;
+}
+function restoreBtn(btn) {
+  if (btn._origHtml) btn.innerHTML = btn._origHtml;
+}
+
+function updateAiButtonStates() {
+  const stem = stripHtmlToPlain(document.getElementById("q_prompt")?.value || "");
+  const cefr = document.getElementById("q_cefr")?.value || "";
+  const taskType = document.getElementById("q_task_type")?.value || "";
+  const topic = (document.getElementById("q_topic")?.value || "").trim();
+  const reqsReady = reqState.slice(0, 3).every(r => (r.req || "").trim().length > 0);
+  const taReqsBtn = document.querySelector('[data-ai="generate-task-reqs"]');
+  const qmBtn = document.querySelector('[data-ai="generate-quality-markers"]');
+  const genQBtn = document.querySelector('[data-ai="generate-question"]');
+  if (genQBtn) {
+    const missing = [];
+    if (!cefr) missing.push("CEFR");
+    if (!taskType) missing.push("Task Type");
+    if (!topic) missing.push("Topic");
+    genQBtn.title = missing.length ? `Needs: ${missing.join(", ")}` : "Ready";
+    genQBtn.dataset.ready = missing.length ? "no" : "yes";
+  }
+  if (taReqsBtn) {
+    const missing = [];
+    if (!stem) missing.push("Question");
+    if (!cefr) missing.push("CEFR");
+    if (!taskType) missing.push("Task Type");
+    if (!topic) missing.push("Topic");
+    taReqsBtn.title = missing.length ? `Needs: ${missing.join(", ")}` : "Ready";
+    taReqsBtn.dataset.ready = missing.length ? "no" : "yes";
+  }
+  if (qmBtn) {
+    qmBtn.title = reqsReady ? "Ready" : "Needs: 3 task requirements with text";
+    qmBtn.dataset.ready = reqsReady ? "yes" : "no";
+  }
+}
+
+["q_prompt", "q_cefr", "q_task_type", "q_topic"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", updateAiButtonStates);
+  if (el) el.addEventListener("change", updateAiButtonStates);
+});
+updateAiButtonStates();
+const _origRenderRequirements = renderRequirements;
+renderRequirements = function (reqs) {
+  _origRenderRequirements(reqs);
+  updateAiButtonStates();
+};
+
+async function generateQuestion(btn) {
+  const cefr = document.getElementById("q_cefr").value;
+  const taskType = document.getElementById("q_task_type").value;
+  const topic = (document.getElementById("q_topic").value || "").trim();
+  if (!cefr || !taskType || !topic) {
+    setAiStatus("Pick CEFR level, task type, and topic first.", "error");
+    return;
+  }
+  setBtnBusy(btn, "Generating");
+  setAiStatus(`<span class="spinner"></span> Generating question…`);
+  const fill = (s) => s.replace("{CEFR_LEVEL}", cefr).replace("{TASK_TYPE}", taskType).replace("{TOPIC}", topic);
+  const validate = (data) => {
+    if (!data || typeof data.question_stem !== "string" || !data.question_stem.trim()) {
+      return { valid: false, message: "missing question_stem" };
+    }
+    const bullets = data.question_stem.split("\n").filter(l => /^\s*-\s+\S/.test(l));
+    if (bullets.length !== 3) return { valid: false, message: `expected 3 bullets, got ${bullets.length}` };
+    return { valid: true, stem: data.question_stem, min: data.word_count_min, max: data.word_count_max };
+  };
+  let validated;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_QUESTION), null, `gen-question-${attempt}`, {
+        max_tokens: 1000,
+        system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+      });
+      const v = validate(data);
+      if (v.valid) { validated = v; break; }
+      console.warn(`[gen-question] attempt ${attempt} failed validation:`, v.message, data);
+    } catch (err) {
+      console.error(`[gen-question] attempt ${attempt} threw:`, err);
+    }
+  }
+  restoreBtn(btn);
+  if (!validated) {
+    setAiStatus("AI returned the wrong number of bullets — please regenerate or write manually.", "error");
+    return;
+  }
+  let min = +validated.min || 0;
+  let max = +validated.max || 0;
+  let usedFallback = false;
+  if (!min || !max || min >= max || min < 25 || max > 900) {
+    const def = WORD_COUNT_DEFAULTS[cefr] || WORD_COUNT_DEFAULTS["B1"];
+    min = def[0]; max = def[1];
+    usedFallback = true;
+  }
+  const lines = validated.stem.split("\n");
+  const bulletLines = lines.filter(l => /^\s*-\s+\S/.test(l));
+  const stemLines = lines.filter(l => !/^\s*-\s+/.test(l));
+  const stemNoBullets = stemLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const bullets = bulletLines.map(l => l.replace(/^\s*-\s+/, "").trim());
+
+  document.getElementById("q_prompt").value = stemNoBullets;
+  document.getElementById("q_min").value = min;
+  document.getElementById("q_max").value = max;
+
+  if (bullets.length === 3) {
+    while (reqState.length < 3) reqState.push(emptyReq());
+    for (let i = 0; i < 3; i++) {
+      reqState[i] = reqState[i] || emptyReq();
+      reqState[i].req = bullets[i];
+    }
+    activeReqTab = 0;
+    renderRequirements(reqState);
+  }
+
+  if (typeof updateAiButtonStates === "function") updateAiButtonStates();
+  let msg = "✓ Generated question and pre-filled 3 task requirements from the bullets. Review and edit, or re-run Generate Task Requirements to refine.";
+  if (usedFallback) msg += ` Word range adjusted to ${min}–${max} for ${cefr}.`;
+  if (taskType === "summary") {
+    msg += " ⚠ Summary task: paste the source text into the Question field where you see [SOURCE TEXT GOES HERE].";
+  }
+  setAiStatus(msg, (usedFallback || taskType === "summary") ? "error" : "success");
+}
+
+async function generateTaskRequirements(btn) {
+  const stem = stripHtmlToPlain(document.getElementById("q_prompt").value);
+  const cefr = document.getElementById("q_cefr").value;
+  const taskType = document.getElementById("q_task_type").value;
+  const topic = (document.getElementById("q_topic").value || "").trim();
+  if (!stem || !cefr || !taskType || !topic) {
+    setAiStatus("Fill in Question, CEFR Level, Task Type, and Topic first.", "error");
+    return;
+  }
+  setBtnBusy(btn, "Generating");
+  setAiStatus(`<span class="spinner"></span> Generating task requirements…`);
+  const fill = (s) => s.replace("{QUESTION_STEM}", stem).replace("{CEFR_LEVEL}", cefr).replace("{TASK_TYPE}", taskType).replace("{TOPIC}", topic);
+  const validate = (data) => {
+    const arr = data && Array.isArray(data.task_requirements) ? data.task_requirements : null;
+    if (!arr) return { valid: false, message: "missing task_requirements array" };
+    if (arr.length !== 3) return { valid: false, message: `expected 3 strings, got ${arr.length}` };
+    if (!arr.every(s => typeof s === "string" && s.trim().length > 0)) return { valid: false, message: "non-string or empty entry" };
+    return { valid: true, items: arr.map(s => s.trim()) };
+  };
+  let validated;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_TASK_REQS), null, `gen-task-reqs-${attempt}`, {
+        max_tokens: 800,
+        system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+      });
+      const v = validate(data);
+      if (v.valid) { validated = v; break; }
+      console.warn(`[gen-task-reqs] attempt ${attempt} failed validation:`, v.message, data);
+    } catch (err) {
+      console.error(`[gen-task-reqs] attempt ${attempt} threw:`, err);
+    }
+  }
+  restoreBtn(btn);
+  if (!validated) {
+    setAiStatus("AI generation failed — please write requirements manually.", "error");
+    return;
+  }
+  while (reqState.length < 3) reqState.push(emptyReq());
+  for (let i = 0; i < 3; i++) {
+    reqState[i] = reqState[i] || emptyReq();
+    reqState[i].req = validated.items[i];
+  }
+  activeReqTab = 0;
+  renderRequirements(reqState);
+  setAiStatus("✓ Generated 3 task requirements. Review and edit before saving.", "success");
+}
+
+async function generateQualityMarkers(btn) {
+  const taskRequirements = reqState.slice(0, 3).map(r => (r.req || "").trim());
+  if (!taskRequirements.every(s => s.length > 0)) {
+    setAiStatus("Fill in all 3 task requirements first.", "error");
+    return;
+  }
+  const stem = stripHtmlToPlain(document.getElementById("q_prompt").value);
+  const cefr = document.getElementById("q_cefr").value;
+  const topic = (document.getElementById("q_topic").value || "").trim();
+  setBtnBusy(btn, "Generating");
+  setAiStatus(`<span class="spinner"></span> Generating quality markers…`);
+  const fill = (s) => s
+    .replace("{TASK_REQUIREMENTS}", JSON.stringify(taskRequirements, null, 2))
+    .replace("{QUESTION_STEM}", stem)
+    .replace("{CEFR_LEVEL}", cefr)
+    .replace("{TOPIC}", topic);
+  const validate = (data) => {
+    const arr = data && Array.isArray(data.development_markers) ? data.development_markers : null;
+    if (!arr) return { valid: false, message: "missing development_markers array" };
+    if (arr.length !== 4) return { valid: false, message: `expected 4 markers, got ${arr.length}` };
+    for (let i = 0; i < 4; i++) {
+      const m = arr[i];
+      if (!m || typeof m !== "object") return { valid: false, message: `marker ${i+1} not an object` };
+      if (typeof m["1_mentioned"] !== "string" || typeof m["2_developed"] !== "string" || typeof m["3_extended"] !== "string") {
+        return { valid: false, message: `marker ${i+1} missing rungs` };
+      }
+    }
+    return { valid: true, markers: arr };
+  };
+  let validated;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const data = await callOpenAI(fill(PROMPT_GENERATE_QUALITY_MARKERS), null, `gen-quality-markers-${attempt}`, {
+        max_tokens: 2000,
+        system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+      });
+      const v = validate(data);
+      if (v.valid) { validated = v; break; }
+      console.warn(`[gen-quality-markers] attempt ${attempt} failed validation:`, v.message, data);
+    } catch (err) {
+      console.error(`[gen-quality-markers] attempt ${attempt} threw:`, err);
+    }
+  }
+  restoreBtn(btn);
+  if (!validated) {
+    setAiStatus("AI generation failed — please write markers manually.", "error");
+    return;
+  }
+  const markers = validated.markers;
+  if (markers[3].requirement !== VERBATIM_GENERIC_4TH.requirement
+    || markers[3]["1_mentioned"] !== VERBATIM_GENERIC_4TH["1_mentioned"]
+    || markers[3]["2_developed"] !== VERBATIM_GENERIC_4TH["2_developed"]
+    || markers[3]["3_extended"] !== VERBATIM_GENERIC_4TH["3_extended"]) {
+    console.warn("[gen-quality-markers] 4th marker drift detected — overwriting with verbatim text", markers[3]);
+    markers[3] = { ...VERBATIM_GENERIC_4TH };
+  }
+  const warnings = [];
+  for (let i = 0; i < 3; i++) {
+    const ext = markers[i]["3_extended"] || "";
+    const hasNamed = /\bNAMED\b/.test(ext);
+    const hasAntiExample = /do NOT count|does NOT satisfy|do NOT satisfy|does NOT count/i.test(ext);
+    if (!hasNamed || !hasAntiExample) {
+      warnings.push(`Requirement ${i+1}: AI did not include ${!hasNamed ? "NAMED" : ""}${!hasNamed && !hasAntiExample ? " and " : ""}${!hasAntiExample ? "anti-example" : ""}. Add 'X does NOT count' wording before saving.`);
+    }
+  }
+  while (reqState.length < 3) reqState.push(emptyReq());
+  for (let i = 0; i < 3; i++) {
+    reqState[i] = reqState[i] || emptyReq();
+    reqState[i].req = markers[i].requirement || reqState[i].req;
+    reqState[i].score_1 = markers[i]["1_mentioned"] || "";
+    reqState[i].score_2 = markers[i]["2_developed"] || "";
+    reqState[i].score_3 = markers[i]["3_extended"] || "";
+  }
+  activeReqTab = 0;
+  renderRequirements(reqState);
+  if (warnings.length) {
+    setAiStatus(`✓ Generated 4 markers — review carefully. ⚠ ${warnings.join(" ")}`, "error");
+  } else {
+    setAiStatus("✓ Generated quality markers. Review and edit before saving.", "success");
+  }
+}
+
+document.querySelectorAll('[data-ai]').forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const action = btn.dataset.ai;
+    if (action === "generate-question") return generateQuestion(btn);
+    if (action === "generate-task-reqs") return generateTaskRequirements(btn);
+    if (action === "generate-quality-markers") return generateQualityMarkers(btn);
+    const labels = {
+      "populate": "Populate Missing Fields",
+      "validate": "Run EFL Validation"
+    };
+    alert(`${labels[action] || action}: AI assistant stub. Not yet wired to the scoring API.`);
+  });
+});
+
+function renderTaskTypeReqs() {
+  const t = document.getElementById("q_task_type").value;
+  const reqs = TASK_TYPE_REQUIREMENTS[t] || [];
+  document.getElementById("task_type_reqs").innerHTML =
+    `<div><strong>${t}</strong></div><ul>${reqs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
+}
+document.getElementById("q_task_type").addEventListener("change", renderTaskTypeReqs);
+renderTaskTypeReqs();
+
+document.getElementById("btn_save_q").addEventListener("click", () => {
+  const status = document.getElementById("save_status");
+  const q = {
+    question_id: document.getElementById("q_id").value.trim(),
+    cefr_level: document.getElementById("q_cefr").value,
+    task_type: document.getElementById("q_task_type").value,
+    task_prompt: document.getElementById("q_prompt").value.trim(),
+    min_words: +document.getElementById("q_min").value,
+    max_words: +document.getElementById("q_max").value,
+    task_title: document.getElementById("q_title").value.trim(),
+    cefr_descriptor: document.getElementById("q_cefr_desc").value.trim(),
+    topic: document.getElementById("q_topic").value.trim(),
+    skill_focus: document.getElementById("q_skill_focus").value.trim(),
+    domain: document.getElementById("q_domain").value.trim(),
+    learning_objective: document.getElementById("q_learning_obj").value.trim(),
+    instruction: document.getElementById("q_instruction").value.trim(),
+    subtype: document.getElementById("q_subtype").value.trim(),
+    task_requirements: reqState.filter(r => r.req.trim()).map(r => r.req.trim()),
+    development_markers: reqState.filter(r => r.req.trim()).map(r => ({
+      point: r.req.trim(),
+      score_0: (r.score_0 || "").trim(),
+      score_1: (r.score_1 || "").trim(),
+      score_2: (r.score_2 || "").trim(),
+      score_3: (r.score_3 || "").trim()
+    })),
+    task_type_requirements: TASK_TYPE_REQUIREMENTS[document.getElementById("q_task_type").value] || []
+  };
+  if (!q.question_id) return setStatus(status, "Question ID is required.", "error");
+  if (!q.task_prompt) return setStatus(status, "Task prompt is required.", "error");
+  if (q.task_requirements.length < 3) return setStatus(status, "At least 3 task requirements required.", "error");
+  if (!q.min_words || !q.max_words || q.min_words >= q.max_words) return setStatus(status, "Invalid word range.", "error");
+
+  const existing = questionBank.findIndex(x => x.question_id === q.question_id);
+  if (existing >= 0) {
+    if (!confirm(`Question ID "${q.question_id}" exists. Overwrite?`)) return;
+    questionBank[existing] = q;
+  } else {
+    questionBank.push(q);
+  }
+  localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+  setStatus(status, `Saved "${q.question_id}".`, "success");
+  renderQBank();
+});
+
+document.getElementById("btn_clear_q").addEventListener("click", () => {
+  document.getElementById("q_id").value = "";
+  document.getElementById("q_prompt").value = "";
+  document.getElementById("q_min").value = 120;
+  document.getElementById("q_max").value = 180;
+  ["q_title","q_cefr_desc","q_topic","q_skill_focus","q_domain","q_learning_obj","q_subtype"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const ins = document.getElementById("q_instruction");
+  if (ins) ins.value = "Read the task below and write your response in the space provided.";
+  reqState = [emptyReq(), emptyReq(), emptyReq()];
+  activeReqTab = 0;
+  renderRequirements(reqState);
+  if (typeof updateDifficultyMeter === "function") updateDifficultyMeter();
+  document.getElementById("save_status").textContent = "";
+});
+
+function renderQBank() {
+  const wrap = document.getElementById("qbank_list");
+  const bankIds = new Set(questionBank.map(q => q.question_id));
+  const items = [];
+  questionBank.forEach((q, i) => {
+    items.push({
+      source: "bank", key: String(i), id: q.question_id,
+      cefr: q.cefr_level, taskType: q.task_type,
+      minWords: q.min_words, maxWords: q.max_words,
+      reqCount: (q.task_requirements || []).length
+    });
+  });
+  Object.keys(questionMarkersConfig)
+    .filter(ref => !bankIds.has(ref))
+    .forEach(ref => {
+      const c = questionMarkersConfig[ref];
+      items.push({
+        source: "config", key: ref, id: ref,
+        cefr: (c.cefr_level || "").toUpperCase(),
+        taskType: c.task_type || "",
+        minWords: c.min_words ?? c.word_count_min ?? "?",
+        maxWords: c.max_words ?? c.word_count_max ?? "?",
+        reqCount: (c.task_requirements || []).length
+      });
+    });
+  if (items.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">No questions saved yet.</div>';
+    return;
+  }
+  wrap.innerHTML = items.map(it => `
+    <div class="question-list-item">
+      <div>
+        <strong>${escapeHtml(it.id)}</strong>
+        <span class="pill" style="margin-left: 8px;">${escapeHtml(it.cefr || "—")}</span>
+        <span class="pill" style="margin-left: 4px;">${escapeHtml(it.taskType || "—")}</span>
+        ${it.source === "config" ? '<span class="pill" style="margin-left: 4px; background: #fef3c7; color: #92400e;">embedded</span>' : ''}
+        <span style="color: var(--muted); margin-left: 8px;">${it.minWords}–${it.maxWords} words · ${it.reqCount} reqs</span>
+      </div>
+      <div class="actions">
+        <button data-load-source="${it.source}" data-load-key="${escapeHtml(it.key)}">Load</button>
+        ${it.source === "bank" ? `<button class="danger" data-del="${it.key}">Delete</button>` : ''}
+      </div>
+    </div>
+  `).join("");
+  wrap.querySelectorAll("[data-load-source]").forEach(btn => {
+    btn.addEventListener("click", () => loadQuestion(btn.dataset.loadSource, btn.dataset.loadKey));
+  });
+  wrap.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!confirm("Delete this question?")) return;
+      questionBank.splice(+btn.dataset.del, 1);
+      localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+      renderQBank();
+    });
+  });
+}
+
+function loadQuestion(source, key) {
+  let q;
+  if (source === "bank") q = questionBank[+key];
+  else if (source === "config") q = getSelectedQuestion("config:" + key);
+  if (!q) return;
+  document.getElementById("q_id").value = q.question_id;
+  document.getElementById("q_cefr").value = q.cefr_level;
+  document.getElementById("q_task_type").value = q.task_type;
+  document.getElementById("q_prompt").value = q.task_prompt;
+  document.getElementById("q_min").value = q.min_words;
+  document.getElementById("q_max").value = q.max_words;
+  document.getElementById("q_title").value = q.task_title || "";
+  document.getElementById("q_cefr_desc").value = q.cefr_descriptor || "";
+  document.getElementById("q_topic").value = q.topic || "";
+  document.getElementById("q_skill_focus").value = q.skill_focus || "";
+  document.getElementById("q_domain").value = q.domain || "";
+  document.getElementById("q_learning_obj").value = q.learning_objective || "";
+  document.getElementById("q_instruction").value = q.instruction || "Read the task below and write your response in the space provided.";
+  document.getElementById("q_subtype").value = q.subtype || "";
+  if (typeof updateDifficultyMeter === "function") updateDifficultyMeter();
+  activeReqTab = 0;
+  reqState = q.task_requirements.map((r, idx) => {
+    const m = q.development_markers[idx];
+    if (m && typeof m === "object") {
+      return {
+        req: r,
+        score_0: m.score_0 || "",
+        score_1: m.score_1 || m["1_mentioned"] || "",
+        score_2: m.score_2 || m["2_developed"] || "",
+        score_3: m.score_3 || m["3_extended"] || ""
+      };
+    }
+    return { req: r, score_0: "", score_1: "", score_2: "", score_3: m || "" };
+  });
+  renderRequirements(reqState);
+  renderTaskTypeReqs();
+  const note = source === "config" ? " (from embedded config — saving will copy it into your local bank)" : "";
+  setStatus(document.getElementById("save_status"), `Loaded "${q.question_id}"${note}.`, "success");
+}
+
+document.getElementById("btn_clear_qbank").addEventListener("click", () => {
+  if (!confirm("Delete all saved questions?")) return;
+  questionBank = [];
+  localStorage.setItem("aze_qbank_arabic", "[]");
+  renderQBank();
+});
+
+document.getElementById("btn_import_qbank").addEventListener("click", () => {
+  document.getElementById("file_import_qbank").click();
+});
+document.getElementById("file_import_qbank").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("import_status");
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error("CSV is empty or has no data rows.");
+    const header = rows[0].map(h => h.trim());
+    const required = ["question_id","cefr_level","task_type","task_prompt","min_words","max_words","task_requirements","development_markers","task_type_requirements"];
+    const missing = required.filter(c => !header.includes(c));
+    if (missing.length) throw new Error("Missing columns: " + missing.join(", "));
+    const colIdx = Object.fromEntries(header.map((h,i) => [h, i]));
+    let added = 0, replaced = 0, skipped = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.length === 1 && row[0].trim() === "") continue;
+      const get = c => row[colIdx[c]] ?? "";
+      const parseJSONField = (v, label) => {
+        const s = (v || "").trim();
+        if (!s) return [];
+        try { return JSON.parse(s); }
+        catch (err) { throw new Error(`Row ${i+1} — invalid JSON in ${label}: ${s.slice(0, 60)}`); }
+      };
+      const q = {
+        question_id: get("question_id").trim(),
+        cefr_level: get("cefr_level").trim(),
+        task_type: get("task_type").trim(),
+        task_prompt: get("task_prompt"),
+        min_words: +get("min_words") || 0,
+        max_words: +get("max_words") || 0,
+        task_requirements: parseJSONField(get("task_requirements"), "task_requirements"),
+        development_markers: parseJSONField(get("development_markers"), "development_markers"),
+        task_type_requirements: parseJSONField(get("task_type_requirements"), "task_type_requirements")
+      };
+      if (!q.question_id) { skipped++; continue; }
+      const existing = questionBank.findIndex(x => x.question_id === q.question_id);
+      if (existing >= 0) { questionBank[existing] = q; replaced++; }
+      else { questionBank.push(q); added++; }
+    }
+    localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+    renderQBank();
+    setStatus(status, `Imported: ${added} added, ${replaced} replaced${skipped ? ", " + skipped + " skipped" : ""}.`, "success");
+  } catch (err) {
+    setStatus(status, "Import failed: " + err.message, "error");
+  }
+  e.target.value = "";
+});
+
+document.getElementById("btn_export_qbank").addEventListener("click", () => {
+  if (questionBank.length === 0) return alert("No questions to export.");
+  const cols = ["question_id","cefr_level","task_type","task_prompt","min_words","max_words","task_requirements","development_markers","task_type_requirements"];
+  const rows = questionBank.map(q => cols.map(c => {
+    const v = q[c];
+    return Array.isArray(v) ? JSON.stringify(v) : (v ?? "");
+  }));
+  downloadCSV("question_bank.csv", [cols, ...rows]);
+});
+
+renderQBank();
+
+// ============= STEP 2: TEST SAMPLES =============
+function getSelectedQuestion(value) {
+  if (!value) return null;
+  if (value.startsWith("bank:")) {
+    return questionBank[+value.slice(5)] || null;
+  }
+  if (value.startsWith("config:")) {
+    const ref = value.slice(7);
+    const c = questionMarkersConfig[ref];
+    if (!c) return null;
+    const taskTypeKey = (c.task_type || "").toLowerCase();
+    const taskPrompt = c.task_prompt
+      || (c.topic ? `Write a ${c.task_type || "response"} on the topic: ${c.topic}.` : "");
+    return {
+      question_id: ref,
+      cefr_level: (c.cefr_level || "").toUpperCase(),
+      task_type: taskTypeKey,
+      task_prompt: taskPrompt,
+      min_words: c.min_words ?? c.word_count_min ?? 120,
+      max_words: c.max_words ?? c.word_count_max ?? 180,
+      task_requirements: c.task_requirements,
+      development_markers: c.development_markers,
+      task_type_requirements: Array.isArray(c.task_type_requirements)
+        ? c.task_type_requirements
+        : (TASK_TYPE_REQUIREMENTS[taskTypeKey] || [])
+    };
+  }
+  return null;
+}
+
+function refreshStep2() {
+  const sel = document.getElementById("sel_question");
+  const bankIds = new Set(questionBank.map(q => q.question_id));
+  const bankOpts = questionBank.map((q, i) =>
+    `<option value="bank:${i}">${escapeHtml(q.question_id)} (${escapeHtml(q.cefr_level)} · ${escapeHtml(q.task_type)})</option>`
+  );
+  const configOpts = Object.keys(questionMarkersConfig)
+    .filter(ref => !bankIds.has(ref))
+    .map(ref => {
+      const c = questionMarkersConfig[ref];
+      return `<option value="config:${escapeHtml(ref)}">${escapeHtml(ref)} (${escapeHtml(c.cefr_level || "?")} · ${escapeHtml(c.task_type || "?")})</option>`;
+    });
+  sel.innerHTML = '<option value="">— Select a question —</option>' + bankOpts.join("") + configOpts.join("");
+  sel.value = sel.dataset.last || "";
+  renderQuestionPreview();
+  renderSamples();
+}
+
+document.getElementById("sel_question").addEventListener("change", e => {
+  e.target.dataset.last = e.target.value;
+  renderQuestionPreview();
+});
+
+function renderQuestionPreview() {
+  const sel = document.getElementById("sel_question");
+  const wrap = document.getElementById("question_preview");
+  if (!sel.value) { wrap.style.display = "none"; return; }
+  const q = getSelectedQuestion(sel.value);
+  if (!q) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  wrap.innerHTML = `
+    <div style="margin-bottom: 6px;"><strong>Prompt:</strong> ${escapeHtml(q.task_prompt)}</div>
+    <div style="margin-bottom: 4px;"><strong>Word range:</strong> ${q.min_words}–${q.max_words}</div>
+    <div style="margin-bottom: 4px;"><strong>Task requirements:</strong> ${q.task_requirements.map(r => escapeHtml(r)).join(" · ")}</div>
+    <div><strong>Task type checks:</strong> ${q.task_type_requirements.map(r => escapeHtml(r)).join(" · ")}</div>
+  `;
+}
+
+function renderSamples() {
+  const wrap = document.getElementById("samples_list");
+  wrap.innerHTML = "";
+  samples.forEach((s, i) => {
+    const wc = wordCount(s.text);
+    const block = document.createElement("div");
+    block.className = "sample-block";
+    block.innerHTML = `
+      <div class="sample-head">
+        <span>Sample ${i+1} <span style="color: var(--muted); font-weight: 400; margin-left: 8px;">${wc} words</span></span>
+        <button type="button" class="danger" data-rm="${i}">Remove</button>
+      </div>
+      <textarea dir="rtl" class="rtl-content" data-idx="${i}" placeholder="الصق إجابة الطالب...">${escapeHtml(s.text)}</textarea>
+    `;
+    wrap.appendChild(block);
+  });
+  wrap.querySelectorAll("textarea").forEach(t => {
+    t.addEventListener("input", e => {
+      samples[+e.target.dataset.idx].text = e.target.value;
+      const head = e.target.parentElement.querySelector(".sample-head span");
+      head.innerHTML = `Sample ${+e.target.dataset.idx + 1} <span style="color: var(--muted); font-weight: 400; margin-left: 8px;">${wordCount(e.target.value)} words</span>`;
+    });
+  });
+  wrap.querySelectorAll("[data-rm]").forEach(b => {
+    b.addEventListener("click", e => {
+      samples.splice(+e.target.dataset.rm, 1);
+      if (samples.length === 0) samples.push({ text: "" });
+      renderSamples();
+    });
+  });
+}
+
+document.getElementById("btn_add_sample").addEventListener("click", () => {
+  if (samples.length >= 100) return alert("Maximum 100 samples.");
+  samples.push({ text: "" });
+  renderSamples();
+});
+
+document.getElementById("btn_import_samples").addEventListener("click", () => {
+  document.getElementById("file_import_samples").click();
+});
+document.getElementById("file_import_samples").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("samples_import_status");
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    const looksLikeBulk = rows.some(r => r.length >= 2 && (r[1] || "").trim().length > 0);
+    if (looksLikeBulk) {
+      const summary = processBulkCSVText(text, file.name);
+      setStatus(status, `Detected 2-column CSV (question_id + response) — switched to Bulk CSV scoring below. ${summary.matched}/${summary.total} matched.`, "success");
+      const bulkCard = document.getElementById("btn_run_bulk").closest(".card");
+      if (bulkCard) bulkCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      e.target.value = "";
+      return;
+    }
+    const cells = rows
+      .map(r => (r[0] || "").trim())
+      .filter(s => s.length > 0);
+    if (cells.length === 0) throw new Error("No non-empty rows found in column 1.");
+    let imported = cells;
+    let headerSkipped = false;
+    const first = cells[0].toLowerCase();
+    if (cells.length > 1 && first.length < 30 && /^(sample|samples|response|responses|text|student|answer)s?$/i.test(first)) {
+      imported = cells.slice(1);
+      headerSkipped = true;
+    }
+    const replace = samples.some(s => s.text.trim().length > 0)
+      ? confirm(`Replace existing ${samples.length} sample(s) with ${imported.length} from CSV? Cancel to append instead.`)
+      : true;
+    if (replace) {
+      samples = imported.map(t => ({ text: t }));
+    } else {
+      samples = samples.concat(imported.map(t => ({ text: t })));
+    }
+    if (samples.length === 0) samples.push({ text: "" });
+    renderSamples();
+    setStatus(status, `Imported ${imported.length} sample(s)${headerSkipped ? " (skipped header row)" : ""}.`, "success");
+  } catch (err) {
+    setStatus(status, "Import failed: " + err.message, "error");
+  }
+  e.target.value = "";
+});
+
+document.getElementById("btn_run").addEventListener("click", runScoring);
+
+// =========================================================
+// Bulk CSV scoring
+// =========================================================
+let bulkRows = [];
+
+function lookupQuestionById(id) {
+  if (!id) return null;
+  const trimmed = String(id).trim();
+  const fromConfig = questionMarkersConfig[trimmed];
+  if (fromConfig) return getSelectedQuestion("config:" + trimmed);
+  const bankIdx = questionBank.findIndex(q => q.question_id === trimmed);
+  if (bankIdx >= 0) return questionBank[bankIdx];
+  return null;
+}
+
+document.getElementById("btn_bulk_upload").addEventListener("click", () => {
+  document.getElementById("file_bulk_upload").click();
+});
+function processBulkCSVText(text, fileName) {
+  const summary = document.getElementById("bulk_summary");
+  const banner = document.getElementById("bulk_match_banner");
+  const preview = document.getElementById("bulk_preview");
+  const runBtn = document.getElementById("btn_run_bulk");
+  const rows = parseCSV(text).filter(r => r.length > 0 && ((r[0] || "").trim() + (r[1] || "").trim()));
+  if (rows.length === 0) throw new Error("CSV is empty.");
+  let dataRows = rows;
+  const first = rows[0].map(c => (c || "").trim().toLowerCase());
+  const looksLikeHeader = first[0] === "question_id" || first[1] === "response" || first[0] === "ref";
+  if (looksLikeHeader) dataRows = rows.slice(1);
+  bulkRows = dataRows.map((r, i) => ({
+    row: i + 1,
+    question_id: (r[0] || "").trim(),
+    response: r[1] || ""
+  }));
+  let matched = 0, unmatched = 0, empty = 0;
+  bulkRows.forEach(b => {
+    if (!b.response.trim()) empty++;
+    else if (lookupQuestionById(b.question_id)) matched++;
+    else unmatched++;
+  });
+  setStatus(summary, `Loaded ${bulkRows.length} row(s) from ${fileName}: ${matched} matched, ${unmatched} unmatched, ${empty} empty.`, "success");
+  if (matched === 0) {
+    banner.style.display = "block";
+    banner.innerHTML = `<div style="padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 6px; font-size: 13px;"><strong>0 / ${bulkRows.length}</strong> question_id values matched your markers config — check the question IDs in your CSV. Run will score 0 rows.</div>`;
+  } else if (unmatched > matched) {
+    banner.style.display = "block";
+    banner.innerHTML = `<div style="padding: 10px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 13px;"><strong>${matched} / ${bulkRows.length}</strong> question_id values matched. ${unmatched} will be marked as errors.</div>`;
+  } else {
+    banner.style.display = "none";
+  }
+  const previewRows = bulkRows.slice(0, 5).map(b => {
+    const found = lookupQuestionById(b.question_id);
+    const stat = !b.response.trim() ? '<span style="color:#dc2626;">empty</span>'
+               : found ? '<span style="color:#16a34a;">matched</span>'
+               : '<span style="color:#dc2626;">unmatched</span>';
+    return `<div style="padding: 4px 0; border-bottom: 1px solid var(--border);"><strong>#${b.row}</strong> ${escapeHtml(b.question_id)} — ${stat} — ${escapeHtml(b.response.slice(0, 80))}${b.response.length > 80 ? "…" : ""}</div>`;
+  }).join("");
+  preview.style.display = "block";
+  preview.innerHTML = `<div style="font-weight:600; margin-bottom:4px;">First ${Math.min(5, bulkRows.length)} of ${bulkRows.length} rows:</div>${previewRows}`;
+  runBtn.disabled = bulkRows.length === 0;
+  return { matched, unmatched, empty, total: bulkRows.length };
+}
+
+document.getElementById("file_bulk_upload").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const summary = document.getElementById("bulk_summary");
+  try {
+    const text = await file.text();
+    processBulkCSVText(text, file.name);
+  } catch (err) {
+    setStatus(summary, "Upload failed: " + err.message, "error");
+    bulkRows = [];
+    document.getElementById("btn_run_bulk").disabled = true;
+    document.getElementById("bulk_preview").style.display = "none";
+    document.getElementById("bulk_match_banner").style.display = "none";
+  }
+  e.target.value = "";
+});
+
+document.getElementById("btn_run_bulk").addEventListener("click", runBulkScoring);
+
+async function runBulkScoring() {
+  const status = document.getElementById("bulk_run_status");
+  if (bulkRows.length === 0) return setStatus(status, "Upload a CSV first.", "error");
+
+  const btn = document.getElementById("btn_run_bulk");
+  btn.disabled = true;
+  const CONCURRENCY = 2;
+  const newResults = new Array(bulkRows.length);
+  const failures = [];
+  let completed = 0;
+
+  const updateStatus = () => {
+    status.innerHTML = `<span class="spinner"></span> Scoring ${completed} / ${bulkRows.length} done${failures.length ? ` (${failures.length} failed)` : ""}...`;
+  };
+  updateStatus();
+
+  const errorPlaceholder = (row, msg, q) => ({
+    sample_num: row.row,
+    question_id: row.question_id || "(missing)",
+    cefr_level: q ? q.cefr_level : "—",
+    task_type: q ? q.task_type : "—",
+    response: row.response,
+    word_count: wordCount(row.response),
+    word_count_compliance: 0,
+    content_score: null,
+    task_type_score: null,
+    intelligibility_effect_score: null,
+    intelligibility_effect_reason: `ERROR: ${msg}`,
+    task_requirements_met: null,
+    task_achievement: null,
+    content_quality: null,
+    cefr_estimate: "—",
+    task_checks: [],
+    task_type_checks: [],
+    cq_scores: [],
+    error: msg
+  });
+
+  let next = 0;
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= bulkRows.length) return;
+      const row = bulkRows[i];
+      try {
+        if (!row.response || !row.response.trim()) {
+          newResults[i] = errorPlaceholder(row, "empty response", null);
+          failures.push({ row: row.row, message: "empty response" });
+        } else {
+          const q = lookupQuestionById(row.question_id);
+          if (!q) {
+            newResults[i] = errorPlaceholder(row, "question_id not in markers config", null);
+            failures.push({ row: row.row, message: "question_id not in markers config" });
+          } else {
+            const r = await scoreSample(q, row.response, row.row);
+            r.question_id = q.question_id;
+            r.cefr_level = q.cefr_level;
+            r.task_type = q.task_type;
+            newResults[i] = r;
+          }
+        }
+      } catch (err) {
+        console.error(`[runBulkScoring] row ${row.row} failed:`, err);
+        failures.push({ row: row.row, message: err.message });
+        newResults[i] = errorPlaceholder(row, err.message, lookupQuestionById(row.question_id));
+      }
+      completed++;
+      updateStatus();
+      await new Promise(r => setTimeout(r, 500));
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, bulkRows.length) }, () => worker());
+  await Promise.all(workers);
+
+  const run = {
+    question_id: `Bulk upload (${bulkRows.length} rows)`,
+    cefr_level: "—",
+    task_type: "bulk",
+    is_bulk: true,
+    samples: newResults,
+    timestamp: new Date().toISOString()
+  };
+  resultsStore = [run, ...resultsStore];
+  safeSetItem("aze_results_arabic", JSON.stringify(resultsStore));
+  const succeeded = bulkRows.length - failures.length;
+  if (failures.length === 0) {
+    setStatus(status, `Done. Scored all ${bulkRows.length} row(s).`, "success");
+  } else {
+    setStatus(status, `Done. ${succeeded} succeeded, ${failures.length} failed. See Results tab.`, "error");
+  }
+  btn.disabled = false;
+  document.querySelector('[data-tab="step3"]').click();
+}
+
+async function runScoring() {
+  const status = document.getElementById("run_status");
+  const sel = document.getElementById("sel_question");
+  if (!sel.value) return setStatus(status, "Select a question.", "error");
+  const q = getSelectedQuestion(sel.value);
+  if (!q) return setStatus(status, "Selected question could not be resolved.", "error");
+  const filled = samples.filter(s => s.text.trim().length > 0);
+  if (filled.length === 0) return setStatus(status, "Add at least one sample.", "error");
+
+  const btn = document.getElementById("btn_run");
+  btn.disabled = true;
+  const CONCURRENCY = 3;
+  const newResults = new Array(filled.length);
+  const failures = [];
+  let completed = 0;
+
+  const updateStatus = () => {
+    document.getElementById("run_status").innerHTML =
+      `<span class="spinner"></span> Scoring ${completed} / ${filled.length} done${failures.length ? ` (${failures.length} failed)` : ""}, running ${CONCURRENCY} in parallel...`;
+  };
+  updateStatus();
+
+  const errorPlaceholder = (i, msg) => ({
+    sample_num: i + 1,
+    response: filled[i].text,
+    word_count: wordCount(filled[i].text),
+    word_count_compliance: 0,
+    content_score: null,
+    task_type_score: null,
+    intelligibility_effect_score: null,
+    intelligibility_effect_reason: `ERROR: ${msg}`,
+    task_requirements_met: null,
+    task_achievement: null,
+    content_quality: null,
+    cefr_estimate: "—",
+    task_checks: [],
+    task_type_checks: [],
+    cq_scores: [],
+    error: msg
+  });
+
+  let next = 0;
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= filled.length) return;
+      try {
+        newResults[i] = await scoreSample(q, filled[i].text, i + 1);
+      } catch (err) {
+        console.error(`[runScoring] sample ${i+1} failed:`, err);
+        failures.push({ sample: i + 1, message: err.message });
+        newResults[i] = errorPlaceholder(i, err.message);
+      }
+      completed++;
+      updateStatus();
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, filled.length) }, () => worker());
+  await Promise.all(workers);
+
+  resultsStore = [{ question_id: q.question_id, cefr_level: q.cefr_level, task_type: q.task_type, samples: newResults, timestamp: new Date().toISOString() }, ...resultsStore];
+  safeSetItem("aze_results_arabic", JSON.stringify(resultsStore));
+  const succeeded = filled.length - failures.length;
+  if (failures.length === 0) {
+    setStatus(status, `Done. Scored all ${filled.length} sample(s).`, "success");
+  } else {
+    setStatus(status, `Done. ${succeeded} succeeded, ${failures.length} failed (samples ${failures.map(f => f.sample).sort((a,b) => a-b).join(", ")}). See Results tab and console for details.`, "error");
+  }
+  btn.disabled = false;
+  document.querySelector('[data-tab="step3"]').click();
+}
+
+async function scoreSample(qRaw, response, sampleNum) {
+  const q = applyMarkersOverride(qRaw);
+  const wc = wordCount(response);
+  const midpoint = (q.min_words + q.max_words) / 2;
+  const wordCompliance = Math.min(100, Math.round((wc / midpoint) * 100 * 100) / 100);
+
+  const augmentedTaskRequirements = [
+    ...q.task_requirements,
+    "Additional on-topic development — an extra on-topic point not covered by the listed task requirements (must itself be a complete sentence with a specific detail)"
+  ];
+
+  const taPrompt = `You are a writing assessment engine. Score the student response for task achievement. Return JSON only.
+
+<guard:missing_inputs>
+If <requirements> or <task_type_checks> is empty or absent:
+  → Return immediately: { "error": "missing_requirements", "task_achievement": 0 }
+Do not proceed.
+</guard:missing_inputs>
+
+<definition:pass_criteria>
+A requirement is PASS only when <response> contains a sentence that satisfies BOTH conditions simultaneously:
+
+Condition 1 — TOPIC NAMED
+The sentence explicitly names what the requirement asks about.
+
+Condition 2 — SPECIFIC DETAIL PRESENT
+The sentence includes at least one concrete specific: a name, place, time, number, reason, or example.
+
+If either condition is missing → FAIL.
+A sentence that mentions the topic but gives no specific detail → FAIL.
+</definition:pass_criteria>
+
+<definition:specificity>
+Concrete specific = a person's name, a place name, a time (clock or date), a number, a named object, a reason ("because …"), or a concrete example.
+
+These are NOT specific:
+- Vague quantifiers ("many", "a lot", "very")
+- Generic statements ("it is good", "it helps me")
+- Topic repetition without added detail
+</definition:specificity>
+
+<calibration:examples>
+The following examples are ground truth. Apply the same standard to all checks.
+
+PASS — "I wake up at 6:30 and have toast."
+  Reason: action (wake up) + time (6:30) + named food (toast).
+
+FAIL — "I do many things in the morning."
+  Reason: topic present, but no specific detail.
+
+PASS — "I like it because it helps me relax."
+  Reason: explicit reason provided ("because it helps me relax").
+
+FAIL — "I like it a lot."
+  Reason: sentiment only, no reason.
+
+PASS — "Last weekend we went to Lake Como."
+  Reason: named place (Lake Como) + time reference (last weekend).
+
+FAIL — "We went to a beautiful place."
+  Reason: no named place, no specific detail.
+</calibration:examples>
+
+<scoring_process>
+Apply to EVERY item in <requirements> AND every item in <task_type_checks>.
+
+For each item:
+1. Locate a sentence in <response> that addresses this item.
+2. Check Condition 1 (topic named) and Condition 2 (specific detail).
+3. Both met → PASS. Either missing → FAIL.
+4. Record the item label and result.
+
+Do not infer, paraphrase, or assume implied details. Score only what is explicitly stated.
+</scoring_process>
+
+<calculation>
+passes = count of PASS results across all requirements + task_type_checks
+total = number of requirements + number of task_type_checks
+task_achievement = clamp(round(passes / total × 100), 0, 100)
+</calculation>
+
+<output_format>
+Return exactly:
+{
+  "checks": [{ "requirement": "...", "result": "PASS" or "FAIL" }],
+  "task_achievement": NUMBER
+}
+
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<task>${q.task_prompt}</task>
+<requirements>${JSON.stringify(augmentedTaskRequirements)}</requirements>
+<task_type_checks>${JSON.stringify(q.task_type_requirements)}</task_type_checks>
+<task_cefr_level>${q.cefr_level}</task_cefr_level>
+<response>${response}</response>
+</inputs>`;
+
+  const cqMarkers = q.task_requirements.map((r, i) => {
+    const m = q.development_markers[i];
+    if (m && typeof m === "object") {
+      return { ...m, requirement: r };
+    }
+    return { requirement: r, score_3: m || "" };
+  });
+  cqMarkers.push({
+    requirement: "Additional on-topic development",
+    "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+    "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+    "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+  });
+  const cqPrompt = `You are a writing assessment engine. Score the student response for content quality. Return JSON only.
+
+<guard:missing_markers>
+If <markers> is empty or absent:
+  → Return immediately: { "content_quality": 0 }
+Do not proceed.
+</guard:missing_markers>
+
+<definition:explicit_only>
+A requirement is MET only when a sentence in <response> explicitly and unambiguously addresses it.
+
+The following do NOT count as evidence:
+- Inference or implied meaning
+- Topic-adjacent content
+- Hidden or indirect meaning
+- Content that "could mean" the requirement
+
+If you cannot quote a verbatim sentence from <response> that directly addresses the requirement, the requirement is NOT met.
+</definition:explicit_only>
+
+<scoring_process>
+Apply this process to EACH requirement from <markers>, in order.
+
+Step 1 — EXTRACT EVIDENCE
+Quote sentences from <response> that explicitly address THIS requirement. Record them verbatim in the evidence array.
+
+Constraints:
+- A sentence used as evidence for requirement N is consumed and unavailable for all subsequent requirements.
+- A sentence about a different requirement is not evidence for this one.
+- If no unconsumed sentence explicitly addresses this requirement → evidence = []
+
+Step 2 — ASSIGN SCORE
+- evidence = [] → score = 0, reason = "absent"
+- evidence is non-empty → compare ONLY the quoted sentence(s) against the rung descriptors in <markers>:
+    1 = mentioned   (matches rung-1 description)
+    2 = developed   (matches rung-2 description)
+    3 = extended    (matches rung-3 description)
+- If evidence falls between two rungs → assign the LOWER rung.
+
+Specificity rule:
+A reason or example is "concretely specific" only if it names a person, place, time, number, song, event, or similar concrete referent. Generic statements ("it is good", "many people") are NOT specific.
+</scoring_process>
+
+<rule:ignore_writing_quality>
+Grammar, spelling, vocabulary, register, and structure do not affect the content quality score. A grammatically broken but idea-rich response scores the same as a polished one with identical ideas.
+</rule:ignore_writing_quality>
+
+<rule:fourth_marker_guard>
+The 4th marker ("Additional on-topic development") credits only content that is SEMANTICALLY DISTINCT from ideas already credited under requirements 1-3. If the extra content restates or paraphrases any previously credited idea → score = 0 for requirement 4.
+</rule:fourth_marker_guard>
+
+<calculation>
+total_score = sum of all requirement scores  (range: 0 - n×3)
+max_score = number_of_requirements × 3
+content_quality = clamp(round(total_score / max_score × 100), 0, 100)
+</calculation>
+
+<output_format>
+Return exactly:
+{
+  "scores": [
+    { "requirement": "...", "evidence": ["..."], "score": 0-3, "reason": "one sentence" }
+  ],
+  "content_quality": INTEGER
+}
+
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<task>${q.task_prompt}</task>
+<markers>${JSON.stringify(cqMarkers, null, 2)}</markers>
+<task_cefr_level>${q.cefr_level}</task_cefr_level>
+<response>${response}</response>
+</inputs>`;
+
+  const iePrompt = `You are a writing assessment engine. Judge intelligibility and communicative effect. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. How clearly the reader can understand the text (intelligibility).
+2. How effectively the text communicates and leaves an impression (effect).
+
+OUT OF SCOPE — must not influence the score:
+- Whether the student answered the question
+- Whether task requirements were addressed
+- Whether ideas were developed
+- Grammar and spelling errors that do NOT obscure meaning
+</definition:scope>
+
+<scoring:bands>
+Score 0–100. Use the full range.
+
+  0–20    Unintelligible. Reader cannot extract meaning. Fragments only; no complete sentences.
+  21–40   Barely intelligible. A few isolated facts may be extracted. Errors severely impede meaning throughout.
+  41–60   Partially intelligible. General idea comes through but errors cause confusion at multiple points.
+  61–75   Mostly intelligible. Core message reaches the reader. Some communicative effect; no strong or memorable impression.
+  76–90   Clear and effective. Text leaves a real impression. Errors present but do not impede meaning.
+  91–100  Fluent and compelling. Engages, informs, and leaves a vivid impression. All three qualities must be present.
+</scoring:bands>
+
+<rule:hard_caps>
+These caps override band placement. Check before assigning final score.
+  → Single broken sentence (entire response): cap at 5.
+  → Dot-separated lists with no complete sentences: cap at 25.
+  → Errors that obscure meaning at multiple points: cap at 44.
+</rule:hard_caps>
+
+<rule:upper_thresholds>
+These are GATES — a score may not cross them unless the condition is fully met.
+  → Score ≥ 76 requires a real impression. Understandability alone is not enough.
+  → Score ≥ 91 requires ALL THREE: fluent AND engaging AND vivid. Meeting only one or two → score must stay ≤ 90.
+</rule:upper_thresholds>
+
+<rule:scale_usage>
+Use the full 0–100 range. If most scores fall in 60–75, recalibrate — that band is for responses that are merely clear but leave no impression.
+</rule:scale_usage>
+
+<output_format>
+Return exactly:
+{
+  "intelligibility_effect_score": NUMBER,
+  "reason": "one short sentence"
+}
+
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<response>${response}</response>
+</inputs>`;
+
+  console.log("[IE prompt sent]", iePrompt);
+
+  let taData, cqData, ieData;
+  try {
+    [taData, cqData, ieData] = await Promise.all([
+      callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
+      callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
+      callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 })
+    ]);
+  } catch (err) {
+    console.error("[scoreSample] API call threw:", err);
+    throw err;
+  }
+
+  console.log("[IE parsed object]", ieData);
+  console.log("[IE keys]", ieData ? Object.keys(ieData) : "(no ieData)");
+
+  // Lean TA returns a single combined { checks: [...], task_achievement: NUMBER }.
+  // Legacy split { task_checks, task_type_checks, content_score, task_type_score } is also accepted.
+  const taChecksLean = Array.isArray(taData?.checks) ? taData.checks : null;
+  const taChecks = taChecksLean
+    ? taChecksLean
+    : [...(Array.isArray(taData?.task_checks) ? taData.task_checks : []),
+       ...(Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [])];
+  const taScore = (typeof taData?.task_achievement === "number")
+    ? taData.task_achievement
+    : (((taData?.content_score ?? 0) + (taData?.task_type_score ?? 0)) / 2);
+  // Back-compat shadow fields so old downstream readers/CSV stay populated.
+  const contentScore = (typeof taData?.content_score === "number") ? taData.content_score : taScore;
+  const taskTypeScore = (typeof taData?.task_type_score === "number") ? taData.task_type_score : null;
+
+  const ieScoreRaw = ieData?.intelligibility_effect_score ?? ieData?.score ?? ieData?.effect_score ?? null;
+  const ieScore = (typeof ieScoreRaw === "number") ? ieScoreRaw
+                : (typeof ieScoreRaw === "string" && !isNaN(+ieScoreRaw)) ? +ieScoreRaw
+                : null;
+  const ieReason = ieData?.reason ?? ieData?.explanation ?? "";
+  console.log("[IE extracted]", { ieScoreRaw, ieScore, ieReason });
+  const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
+  const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
+  const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
+  const cqFinal = cqData.content_quality ?? 0;
+
+  const cqEvidenceDuplicates = (() => {
+    const scores = Array.isArray(cqData.scores) ? cqData.scores : [];
+    const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const evMap = new Map();
+    scores.forEach(s => {
+      const evList = Array.isArray(s.evidence)
+        ? s.evidence
+        : (typeof s.evidence === "string" && s.evidence.trim() ? [s.evidence] : []);
+      evList.forEach(ev => {
+        if (typeof ev !== "string" || !ev.trim()) return;
+        const key = norm(ev);
+        if (key.length < 8) return;
+        if (!evMap.has(key)) evMap.set(key, []);
+        evMap.get(key).push({ requirement: s.requirement || "?", quote: ev });
+      });
+    });
+    const dupes = [];
+    for (const [key, hits] of evMap.entries()) {
+      if (hits.length > 1) dupes.push({ normalized: key, hits });
+    }
+    if (dupes.length) console.warn("[CQ] duplicate evidence detected:", dupes);
+    return dupes;
+  })();
+
+  const cefrEstimate = estimateCEFR((taFinal + cqFinal) / 2);
+
+  return {
+    sample_num: sampleNum,
+    response,
+    word_count: wc,
+    word_count_compliance: wordCompliance,
+    content_score: contentScore,
+    task_type_score: taskTypeScore,
+    intelligibility_effect_score: ieScore,
+    intelligibility_effect_score_raw: ieScoreRaw,
+    intelligibility_effect_raw_response: ieData,
+    intelligibility_effect_reason: ieReason,
+    task_requirements_met: Math.round(taRequirementsMet),
+    task_achievement: taFinal,
+    content_quality: cqFinal,
+    cefr_estimate: cefrEstimate,
+    task_checks: taChecks,
+    task_type_checks: Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [],
+    cq_scores: cqData.scores || [],
+    cq_evidence_duplicates: cqEvidenceDuplicates
+  };
+}
+
+function estimateCEFR(score) {
+  for (const [lvl, max] of CEFR_ESTIMATE_THRESHOLDS) {
+    if (score <= max) return lvl;
+  }
+  return "C2";
+}
+
+/** Normalize Chat Completions message.content (string or multimodal parts). */
+function assistantContentFromCompletion(data) {
+  const msg = data?.choices?.[0]?.message;
+  if (!msg) return "";
+  const c = msg.content;
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) {
+    return c.map(part => {
+      if (typeof part === "string") return part;
+      if (part?.text && typeof part.text === "string") return part.text;
+      return "";
+    }).join("");
+  }
+  return "";
+}
+
+async function callOpenAI(prompt, _unused, label = "?", options = {}) {
+  const model = document.getElementById("modelSelect").value;
+  const max_tokens = options.max_tokens ?? 2000;
+  const system = options.system ?? "You are a strict English-writing scorer. Always return valid JSON only — no prose, no markdown fences.";
+  console.log(`[${label}] calling /api/openai`, { model, promptLength: prompt.length, max_tokens });
+  const maxAttempts = 4;
+  let res, lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      res = await fetch("/api/openai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens,
+          temperature: 0,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: prompt }
+          ]
+        })
+      });
+      if (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) {
+        const errText = await res.text();
+        console.warn(`[${label}] HTTP ${res.status} (attempt ${attempt}/${maxAttempts}):`, errText.slice(0, 200));
+        if (attempt < maxAttempts) {
+          const backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+          await new Promise(r => setTimeout(r, backoff));
+          continue;
+        }
+        throw new Error(`API ${res.status}: ${errText.slice(0, 200)}`);
+      }
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[${label}] fetch attempt ${attempt}/${maxAttempts} failed:`, err.message);
+      if (attempt < maxAttempts) {
+        const backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+        await new Promise(r => setTimeout(r, backoff));
+        continue;
+      }
+    }
+  }
+  if (lastErr) {
+    console.error(`[${label}] all ${maxAttempts} attempts failed:`, lastErr);
+    throw lastErr;
+  }
+  if (!res.ok) {
+    const err = await res.text();
+    console.error(`[${label}] HTTP ${res.status}:`, err);
+    throw new Error(`API ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  console.log(`[${label}] raw API response:`, data);
+  const text = assistantContentFromCompletion(data);
+  console.log(`[${label}] message.content text:`, text);
+  if (!text || !String(text).trim()) {
+    const ch = data.choices?.[0];
+    console.error(`[${label}] empty assistant content`, {
+      finish_reason: ch?.finish_reason,
+      usage: data.usage
+    });
+    throw new Error(
+      "Empty model response (likely output token budget exhausted after reasoning). Try again or use gpt-4o."
+    );
+  }
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) {
+    console.error(`[${label}] no JSON match in:`, text);
+    throw new Error("No JSON in response: " + text.slice(0, 100));
+  }
+  try {
+    const parsed = JSON.parse(match[0]);
+    console.log(`[${label}] parsed JSON:`, parsed);
+    return parsed;
+  } catch (e) {
+    console.error(`[${label}] JSON.parse failed on:`, match[0]);
+    throw new Error("Invalid JSON: " + match[0].slice(0, 100));
+  }
+}
+
+renderSamples();
+
+// ============= STEP 3: RESULTS =============
+function renderResults() {
+  const wrap = document.getElementById("results_table_wrap");
+  try {
+    if (!Array.isArray(resultsStore) || resultsStore.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No results yet. Run scoring on Step 2.</div>';
+      return;
+    }
+    let html = "";
+    resultsStore.forEach((run, runIdx) => {
+      const samples = Array.isArray(run.samples) ? run.samples : [];
+      const isBulk = run.is_bulk === true;
+      html += `<div style="margin-bottom: 20px;">
+        <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">
+          <strong style="color: var(--text);">${escapeHtml(run.question_id || "")}</strong>
+          ${isBulk ? "" : "· " + escapeHtml(run.cefr_level || "") + " · " + escapeHtml(run.task_type || "")}
+          · ${run.timestamp ? new Date(run.timestamp).toLocaleString() : ""}
+        </div>
+        <table>
+          <thead><tr>
+            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th>WC Compliance</th><th>Intelligibility &amp; Effect</th><th>Task Achievement</th><th>Content Quality</th><th></th>
+          </tr></thead>
+          <tbody>`;
+      samples.forEach((s, sIdx) => {
+        const id = `r-${runIdx}-${sIdx}`;
+        const taskChecks = Array.isArray(s.task_checks) ? s.task_checks : [];
+        const taskTypeChecks = Array.isArray(s.task_type_checks) ? s.task_type_checks : [];
+        const cqScores = Array.isArray(s.cq_scores) ? s.cq_scores : [];
+        const wcc = typeof s.word_count_compliance === "number" ? s.word_count_compliance.toFixed(0) : "—";
+        let ieScoreVal = s.intelligibility_effect_score ?? s.effect_score;
+        if (ieScoreVal === null || ieScoreVal === undefined) {
+          const rawVal = s.intelligibility_effect_score_raw;
+          const rawObj = s.intelligibility_effect_raw_response;
+          if (rawVal !== null && rawVal !== undefined) {
+            ieScoreVal = `raw: ${JSON.stringify(rawVal)}`;
+          } else if (rawObj) {
+            ieScoreVal = `obj: ${JSON.stringify(rawObj).slice(0, 60)}`;
+          } else {
+            ieScoreVal = "—";
+          }
+        }
+        const ieReasonVal = s.intelligibility_effect_reason ?? s.effect_reason ?? "—";
+        const colspan = isBulk ? 8 : 7;
+        html += `
+          <tr class="expandable" data-toggle="${id}">
+            <td><strong>#${s.sample_num ?? ""}</strong></td>
+            ${isBulk ? `<td style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
+            <td>${s.word_count ?? "—"}</td>
+            <td>${wcc}</td>
+            <td><strong>${ieScoreVal}</strong></td>
+            <td><strong>${s.task_achievement ?? "—"}</strong></td>
+            <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠ dup</span>` : ""}</td>
+            <td style="text-align: right; color: var(--muted);">▼</td>
+          </tr>
+          <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
+            <div class="detail-section">
+              <h4>Task Achievement Breakdown — TA final: ${s.task_achievement ?? "—"} (TA pass-rate: ${s.content_score ?? "—"} · intel&amp;effect: ${ieScoreVal})</h4>
+              <div style="margin-bottom: 8px;"><strong style="font-size: 12px; color: var(--muted);">Task requirements</strong>
+                <ul>${taskChecks.map(c => `<li><span class="pill ${c.result === "PASS" ? "pass" : "fail"}">${escapeHtml(c.result || "")}</span> ${escapeHtml(c.requirement || "")}</li>`).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
+              </div>
+              <div><strong style="font-size: 12px; color: var(--muted);">Task type requirements</strong>
+                <ul>${taskTypeChecks.map(c => `<li><span class="pill ${c.result === "PASS" ? "pass" : "fail"}">${escapeHtml(c.result || "")}</span> ${escapeHtml(c.requirement || "")}</li>`).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
+              </div>
+            </div>
+            <div class="detail-section">
+              <h4>Intelligibility &amp; Effect — score: ${ieScoreVal}</h4>
+              <div style="font-size: 13px; color: var(--muted);">${escapeHtml(ieReasonVal === "—" ? "" : ieReasonVal)}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Content Quality Scores</h4>
+              ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
+                <div style="padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 12px; margin-bottom: 8px;">
+                  ⚠ Evidence reused across requirements — score may be inflated. Duplicate quote(s):
+                  <ul style="margin: 4px 0 0; padding-left: 20px;">
+                    ${s.cq_evidence_duplicates.map(d => `<li>"${escapeHtml(d.hits[0].quote.slice(0, 120))}${d.hits[0].quote.length > 120 ? "…" : ""}" — used for: ${d.hits.map(h => escapeHtml(h.requirement)).join(", ")}</li>`).join("")}
+                  </ul>
+                </div>` : ""}
+              <ul>${cqScores.map(c => {
+                const evList = Array.isArray(c.evidence) ? c.evidence : (c.evidence ? [c.evidence] : []);
+                const evHtml = evList.length
+                  ? evList.map(ev => {
+                      const s = String(ev || "");
+                      return `<div style="margin-left: 24px; margin-top: 2px; font-size: 12px; color: var(--muted); font-style: italic;">evidence: "${escapeHtml(s.slice(0, 200))}${s.length > 200 ? "…" : ""}"</div>`;
+                    }).join("")
+                  : "";
+                return `<li><span class="pill score-${c.score}">${c.score ?? "—"}/3</span> <strong>${escapeHtml(c.requirement || "")}</strong> — <span style="color: var(--muted);">${escapeHtml(c.reason || "")}</span>${evHtml}</li>`;
+              }).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
+            </div>
+            <details><summary>Response text</summary><pre style="white-space: pre-wrap; font-family: inherit; font-size: 13px; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid var(--border); margin-top: 6px;">${escapeHtml(s.response || "")}</pre></details>
+          </td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll("[data-toggle]").forEach(tr => {
+      tr.addEventListener("click", () => {
+        const target = document.getElementById(tr.dataset.toggle);
+        target.style.display = target.style.display === "none" ? "table-row" : "none";
+      });
+    });
+  } catch (err) {
+    console.error("renderResults failed:", err);
+    wrap.innerHTML = `<div class="empty-state" style="color: var(--danger);">Failed to render results: ${escapeHtml(err.message)}. Open the console for details, or click Clear Results to reset.</div>`;
+  }
+}
+
+document.getElementById("btn_clear_results").addEventListener("click", () => {
+  if (!confirm("Clear all results?")) return;
+  resultsStore = [];
+  localStorage.setItem("aze_results_arabic", "[]");
+  renderResults();
+});
+
+document.getElementById("btn_export_results").addEventListener("click", () => {
+  if (resultsStore.length === 0) return alert("No results to export.");
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const rows = [];
+  resultsStore.forEach(run => {
+    const isBulk = run.is_bulk === true;
+    run.samples.forEach(s => {
+      const ieScoreVal = s.intelligibility_effect_score ?? s.effect_score ?? "";
+      const ieReasonVal = s.intelligibility_effect_reason ?? s.effect_reason ?? "";
+      const sampleQId = isBulk ? (s.question_id || "") : run.question_id;
+      const sampleCefr = isBulk ? (s.cefr_level || "") : run.cefr_level;
+      const sampleTaskType = isBulk ? (s.task_type || "") : run.task_type;
+      rows.push([
+        run.timestamp, run.question_id, sampleQId, sampleCefr, sampleTaskType,
+        s.sample_num, s.word_count, s.word_count_compliance,
+        s.content_score ?? "", s.task_type_score ?? "", ieScoreVal, ieReasonVal,
+        s.task_requirements_met, s.task_achievement, s.content_quality,
+        JSON.stringify(s.task_checks || []), JSON.stringify(s.task_type_checks || []),
+        JSON.stringify(s.cq_scores), s.error || "", s.response
+      ]);
+    });
+  });
+  downloadCSV("results.csv", [cols, ...rows]);
+});
+
+// ============= UTILS =============
+function wordCount(s) {
+  return (s.trim().match(/\S+/g) || []).length;
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function setStatus(el, msg, kind) {
+  el.className = "status " + (kind || "");
+  el.innerHTML = msg;
+}
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+  let i = 0;
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cell += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      cell += ch; i++; continue;
+    }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === ",") { row.push(cell); cell = ""; i++; continue; }
+    if (ch === "\r") { i++; continue; }
+    if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; i++; continue; }
+    cell += ch; i++;
+  }
+  if (cell.length > 0 || row.length > 0) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
