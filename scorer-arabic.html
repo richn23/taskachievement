@@ -2457,8 +2457,6 @@ async function runBulkScoring() {
     intelligibility_effect_reason: `ERROR: ${msg}`,
     msa_consistency_score: null,
     msa_consistency_reason: `ERROR: ${msg}`,
-    register_appropriacy_score: null,
-    register_appropriacy_reason: `ERROR: ${msg}`,
     dialect_severity: null,
     dialect_score: null,
     dialect_markers: [],
@@ -2571,8 +2569,6 @@ async function runScoring() {
     intelligibility_effect_reason: `ERROR: ${msg}`,
     msa_consistency_score: null,
     msa_consistency_reason: `ERROR: ${msg}`,
-    register_appropriacy_score: null,
-    register_appropriacy_reason: `ERROR: ${msg}`,
     dialect_severity: null,
     dialect_score: null,
     dialect_markers: [],
@@ -2936,66 +2932,7 @@ No extra keys. No explanation. No markdown fences.
 <response>${response}</response>
 </inputs>`;
 
-  // ---- Register Appropriacy prompt (Style & Register) ----
-  const REGISTER_BY_TASK = {
-    essay: "formal", report: "formal", proposal: "formal",
-    article: "semi-formal", letter: "semi-formal", email: "semi-formal",
-    paragraph: "neutral", summary: "neutral",
-    note: "informal"
-  };
-  const taskTypeForReg = (qRaw?.task_type || "").toLowerCase();
-  const expectedRegister = REGISTER_BY_TASK[taskTypeForReg] || "neutral";
-
-  const registerPrompt = `You are a structured scoring engine for an Arabic writing assessment.
-Score register appropriacy only. Return JSON only.
-
-<definition:scope>
-Score ONLY:
-1. Whether the tone and level of formality are appropriate for the task type.
-2. Whether the writing demonstrates awareness of the intended audience.
-3. Whether register remains consistent throughout the response.
-
-OUT OF SCOPE — must not influence the score:
-- MSA vs dialect — whether the language is standard or colloquial (scored separately)
-- Grammar correctness (scored separately)
-- Spelling and orthographic errors (scored separately)
-- Whether the ideas are good or relevant
-- Sentence complexity or vocabulary range
-</definition:scope>
-
-<scoring:bands>
-0–20   Register entirely inappropriate for the task. No audience awareness. Tone mismatched throughout.
-21–35  Register mostly inappropriate. Occasional appropriate phrasing but overall tone does not suit the task.
-36–50  Register partially appropriate. Mix of suitable and unsuitable tone. Limited audience awareness.
-51–65  Register mostly appropriate with some inconsistency. Tone generally suits the task but shifts occur.
-66–80  Register generally appropriate throughout. Tone matches the task. Minor inconsistencies do not disrupt overall appropriacy.
-81–90  Register consistently appropriate. Clear awareness of audience and purpose. Tone controlled and well-suited.
-91–100 Register perfectly calibrated to the task and audience. Tone precise, consistent, purposeful throughout.
-</scoring:bands>
-
-<rule:hard_caps>
-\u2192 Response under 30 words: return { "score": null, "reason": "response too short to score" }
-\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
-\u2192 Register entirely inverted for the task: cap at 30.
-\u2192 Register shifts in every paragraph with no consistency: cap at 45.
-</rule:hard_caps>
-
-<output_format>
-Return exactly:
-{
-  "register_appropriacy_score": NUMBER,
-  "reason": "one short sentence"
-}
-No extra keys. No explanation. No markdown fences.
-</output_format>
-
-<inputs>
-<task_type>${taskTypeForReg || "(unspecified)"}</task_type>
-<expected_register>${expectedRegister}</expected_register>
-<response>${response}</response>
-</inputs>`;
-
-  // ---- Dialect Influence Detection (simplified LLM-only for V1) ----
+  // ---- Dialect Influence Detection  // ---- Dialect Influence Detection (simplified LLM-only for V1) ----
   const dialectPrompt = `You are evaluating dialect influence in an Arabic writing assessment response.
 Assess overall MSA consistency and classify dialect influence severity.
 Do NOT evaluate content quality, grammar, or ideas.
@@ -3151,14 +3088,13 @@ No extra keys. No markdown fences.
 
   console.log("[IE prompt sent]", iePrompt);
 
-  let taData, cqData, ieData, msaData, regData, dialectData, vocabData, morphData, sentenceData;
+  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData;
   try {
-    [taData, cqData, ieData, msaData, regData, dialectData, vocabData, morphData, sentenceData] = await Promise.all([
+    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData] = await Promise.all([
       callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
       callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
       callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
       callOpenAI(msaPrompt, null, "MSA", { max_tokens: 1024 }),
-      callOpenAI(registerPrompt, null, "REG", { max_tokens: 1024 }),
       callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 }),
       callOpenAI(vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
       callOpenAI(morphPrompt, null, "MORPH", { max_tokens: 1024 }),
@@ -3201,14 +3137,6 @@ No extra keys. No markdown fences.
   const msaReason = msaData?.reason ?? msaData?.explanation ?? "";
   console.log("[MSA extracted]", { msaScoreRaw, msaScore, msaReason });
 
-  // ---- Register Appropriacy extraction ----
-  const regScoreRaw = regData?.register_appropriacy_score ?? regData?.score ?? null;
-  const regScore = (typeof regScoreRaw === "number") ? regScoreRaw
-                 : (typeof regScoreRaw === "string" && !isNaN(+regScoreRaw)) ? +regScoreRaw
-                 : null;
-  const regReason = regData?.reason ?? regData?.explanation ?? "";
-  console.log("[Register extracted]", { regScoreRaw, regScore, regReason });
-
   // ---- Dialect Influence Detection — convert severity to 0-100 ----
   const SEVERITY_TO_SCORE = { none: 100, isolated: 90, moderate: 70, pervasive: 40 };
   const dialectSeverity = (dialectData?.severity || "").toLowerCase();
@@ -3217,10 +3145,10 @@ No extra keys. No markdown fences.
   const dialectReason = dialectData?.reason ?? "";
   console.log("[Dialect extracted]", { dialectSeverity, dialectScore, dialectMarkers, dialectReason });
 
-  // ---- Combined Style & Register score (50% MSA / 25% Register / 25% Dialect) ----
+  // ---- Combined Style & Register score (70% MSA / 30% Dialect) ----
   let styleRegisterScore = null;
-  if (typeof msaScore === "number" && typeof regScore === "number" && typeof dialectScore === "number") {
-    styleRegisterScore = Math.round(msaScore * 0.50 + regScore * 0.25 + dialectScore * 0.25);
+  if (typeof msaScore === "number" && typeof dialectScore === "number") {
+    styleRegisterScore = Math.round(msaScore * 0.70 + dialectScore * 0.30);
   }
 
   // ---- Language Range extraction ----
@@ -3289,8 +3217,6 @@ No extra keys. No markdown fences.
     intelligibility_effect_reason: ieReason,
     msa_consistency_score: msaScore,
     msa_consistency_reason: msaReason,
-    register_appropriacy_score: regScore,
-    register_appropriacy_reason: regReason,
     dialect_severity: dialectSeverity || null,
     dialect_score: dialectScore,
     dialect_markers: dialectMarkers,
@@ -3497,17 +3423,13 @@ function renderResults() {
               <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.msa_consistency_reason || "")}</div>
             </div>
             <div class="detail-section">
-              <h4>Register Appropriacy — score: ${s.register_appropriacy_score ?? "—"}</h4>
-              <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.register_appropriacy_reason || "")}</div>
-            </div>
-            <div class="detail-section">
               <h4>Dialect Influence — severity: ${s.dialect_severity ?? "—"} · score: ${s.dialect_score ?? "—"}</h4>
               <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.dialect_reason || "")}</div>
               ${Array.isArray(s.dialect_markers) && s.dialect_markers.length ? `<div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Markers: ${s.dialect_markers.map(m => escapeHtml(m)).join(", ")}</div>` : ""}
             </div>
             <div class="detail-section" style="background: #f5f3ff; padding: 10px 12px; border-radius: 6px;">
               <h4 style="margin: 0;">Style &amp; Register (combined) — score: ${s.style_register_score ?? "—"}</h4>
-              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 50% MSA + 25% Register + 25% Dialect</div>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 70% MSA + 30% Dialect</div>
             </div>
             <div class="detail-section">
               <h4>Vocabulary Diversity — score: ${s.vocabulary_diversity_score ?? "—"}</h4>
@@ -3572,7 +3494,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","register_appropriacy_score","register_appropriacy_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
