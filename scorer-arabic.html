@@ -713,8 +713,13 @@
           </div>
 
           <div class="field" style="margin-top: 16px;">
-            <label class="required">Question</label>
+            <label class="required">Question (Arabic)</label>
             <textarea id="q_prompt" dir="rtl" class="rtl-content" placeholder="اكتب نص المهمة التي سيراها الطالب..."></textarea>
+          </div>
+
+          <div class="field" style="margin-top: 12px;">
+            <label style="color: var(--muted);">Question — English translation (optional, for reviewer reference only)</label>
+            <textarea id="q_prompt_en" placeholder="English translation of the question prompt..."></textarea>
           </div>
 
           <div class="field" style="margin-top: 16px;">
@@ -1187,8 +1192,12 @@ function renderRequirements(reqs) {
         <button type="button" class="danger" data-action="del" data-idx="${idx}">Remove</button>
       </div>
       <div class="field">
-        <label>Requirement</label>
+        <label>Requirement (Arabic)</label>
         <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: وصف ما فعلوه أمس" data-field="req" data-idx="${idx}" value="${escapeHtml(r.req || "")}" />
+      </div>
+      <div class="field">
+        <label style="color: var(--muted);">Requirement — English translation (optional)</label>
+        <input type="text" placeholder="English translation..." data-field="req_en" data-idx="${idx}" value="${escapeHtml(r.req_en || "")}" />
       </div>
       <div class="field">
         <label>Score 0 — absent or completely off-topic</label>
@@ -1955,6 +1964,7 @@ document.getElementById("btn_save_q").addEventListener("click", () => {
     cefr_level: document.getElementById("q_cefr").value,
     task_type: document.getElementById("q_task_type").value,
     task_prompt: document.getElementById("q_prompt").value.trim(),
+    task_prompt_translation: (document.getElementById("q_prompt_en")?.value || "").trim(),
     min_words: +document.getElementById("q_min").value,
     max_words: +document.getElementById("q_max").value,
     task_title: document.getElementById("q_title").value.trim(),
@@ -1995,6 +2005,7 @@ document.getElementById("btn_save_q").addEventListener("click", () => {
 document.getElementById("btn_clear_q").addEventListener("click", () => {
   document.getElementById("q_id").value = "";
   document.getElementById("q_prompt").value = "";
+  if (document.getElementById("q_prompt_en")) document.getElementById("q_prompt_en").value = "";
   document.getElementById("q_min").value = 120;
   document.getElementById("q_max").value = 180;
   ["q_title","q_cefr_desc","q_topic","q_skill_focus","q_domain","q_learning_obj","q_subtype"].forEach(id => {
@@ -2076,6 +2087,7 @@ function loadQuestion(source, key) {
   document.getElementById("q_cefr").value = q.cefr_level;
   document.getElementById("q_task_type").value = q.task_type;
   document.getElementById("q_prompt").value = q.task_prompt;
+  if (document.getElementById("q_prompt_en")) document.getElementById("q_prompt_en").value = q.task_prompt_translation || "";
   document.getElementById("q_min").value = q.min_words;
   document.getElementById("q_max").value = q.max_words;
   document.getElementById("q_title").value = q.task_title || "";
