@@ -2455,6 +2455,15 @@ async function runBulkScoring() {
     task_type_score: null,
     intelligibility_effect_score: null,
     intelligibility_effect_reason: `ERROR: ${msg}`,
+    msa_consistency_score: null,
+    msa_consistency_reason: `ERROR: ${msg}`,
+    register_appropriacy_score: null,
+    register_appropriacy_reason: `ERROR: ${msg}`,
+    dialect_severity: null,
+    dialect_score: null,
+    dialect_markers: [],
+    dialect_reason: `ERROR: ${msg}`,
+    style_register_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2553,6 +2562,15 @@ async function runScoring() {
     task_type_score: null,
     intelligibility_effect_score: null,
     intelligibility_effect_reason: `ERROR: ${msg}`,
+    msa_consistency_score: null,
+    msa_consistency_reason: `ERROR: ${msg}`,
+    register_appropriacy_score: null,
+    register_appropriacy_reason: `ERROR: ${msg}`,
+    dialect_severity: null,
+    dialect_score: null,
+    dialect_markers: [],
+    dialect_reason: `ERROR: ${msg}`,
+    style_register_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2839,14 +2857,173 @@ No extra keys. No explanation. No markdown fences.
 <response>${response}</response>
 </inputs>`;
 
+  // ---- MSA Consistency prompt (Arabic-specific, Style & Register) ----
+  const msaPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score MSA consistency only. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. How consistently the response maintains Modern Standard Arabic (MSA) register throughout.
+2. Whether language choices — vocabulary, phrasing, and sentence construction — are appropriate to formal written Arabic.
+
+OUT OF SCOPE — must not influence the score:
+- Grammar correctness (scored separately)
+- Spelling and orthographic errors (scored separately)
+- Dialect lexical markers (detected separately by Dialect Influence Detection)
+- Whether the ideas are good or relevant
+- Sentence complexity or morphological variety
+</definition:scope>
+
+<definition:msa_consistency>
+MSA-consistent when:
+- Vocabulary reflects formal written Arabic, not colloquial speech
+- Sentence constructions follow written Arabic conventions, not spoken patterns
+- Register remains stable — no sudden shifts to casual or informal phrasing
+- Overall text reads as written Arabic, not transcribed speech
+
+NOT MSA-consistent when:
+- Colloquial phrasing or sentence patterns appear (even without identified dialect markers)
+- Register shifts between formal and informal within the text
+- Writing reads as spoken Arabic transcribed to text rather than composed written Arabic
+</definition:msa_consistency>
+
+<scoring:bands>
+0–20   No MSA consistency. Response reads as spoken dialect or transcribed speech throughout.
+21–35  Very limited MSA consistency. Mostly colloquial register with occasional formal vocabulary.
+36–50  Partial consistency. Mixture of MSA and colloquial. Frequent register shifts.
+51–65  Mostly consistent but with noticeable informal or colloquial passages. Register not fully controlled.
+66–80  Generally consistent MSA. Occasional register slip but overall formal written register maintained.
+81–90  Strong MSA consistency. Register stable and appropriate. Minor informal phrasings do not disrupt overall formality.
+91–100 Full MSA consistency. Response reads as carefully composed written Arabic throughout. Register precise and unwavering.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Response under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 Response entirely in English: return { "score": null, "reason": "response not in Arabic" }
+\u2192 Response entirely in dialect with no MSA features: cap at 20.
+\u2192 Response alternates line by line between MSA and colloquial: cap at 50.
+</rule:hard_caps>
+
+<rule:scale_usage>
+Use the full 0\u2013100 range. A response mostly in MSA with one or two colloquial phrases should score 66\u201380, not below 50.
+</rule:scale_usage>
+
+<output_format>
+Return exactly:
+{
+  "msa_consistency_score": NUMBER,
+  "reason": "one short sentence"
+}
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<response>${response}</response>
+</inputs>`;
+
+  // ---- Register Appropriacy prompt (Style & Register) ----
+  const REGISTER_BY_TASK = {
+    essay: "formal", report: "formal", proposal: "formal",
+    article: "semi-formal", letter: "semi-formal", email: "semi-formal",
+    paragraph: "neutral", summary: "neutral",
+    note: "informal"
+  };
+  const taskTypeForReg = (qRaw?.task_type || "").toLowerCase();
+  const expectedRegister = REGISTER_BY_TASK[taskTypeForReg] || "neutral";
+
+  const registerPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score register appropriacy only. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. Whether the tone and level of formality are appropriate for the task type.
+2. Whether the writing demonstrates awareness of the intended audience.
+3. Whether register remains consistent throughout the response.
+
+OUT OF SCOPE — must not influence the score:
+- MSA vs dialect — whether the language is standard or colloquial (scored separately)
+- Grammar correctness (scored separately)
+- Spelling and orthographic errors (scored separately)
+- Whether the ideas are good or relevant
+- Sentence complexity or vocabulary range
+</definition:scope>
+
+<scoring:bands>
+0–20   Register entirely inappropriate for the task. No audience awareness. Tone mismatched throughout.
+21–35  Register mostly inappropriate. Occasional appropriate phrasing but overall tone does not suit the task.
+36–50  Register partially appropriate. Mix of suitable and unsuitable tone. Limited audience awareness.
+51–65  Register mostly appropriate with some inconsistency. Tone generally suits the task but shifts occur.
+66–80  Register generally appropriate throughout. Tone matches the task. Minor inconsistencies do not disrupt overall appropriacy.
+81–90  Register consistently appropriate. Clear awareness of audience and purpose. Tone controlled and well-suited.
+91–100 Register perfectly calibrated to the task and audience. Tone precise, consistent, purposeful throughout.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Response under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 Register entirely inverted for the task: cap at 30.
+\u2192 Register shifts in every paragraph with no consistency: cap at 45.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "register_appropriacy_score": NUMBER,
+  "reason": "one short sentence"
+}
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<task_type>${taskTypeForReg || "(unspecified)"}</task_type>
+<expected_register>${expectedRegister}</expected_register>
+<response>${response}</response>
+</inputs>`;
+
+  // ---- Dialect Influence Detection (simplified LLM-only for V1) ----
+  const dialectPrompt = `You are evaluating dialect influence in an Arabic writing assessment response.
+Assess overall MSA consistency and classify dialect influence severity.
+Do NOT evaluate content quality, grammar, or ideas.
+
+Look for non-MSA features common in dialects:
+- Dialect question words: شو، إيش، ليش، وين، فين، إزاي
+- Dialect verb prefixes: ب- (e.g. بكتب، بيكتب)
+- Dialect pronouns: إنتو، إحنا، عندكوا، ليكو
+- Dialect particles/fillers: يلا، هلق، دلوقتي
+- Spoken-only constructions that don't appear in MSA writing
+
+Severity classification:
+- "none": no dialect markers detected, fully MSA
+- "isolated": 1–2 dialect markers in overall MSA text
+- "moderate": repeated dialect influence, partially non-MSA
+- "pervasive": substantial non-MSA throughout
+
+When unsure, choose the lower severity.
+
+Return JSON only:
+{
+  "severity": "none" | "isolated" | "moderate" | "pervasive",
+  "markers_found": ["..."],
+  "reason": "one short sentence"
+}
+No extra keys, no markdown fences.
+
+<inputs>
+<response>${response}</response>
+</inputs>`;
+
   console.log("[IE prompt sent]", iePrompt);
 
-  let taData, cqData, ieData;
+  let taData, cqData, ieData, msaData, regData, dialectData;
   try {
-    [taData, cqData, ieData] = await Promise.all([
+    [taData, cqData, ieData, msaData, regData, dialectData] = await Promise.all([
       callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
       callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
-      callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 })
+      callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
+      callOpenAI(msaPrompt, null, "MSA", { max_tokens: 1024 }),
+      callOpenAI(registerPrompt, null, "REG", { max_tokens: 1024 }),
+      callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -2876,6 +3053,36 @@ No extra keys. No explanation. No markdown fences.
                 : null;
   const ieReason = ieData?.reason ?? ieData?.explanation ?? "";
   console.log("[IE extracted]", { ieScoreRaw, ieScore, ieReason });
+
+  // ---- MSA Consistency extraction ----
+  const msaScoreRaw = msaData?.msa_consistency_score ?? msaData?.score ?? null;
+  const msaScore = (typeof msaScoreRaw === "number") ? msaScoreRaw
+                 : (typeof msaScoreRaw === "string" && !isNaN(+msaScoreRaw)) ? +msaScoreRaw
+                 : null;
+  const msaReason = msaData?.reason ?? msaData?.explanation ?? "";
+  console.log("[MSA extracted]", { msaScoreRaw, msaScore, msaReason });
+
+  // ---- Register Appropriacy extraction ----
+  const regScoreRaw = regData?.register_appropriacy_score ?? regData?.score ?? null;
+  const regScore = (typeof regScoreRaw === "number") ? regScoreRaw
+                 : (typeof regScoreRaw === "string" && !isNaN(+regScoreRaw)) ? +regScoreRaw
+                 : null;
+  const regReason = regData?.reason ?? regData?.explanation ?? "";
+  console.log("[Register extracted]", { regScoreRaw, regScore, regReason });
+
+  // ---- Dialect Influence Detection — convert severity to 0-100 ----
+  const SEVERITY_TO_SCORE = { none: 100, isolated: 90, moderate: 70, pervasive: 40 };
+  const dialectSeverity = (dialectData?.severity || "").toLowerCase();
+  const dialectScore = SEVERITY_TO_SCORE[dialectSeverity] ?? null;
+  const dialectMarkers = Array.isArray(dialectData?.markers_found) ? dialectData.markers_found : [];
+  const dialectReason = dialectData?.reason ?? "";
+  console.log("[Dialect extracted]", { dialectSeverity, dialectScore, dialectMarkers, dialectReason });
+
+  // ---- Combined Style & Register score (33.4 / 33.3 / 33.3) ----
+  let styleRegisterScore = null;
+  if (typeof msaScore === "number" && typeof regScore === "number" && typeof dialectScore === "number") {
+    styleRegisterScore = Math.round(msaScore * 0.50 + regScore * 0.25 + dialectScore * 0.25);
+  }
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
   const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
@@ -2918,6 +3125,15 @@ No extra keys. No explanation. No markdown fences.
     intelligibility_effect_score_raw: ieScoreRaw,
     intelligibility_effect_raw_response: ieData,
     intelligibility_effect_reason: ieReason,
+    msa_consistency_score: msaScore,
+    msa_consistency_reason: msaReason,
+    register_appropriacy_score: regScore,
+    register_appropriacy_reason: regReason,
+    dialect_severity: dialectSeverity || null,
+    dialect_score: dialectScore,
+    dialect_markers: dialectMarkers,
+    dialect_reason: dialectReason,
+    style_register_score: styleRegisterScore,
     task_requirements_met: Math.round(taRequirementsMet),
     task_achievement: taFinal,
     content_quality: cqFinal,
@@ -3108,6 +3324,23 @@ function renderResults() {
               <div style="font-size: 13px; color: var(--muted);">${escapeHtml(ieReasonVal === "—" ? "" : ieReasonVal)}</div>
             </div>
             <div class="detail-section">
+              <h4>MSA Consistency — score: ${s.msa_consistency_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.msa_consistency_reason || "")}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Register Appropriacy — score: ${s.register_appropriacy_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.register_appropriacy_reason || "")}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Dialect Influence — severity: ${s.dialect_severity ?? "—"} · score: ${s.dialect_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.dialect_reason || "")}</div>
+              ${Array.isArray(s.dialect_markers) && s.dialect_markers.length ? `<div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Markers: ${s.dialect_markers.map(m => escapeHtml(m)).join(", ")}</div>` : ""}
+            </div>
+            <div class="detail-section" style="background: #f5f3ff; padding: 10px 12px; border-radius: 6px;">
+              <h4 style="margin: 0;">Style &amp; Register (combined) — score: ${s.style_register_score ?? "—"}</h4>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 50% MSA + 25% Register + 25% Dialect</div>
+            </div>
+            <div class="detail-section">
               <h4>Content Quality Scores</h4>
               ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
                 <div style="padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 12px; margin-bottom: 8px;">
@@ -3154,7 +3387,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","register_appropriacy_score","register_appropriacy_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
@@ -3219,14 +3452,4 @@ function downloadCSV(filename, rows) {
     const s = String(cell ?? "");
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-</script>
-
-</body>
-</html>
+  const blob = new Blob([csv], { type: 
