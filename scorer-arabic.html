@@ -2464,6 +2464,13 @@ async function runBulkScoring() {
     dialect_markers: [],
     dialect_reason: `ERROR: ${msg}`,
     style_register_score: null,
+    vocabulary_diversity_score: null,
+    vocabulary_diversity_reason: `ERROR: ${msg}`,
+    morphological_variety_score: null,
+    morphological_variety_reason: `ERROR: ${msg}`,
+    arabic_sentence_complexity_score: null,
+    arabic_sentence_complexity_reason: `ERROR: ${msg}`,
+    language_range_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2571,6 +2578,13 @@ async function runScoring() {
     dialect_markers: [],
     dialect_reason: `ERROR: ${msg}`,
     style_register_score: null,
+    vocabulary_diversity_score: null,
+    vocabulary_diversity_reason: `ERROR: ${msg}`,
+    morphological_variety_score: null,
+    morphological_variety_reason: `ERROR: ${msg}`,
+    arabic_sentence_complexity_score: null,
+    arabic_sentence_complexity_reason: `ERROR: ${msg}`,
+    language_range_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -3013,17 +3027,142 @@ No extra keys, no markdown fences.
 <response>${response}</response>
 </inputs>`;
 
+  // ---- Language Range: Vocabulary Diversity ----
+  const vocabPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score vocabulary diversity only. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. The range and variety of vocabulary used across the response.
+2. Whether the student draws on a wide or narrow set of words to express ideas.
+3. Whether vocabulary choices feel varied and purposeful, or repetitive and limited.
+
+OUT OF SCOPE: grammar, morphological variety, sentence structure, idea quality, spelling, register.
+
+Arabic-specific note: Do not penalise different derived forms of the same root (e.g. كَتَبَ، كِتَاب، كَاتِب). Score variety of distinct lexical items, not root frequency.
+</definition:scope>
+
+<scoring:bands>
+0–20   Extremely limited range. Heavy repetition. Almost no variation.
+21–35  Very limited range. Small set used repeatedly.
+36–50  Limited range. Mostly basic vocab with occasional less common choices.
+51–65  Moderate range. Mix of basic and varied vocab. Some purposeful word choices.
+66–80  Good range. Varied vocabulary used across response. Some topic-specific choices.
+81–90  Strong range. Wide vocabulary used consistently. Minimal repetition.
+91–100 Exceptional range. Rich, precise, non-repetitive throughout.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Response under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 Fewer than 10 distinct content words: cap at 20.
+\u2192 Identical vocabulary in every sentence: cap at 25.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "vocabulary_diversity_score": NUMBER,
+  "justification": "2-3 sentences explaining the score. Quote 2-3 specific Arabic words or phrases from the response that support your judgement. Mention both range and any repetition you noticed."
+}
+No extra keys. No markdown fences.
+</output_format>
+
+<inputs><response>${response}</response></inputs>`;
+
+  // ---- Language Range: Morphological Variety ----
+  const morphPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score morphological variety only. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. Variety of Arabic morphological patterns across the response.
+2. Evidence of derived forms: verbal nouns (masdar), active/passive participles, broken plurals, varied verb conjugations, derived verb patterns.
+
+OUT OF SCOPE: grammar correctness, vocabulary richness, sentence complexity, ideas, spelling.
+</definition:scope>
+
+<scoring:bands>
+0–20   Almost no variety. Simple present-tense verbs and basic nouns only. No derived forms.
+21–35  Very limited. One or two tenses. Occasional simple plural. No masdar/participles.
+36–50  Some tense variation. Simple broken plurals. No consistent derived forms.
+51–65  Moderate variety. Mix of tenses. Some derived nouns or simple participles.
+66–80  Good variety. Masdar, active participles, broken plurals, multiple verb forms.
+81–90  Strong variety. Confident use of masdar, participles, plurals, derived patterns.
+91–100 Exceptional. Full command of morphological system throughout.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 Only isolated words with no connected text: cap at 20.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "morphological_variety_score": NUMBER,
+  "justification": "2-3 sentences explaining the score. Quote 2-3 specific Arabic forms from the response (e.g. a masdar, an active participle, a broken plural, a derived verb pattern) — or note their absence. Be specific about which morphological forms are present and which are missing."
+}
+No extra keys. No markdown fences.
+</output_format>
+
+<inputs><response>${response}</response></inputs>`;
+
+  // ---- Language Range: Arabic Sentence Complexity ----
+  const sentencePrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score Arabic sentence complexity only. Return JSON only.
+
+<definition:scope>
+Score ONLY:
+1. Structural variety of sentences across the response.
+2. Evidence of complex constructions: relative clauses (الذي / التي / الذين), conditional sentences (إذا / لو / إن), subordinate clauses, nominal sentences (الجملة الاسمية), verbal sentences (الجملة الفعلية), and variation between them.
+
+OUT OF SCOPE: grammar, vocabulary, morphology, ideas, spelling.
+</definition:scope>
+
+<scoring:bands>
+0–20   All sentences same simple pattern. SVO or fragments only. No subordination.
+21–35  Very limited variety. One or two sentence types. No relative clauses or conditionals.
+36–50  Some variety. Short and slightly longer sentences. Occasional coordination, no real subordination.
+51–65  Moderate complexity. Some subordinate clauses. Occasional relative/conditional. Mixed nominal/verbal.
+66–80  Good complexity. Clear variation. Relative clauses, conditionals, mix of sentence types purposefully.
+81–90  Strong complexity. Confident subordination, relative clauses, conditionals throughout.
+91–100 Exceptional. Full range used accurately and fluidly.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 All fragments under 4 words: cap at 15.
+\u2192 Every sentence identical SVO with no variation: cap at 35.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "arabic_sentence_complexity_score": NUMBER,
+  "justification": "2-3 sentences explaining the score. Quote 1-2 specific sentence structures from the response (e.g. a relative clause with الذي/التي, a conditional with إذا/لو, a subordinate clause) — or note their absence. Mention what kinds of sentences dominate."
+}
+No extra keys. No markdown fences.
+</output_format>
+
+<inputs><response>${response}</response></inputs>`;
+
   console.log("[IE prompt sent]", iePrompt);
 
-  let taData, cqData, ieData, msaData, regData, dialectData;
+  let taData, cqData, ieData, msaData, regData, dialectData, vocabData, morphData, sentenceData;
   try {
-    [taData, cqData, ieData, msaData, regData, dialectData] = await Promise.all([
+    [taData, cqData, ieData, msaData, regData, dialectData, vocabData, morphData, sentenceData] = await Promise.all([
       callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
       callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
       callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
       callOpenAI(msaPrompt, null, "MSA", { max_tokens: 1024 }),
       callOpenAI(registerPrompt, null, "REG", { max_tokens: 1024 }),
-      callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 })
+      callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 }),
+      callOpenAI(vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
+      callOpenAI(morphPrompt, null, "MORPH", { max_tokens: 1024 }),
+      callOpenAI(sentencePrompt, null, "SENT", { max_tokens: 1024 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -3078,10 +3217,33 @@ No extra keys, no markdown fences.
   const dialectReason = dialectData?.reason ?? "";
   console.log("[Dialect extracted]", { dialectSeverity, dialectScore, dialectMarkers, dialectReason });
 
-  // ---- Combined Style & Register score (33.4 / 33.3 / 33.3) ----
+  // ---- Combined Style & Register score (50% MSA / 25% Register / 25% Dialect) ----
   let styleRegisterScore = null;
   if (typeof msaScore === "number" && typeof regScore === "number" && typeof dialectScore === "number") {
     styleRegisterScore = Math.round(msaScore * 0.50 + regScore * 0.25 + dialectScore * 0.25);
+  }
+
+  // ---- Language Range extraction ----
+  const extractScore = (data, ...keys) => {
+    for (const k of keys) {
+      const v = data?.[k];
+      if (typeof v === "number") return v;
+      if (typeof v === "string" && !isNaN(+v)) return +v;
+    }
+    return null;
+  };
+  const vocabScore = extractScore(vocabData, "vocabulary_diversity_score", "score");
+  const vocabReason = vocabData?.justification ?? vocabData?.reason ?? "";
+  const morphScore = extractScore(morphData, "morphological_variety_score", "score");
+  const morphReason = morphData?.justification ?? morphData?.reason ?? "";
+  const sentenceScore = extractScore(sentenceData, "arabic_sentence_complexity_score", "score");
+  const sentenceReason = sentenceData?.justification ?? sentenceData?.reason ?? "";
+  console.log("[LangRange]", { vocabScore, morphScore, sentenceScore });
+
+  // ---- Combined Language Range score (equal weight: 33.4 / 33.3 / 33.3) ----
+  let languageRangeScore = null;
+  if (typeof vocabScore === "number" && typeof morphScore === "number" && typeof sentenceScore === "number") {
+    languageRangeScore = Math.round(vocabScore * 0.334 + morphScore * 0.333 + sentenceScore * 0.333);
   }
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
@@ -3134,6 +3296,13 @@ No extra keys, no markdown fences.
     dialect_markers: dialectMarkers,
     dialect_reason: dialectReason,
     style_register_score: styleRegisterScore,
+    vocabulary_diversity_score: vocabScore,
+    vocabulary_diversity_reason: vocabReason,
+    morphological_variety_score: morphScore,
+    morphological_variety_reason: morphReason,
+    arabic_sentence_complexity_score: sentenceScore,
+    arabic_sentence_complexity_reason: sentenceReason,
+    language_range_score: languageRangeScore,
     task_requirements_met: Math.round(taRequirementsMet),
     task_achievement: taFinal,
     content_quality: cqFinal,
@@ -3341,6 +3510,22 @@ function renderResults() {
               <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 50% MSA + 25% Register + 25% Dialect</div>
             </div>
             <div class="detail-section">
+              <h4>Vocabulary Diversity — score: ${s.vocabulary_diversity_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.vocabulary_diversity_reason || "")}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Morphological Variety — score: ${s.morphological_variety_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.morphological_variety_reason || "")}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Arabic Sentence Complexity — score: ${s.arabic_sentence_complexity_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.arabic_sentence_complexity_reason || "")}</div>
+            </div>
+            <div class="detail-section" style="background: #ecfdf5; padding: 10px 12px; border-radius: 6px;">
+              <h4 style="margin: 0;">Language Range (combined) — score: ${s.language_range_score ?? "—"}</h4>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 33.4% Vocabulary + 33.3% Morphological + 33.3% Sentence Complexity</div>
+            </div>
+            <div class="detail-section">
               <h4>Content Quality Scores</h4>
               ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
                 <div style="padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 12px; margin-bottom: 8px;">
@@ -3387,7 +3572,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","register_appropriacy_score","register_appropriacy_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","register_appropriacy_score","register_appropriacy_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
