@@ -669,10 +669,22 @@
       <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Each LLM prompt has explicit construct-based rules to prevent compression of the score scale. These are NOT CEFR labels — they're behavioural caps on what each band requires.</p>
 
       <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Short-response caps</h4>
-      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Word count and expected range are passed into every LLM scoring prompt. Very short responses with simple SVO patterns are capped low (Grammar 30, Vocab 30, Sentence 25, Coherence 40) so simple-but-clean writing doesn't inflate into mid-bands.</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Word count and expected word range are passed into every LLM scoring prompt. Very short responses with simple SVO patterns are capped low so simple-but-clean writing doesn't inflate into mid-bands. Approximate caps for short + simple responses:</p>
+      <p style="margin: 0 0 12px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        Vocab 30 · Morph 25 · Sentence 25 · Coherence &amp; Flow 40 · Grammar 30 (very short) / 45 (below expected range)
+      </p>
 
       <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Ceiling blockers (81+ entry gates)</h4>
       <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Each metric defines what prevents a score above 81: repetition, narrow scope, lack of subordination, paragraph absence, etc. Reaching the upper band requires positive evidence, not just "no obvious errors".</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Flexibility pressure (A2 / B1 separation)</h4>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Vocab and Sentence Complexity prompts treat range as <em>flexibility and precision</em>, not <em>presence of features</em>. Recycled common verbs (ذهبنا، أكلنا، رجعنا), predictable sequencing, and formulaic sentence structures stay in lower or mid bands even when grammatically clear. A response with 30 distinct words but the same 3-4 narrative verbs is mid-band.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Complexity-conditioned accuracy (B1 / B2 / C1 separation)</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Grammar &amp; Language Control distinguishes "low error rate" from "control under complexity". If <strong>2 or more</strong> of these "mostly simple" signals are true, the score is capped at 75:</p>
+      <p style="margin: 0 0 12px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        only past or only present tense throughout · zero or one subordinate clause · every sentence is SVO or و / ثم coordination · no embedded clauses · same handful of verb forms recycled
+      </p>
 
       <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">85+ evidence rule</h4>
       <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted);">Scores above 85 require active demonstration of advanced performance: developed ideas, precise vocabulary, controlled structural variety, mature organisation, accuracy across complex language. Length alone is not sufficient.</p>
@@ -698,9 +710,16 @@
         </tbody>
       </table>
 
+      <!-- ========== Determinism & Providers ========== -->
+      <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Determinism &amp; Providers</h3>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All LLM calls use <code style="background: #f3f4f6; padding: 1px 4px; border-radius: 3px;">temperature: 0</code> for repeatable scoring on identical input.</p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);"><strong>Supported providers:</strong> OpenAI (gpt-5, gpt-5-mini, gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini) and Anthropic (Claude Sonnet 4.6, Opus 4.6, Haiku 4.5). Provider is selected via the header dropdown. API keys are held server-side; the browser never sees them.</p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);"><strong>Throttle toggle:</strong> When enabled (default ON), caps in-flight API calls at 1 concurrent with a 3.5-second release delay to stay under provider rate limits (e.g. Anthropic Tier 1 = 30K input tokens/min). 429 errors are retried with a 35-65 second backoff that honours <code style="background: #f3f4f6; padding: 1px 4px; border-radius: 3px;">Retry-After</code> headers.</p>
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted);"><strong>30-word minimum:</strong> Each LLM metric returns null on responses below 30 words; the deterministic Cohesive Devices code does the same. The results table shows <span style="color: #9ca3af; font-weight: 500;">N/A*</span> for any blocked metric. The Overall Score is computed from whichever dimensions are valid; if none are valid, Overall itself is N/A*.</p>
+
       <!-- ========== Summary ========== -->
       <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Summary</h3>
-      <p style="margin: 0 0 8px; font-size: 13px;">V1 = 6 dimensions, 12 metrics total (10 LLM, 1 hybrid code+LLM, 1 code-only). Construct-based scoring with band pressure rules; CEFR mapping applied only at the interpretation layer.</p>
+      <p style="margin: 0 0 8px; font-size: 13px;">V1 = 6 dimensions, 12 metrics total (10 LLM + 2 code-only: WCC and Arabic Cohesive Devices). Organisation &amp; Coherence is the only <em>dimension</em> that combines code and LLM metrics into one score. Construct-based scoring with band pressure rules; CEFR mapping applied only at the interpretation layer.</p>
       <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All metrics return 0–100. Each dimension is reported separately with justification. The Overall Score is the equal-weight average of all 6 dimensions and is the input to the CEFR badge.</p>
       <p style="margin: 0; font-size: 12px; color: var(--muted); font-style: italic;">Arabic-specific metrics (MSA, Dialect, Cohesive Devices) use Arabic lexicons and Arabic-aware prompts. Other metrics reuse English scoring patterns with Arabic content as input.</p>
     </div>
