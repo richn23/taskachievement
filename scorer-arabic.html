@@ -2820,7 +2820,7 @@ async function scoreSample(qRaw, response, sampleNum) {
   const taPrompt = `You are a writing assessment engine. Score the student response for task achievement. Return JSON only.
 
 <guard:missing_inputs>
-If <requirements> or <task_type_checks> is empty or absent:
+If <requirements> is empty or absent:
   → Return immediately: { "error": "missing_requirements", "task_achievement": 0 }
 Do not proceed.
 </guard:missing_inputs>
@@ -2870,7 +2870,7 @@ FAIL — "We went to a beautiful place."
 </calibration:examples>
 
 <scoring_process>
-Apply to EVERY item in <requirements> AND every item in <task_type_checks>.
+Apply to EVERY item in <requirements>.
 
 For each item:
 1. Locate a sentence in <response> that addresses this item.
@@ -2882,8 +2882,8 @@ Do not infer, paraphrase, or assume implied details. Score only what is explicit
 </scoring_process>
 
 <calculation>
-passes = count of PASS results across all requirements + task_type_checks
-total = number of requirements + number of task_type_checks
+passes = count of PASS results across all requirements
+total = number of requirements
 task_achievement = clamp(round(passes / total × 100), 0, 100)
 </calculation>
 
@@ -2900,7 +2900,6 @@ No extra keys. No explanation. No markdown fences.
 <inputs>
 <task>${q.task_prompt}</task>
 <requirements>${JSON.stringify(augmentedTaskRequirements)}</requirements>
-<task_type_checks>${JSON.stringify(q.task_type_requirements)}</task_type_checks>
 <task_cefr_level>${q.cefr_level}</task_cefr_level>
 <response>${response}</response>
 </inputs>`;
@@ -3687,9 +3686,6 @@ function renderResults() {
               <div style="margin-bottom: 8px;"><strong style="font-size: 12px; color: var(--muted);">Task requirements</strong>
                 <ul>${taskChecks.map(c => `<li><span class="pill ${c.result === "PASS" ? "pass" : "fail"}">${escapeHtml(c.result || "")}</span> ${escapeHtml(c.requirement || "")}</li>`).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
               </div>
-              <div><strong style="font-size: 12px; color: var(--muted);">Task type requirements</strong>
-                <ul>${taskTypeChecks.map(c => `<li><span class="pill ${c.result === "PASS" ? "pass" : "fail"}">${escapeHtml(c.result || "")}</span> ${escapeHtml(c.requirement || "")}</li>`).join("") || '<li style="color: var(--muted);">—</li>'}</ul>
-              </div>
             </div>
             <div class="detail-section">
               <h4>Intelligibility &amp; Effect — score: ${ieScoreVal}</h4>
@@ -3860,7 +3856,8 @@ function downloadCSV(filename, rows) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
+  document.body.appendChild(a);
+  a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
 </script>
