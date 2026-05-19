@@ -1255,8 +1255,15 @@ function applyMarkersOverride(q) {
 document.getElementById("modelSelect").value = localStorage.getItem("aze_model") || "gpt-4o";
 document.getElementById("modelSelect").addEventListener("change", e => localStorage.setItem("aze_model", e.target.value));
 
-// Throttle toggle — persist preference; ON limits concurrent API calls
-document.getElementById("throttleToggle").checked = localStorage.getItem("aze_throttle") === "1";
+// Throttle toggle — persist preference; ON limits concurrent API calls.
+// Default ON for first-time visitors (safer for Anthropic Tier 1 / 30K TPM).
+// Respects explicit user choice if set.
+(function initThrottle() {
+  const stored = localStorage.getItem("aze_throttle");
+  const initial = stored === null ? true : stored === "1";
+  document.getElementById("throttleToggle").checked = initial;
+  if (stored === null) localStorage.setItem("aze_throttle", "1");
+})();
 document.getElementById("throttleToggle").addEventListener("change", e => {
   localStorage.setItem("aze_throttle", e.target.checked ? "1" : "0");
 });
