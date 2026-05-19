@@ -3812,10 +3812,11 @@ function assistantContentFromCompletion(data) {
 
 // ---- Request throttle: limit concurrent API calls when toggle is ON ----
 // When the "Throttle" toggle is checked, the app caps in-flight LLM calls
-// and adds a short release delay so we stay under provider rate limits
-// (e.g. Anthropic Tier 1 = 30K TPM).
-const THROTTLE_MAX_CONCURRENT = 3;
-const THROTTLE_RELEASE_DELAY_MS = 800;
+// and adds a release delay so we stay under provider rate limits.
+// Tuned for Anthropic Tier 1 (30K input tokens/min). Slow but reliable.
+// To allow faster: raise MAX_CONCURRENT (try 2), shorten DELAY (try 2000).
+const THROTTLE_MAX_CONCURRENT = 1;
+const THROTTLE_RELEASE_DELAY_MS = 3500;
 const _throttleState = { active: 0, queue: [] };
 
 function _isThrottleEnabled() {
@@ -3901,7 +3902,18 @@ async function callOpenAI(prompt, _unused, label = "?", options = {}) {
         const errText = await res.text();
         console.warn(`[${label}] HTTP ${res.status} (attempt ${attempt}/${maxAttempts}):`, errText.slice(0, 200));
         if (attempt < maxAttempts) {
-          const backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+          // Rate limit (429) is a per-minute rolling window — short backoff won't help.
+          // Honour Retry-After header if present, otherwise wait long enough for the window to roll.
+          let backoff;
+          if (res.status === 429) {
+            const retryAfter = parseInt(res.headers.get("retry-after") || "", 10);
+            backoff = (!isNaN(retryAfter) && retryAfter > 0)
+              ? retryAfter * 1000 + 1000
+              : 35000 + (attempt - 1) * 15000;  // 35s, 50s, 65s
+            console.warn(`[${label}] 429 rate limit — waiting ${Math.round(backoff/1000)}s before retry`);
+          } else {
+            backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+          }
           await new Promise(r => setTimeout(r, backoff));
           continue;
         }
@@ -4037,15 +4049,15 @@ function renderResults() {
             ${isBulk ? `<td class="q-col" style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
             <td>${s.word_count ?? "—"}</td>
             <td style="background: #f5f3ff; color: #5b21b6; padding: 8px 6px;">
-              <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? "—"}</div>
+              <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? `<span title="Sample too short — below 30-word minimum on key metrics" style="font-size: 13px; color: #9ca3af;">N/A*</span>`}</div>
               ${s.cefr_estimate ? `<div style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #7c3aed; margin-top: 3px; text-transform: uppercase;">≈ ${escapeHtml(s.cefr_estimate)}</div>` : ""}
             </td>
-            <td><strong>${s.task_achievement ?? "—"}</strong></td>
-            <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
-            <td><strong>${s.style_register_score ?? "—"}</strong></td>
-            <td><strong>${s.language_range_score ?? "—"}</strong></td>
-            <td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? "—"}</strong></td>
-            <td><strong>${s.grammar_language_control_score ?? "—"}</strong></td>
+            <td><strong>${s.task_achievement ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
+            <td><strong>${s.content_quality ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
+            <td><strong>${s.style_register_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
+            <td><strong>${s.language_range_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
+            <td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
+            <td><strong>${s.grammar_language_control_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
             <td class="expand-col">▼</td>
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
@@ -4139,7 +4151,11 @@ function renderResults() {
             <details><summary>Response text</summary><pre style="white-space: pre-wrap; font-family: inherit; font-size: 13px; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid var(--border); margin-top: 6px;">${escapeHtml(s.response || "")}</pre></details>
           </td></tr>`;
       });
-      html += `</tbody></table></div>`;
+      html += `</tbody></table>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">
+          <span style="color: #9ca3af;">N/A*</span> — sample below the 30-word minimum required to score this metric reliably.
+        </div>
+      </div>`;
     });
     wrap.innerHTML = html;
     wrap.querySelectorAll("[data-toggle]").forEach(tr => {
