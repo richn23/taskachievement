@@ -541,13 +541,20 @@
   </div>
   <div class="api-row">
     <span style="font-size: 12px; color: var(--muted);">Key on server</span>
-    <select id="modelSelect" style="width: 180px;">
-      <option value="gpt-5">gpt-5</option>
-      <option value="gpt-5-mini">gpt-5-mini</option>
-      <option value="gpt-4o" selected>gpt-4o</option>
-      <option value="gpt-4o-mini">gpt-4o-mini</option>
-      <option value="gpt-4.1">gpt-4.1</option>
-      <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+    <select id="modelSelect" style="width: 200px;">
+      <optgroup label="OpenAI">
+        <option value="gpt-5">gpt-5</option>
+        <option value="gpt-5-mini">gpt-5-mini</option>
+        <option value="gpt-4o" selected>gpt-4o</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="gpt-4.1">gpt-4.1</option>
+        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+      </optgroup>
+      <optgroup label="Anthropic (Claude)">
+        <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+        <option value="claude-opus-4-6">Claude Opus 4.6</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+      </optgroup>
     </select>
   </div>
 </header>
@@ -3794,26 +3801,33 @@ async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   const model = document.getElementById("modelSelect").value;
   const max_tokens = options.max_tokens ?? 2000;
   const system = options.system ?? "You are a strict English-writing scorer. Always return valid JSON only — no prose, no markdown fences.";
-  console.log(`[${label}] calling /api/openai`, { model, promptLength: prompt.length, max_tokens });
+  const isClaudeModel = /^claude-/.test(model);
+  const endpoint = isClaudeModel ? "/api/claude" : "/api/openai";
+  console.log(`[${label}] calling ${endpoint}`, { model, promptLength: prompt.length, max_tokens });
   const maxAttempts = 4;
   let res, lastErr;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      res = await fetch("/api/openai", {
+      const requestBody = {
+        model,
+        max_tokens,
+        temperature: 0,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ]
+      };
+      // response_format is OpenAI-specific; Claude relies on the system prompt's
+      // "return JSON only" instruction to produce JSON output.
+      if (!isClaudeModel) {
+        requestBody.response_format = { type: "json_object" };
+      }
+      res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          model,
-          max_tokens,
-          temperature: 0,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: prompt }
-          ]
-        })
+        body: JSON.stringify(requestBody)
       });
       if (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) {
         const errText = await res.text();
