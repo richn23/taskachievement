@@ -476,6 +476,11 @@
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
   th { background: #f9fafb; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  table.summary-table { table-layout: fixed; }
+  table.summary-table th, table.summary-table td { text-align: center; padding: 10px 6px; overflow: hidden; text-overflow: ellipsis; }
+  table.summary-table th:first-child, table.summary-table td:first-child { text-align: left; }
+  table.summary-table th.q-col, table.summary-table td.q-col { text-align: left; }
+  table.summary-table th.expand-col, table.summary-table td.expand-col { text-align: right; color: var(--muted); }
   tr.expandable { cursor: pointer; }
   tr.expandable:hover { background: #f9fafb; }
   tr.detail-row td { background: #fafbfc; padding: 16px 24px; }
@@ -3442,6 +3447,11 @@ No extra keys. No markdown fences.
   const grammarErrorTypes = Array.isArray(grammarData?.error_types_detected) ? grammarData.error_types_detected : [];
   console.log("[Grammar]", { grammarScore, grammarReason, grammarErrorTypes });
 
+  const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
+  const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
+  const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
+  const cqFinal = cqData.content_quality ?? 0;
+
   // ---- Overall Score: equal-weight average of 6 dimensions ----
   // 1. Task Achievement (taFinal) — already blends WCC/TA/IE
   // 2. Content Quality (cqFinal)
@@ -3455,10 +3465,6 @@ No extra keys. No markdown fences.
     ? Math.round(validDim.reduce((a, b) => a + b, 0) / validDim.length)
     : null;
   console.log("[Overall]", { dimensionScores, overallScore });
-  const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
-  const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
-  const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
-  const cqFinal = cqData.content_quality ?? 0;
 
   const cqEvidenceDuplicates = (() => {
     const scores = Array.isArray(cqData.scores) ? cqData.scores : [];
@@ -3660,9 +3666,35 @@ function renderResults() {
           ${isBulk ? "" : "· " + escapeHtml(run.cefr_level || "") + " · " + escapeHtml(run.task_type || "")}
           · ${run.timestamp ? new Date(run.timestamp).toLocaleString() : ""}
         </div>
-        <table>
+        <table class="summary-table">
+          ${isBulk
+            ? `<colgroup>
+                <col style="width: 7%;">
+                <col style="width: 13%;">
+                <col style="width: 7%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 3%;">
+              </colgroup>`
+            : `<colgroup>
+                <col style="width: 9%;">
+                <col style="width: 8%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 6%;">
+              </colgroup>`}
           <thead><tr>
-            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700;">OVERALL</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Cohesion</th><th>Grammar</th><th></th>
+            <th>Sample</th>${isBulk ? "<th class=\"q-col\">Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700; color: #5b21b6;">OVERALL</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Org &amp; Coh</th><th>Lang Acc</th><th class="expand-col"></th>
           </tr></thead>
           <tbody>`;
       samples.forEach((s, sIdx) => {
@@ -3688,16 +3720,16 @@ function renderResults() {
         html += `
           <tr class="expandable" data-toggle="${id}">
             <td><strong>#${s.sample_num ?? ""}</strong></td>
-            ${isBulk ? `<td style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
+            ${isBulk ? `<td class="q-col" style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
             <td>${s.word_count ?? "—"}</td>
-            <td style="background: #f5f3ff; font-weight: 700; font-size: 16px;">${s.overall_score ?? "—"}</td>
+            <td style="background: #f5f3ff; font-weight: 700; font-size: 16px; color: #5b21b6;">${s.overall_score ?? "—"}</td>
             <td><strong>${s.task_achievement ?? "—"}</strong></td>
-            <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠ dup</span>` : ""}</td>
+            <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
             <td><strong>${s.style_register_score ?? "—"}</strong></td>
             <td><strong>${s.language_range_score ?? "—"}</strong></td>
             <td><strong>${s.cohesive_devices_score ?? "—"}</strong></td>
             <td><strong>${s.grammar_language_control_score ?? "—"}</strong></td>
-            <td style="text-align: right; color: var(--muted);">▼</td>
+            <td class="expand-col">▼</td>
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
             <div class="detail-section">
