@@ -2469,6 +2469,12 @@ async function runBulkScoring() {
     arabic_sentence_complexity_score: null,
     arabic_sentence_complexity_reason: `ERROR: ${msg}`,
     language_range_score: null,
+    cohesive_devices_score: null,
+    cohesive_devices_reason: `ERROR: ${msg}`,
+    cohesive_devices_breakdown: {},
+    cohesive_devices_distinct_types: 0,
+    cohesive_devices_category_count: 0,
+    cohesive_devices_per_100_words: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2581,6 +2587,12 @@ async function runScoring() {
     arabic_sentence_complexity_score: null,
     arabic_sentence_complexity_reason: `ERROR: ${msg}`,
     language_range_score: null,
+    cohesive_devices_score: null,
+    cohesive_devices_reason: `ERROR: ${msg}`,
+    cohesive_devices_breakdown: {},
+    cohesive_devices_distinct_types: 0,
+    cohesive_devices_category_count: 0,
+    cohesive_devices_per_100_words: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2621,6 +2633,116 @@ async function runScoring() {
   }
   btn.disabled = false;
   document.querySelector('[data-tab="step3"]').click();
+}
+
+
+// ============================================================
+// Arabic Cohesive Devices (deterministic code metric)
+// Organisation & Coherence dimension
+// Spec: Section 4.2 of AZE_Arabic_Writing_Tech_Spec_V1.md
+// ============================================================
+function computeArabicCohesiveDevices(response) {
+  const CONNECTIVES = {
+    sequencing:   ["أولاً", "ثانياً", "ثالثاً", "ثم", "بعد ذلك", "في البداية", "في المرحلة التالية", "أخيراً"],
+    addition:     ["و", "كما", "أيضاً", "كذلك", "بالإضافة إلى ذلك", "فضلاً عن ذلك", "علاوة على ذلك"],
+    contrast:     ["لكن", "ولكن", "بينما", "في حين أن", "على الرغم من", "من ناحية أخرى", "بالمقابل"],
+    cause_effect: ["لأن", "بسبب", "لذلك", "لذا", "نتيجة لذلك", "بناءً على ذلك", "وبالتالي"],
+    example:      ["مثل", "كمثال", "على سبيل المثال", "بما في ذلك"],
+    conclusion:   ["في النهاية", "في الختام", "خلاصة القول", "مما سبق", "وبهذا", "وفي المحصلة"]
+  };
+
+  // Strip Arabic diacritics (tashkeel)
+  const TASHKEEL = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+  const stripDiacritics = s => (s || "").replace(TASHKEEL, "");
+  const stripPunct = s => s.replace(/^[\u060C-\u061B،؟.,!?"'(){}\[\]]+|[\u060C-\u061B،؟.,!?"'(){}\[\]]+$/g, "");
+
+  const normalized = stripDiacritics(response);
+  const rawTokens = normalized.split(/\s+/).filter(t => t.length > 0);
+  const word_count = rawTokens.length;
+
+  if (word_count < 30) {
+    return {
+      score: null,
+      word_count,
+      reason: `Response too short (${word_count} words; need \u2265 30) for cohesive devices analysis.`,
+      arabic_connectives_per_100_words: null,
+      connective_category_count: null,
+      connective_diversity_score: null,
+      distinct_types: 0,
+      category_breakdown: {}
+    };
+  }
+
+  const tokens = rawTokens.map(t => stripPunct(t));
+  const used = new Array(tokens.length).fill(false);
+
+  // Build flat list, sorted longest-token-count first so multi-word connectives win
+  const allConn = [];
+  for (const [cat, list] of Object.entries(CONNECTIVES)) {
+    for (const c of list) {
+      const conn_tokens = stripDiacritics(c).split(/\s+/);
+      allConn.push({ cat, conn: c, conn_tokens });
+    }
+  }
+  allConn.sort((a, b) => b.conn_tokens.length - a.conn_tokens.length);
+
+  // Tally
+  const types_found = new Set();
+  const categories_found = new Set();
+  let total_occurrences_excl_waw = 0;
+  const category_breakdown = {};
+
+  for (const { cat, conn, conn_tokens } of allConn) {
+    let occ = 0;
+    for (let i = 0; i <= tokens.length - conn_tokens.length; i++) {
+      let conflict = false;
+      for (let k = 0; k < conn_tokens.length; k++) {
+        if (used[i + k]) { conflict = true; break; }
+      }
+      if (conflict) continue;
+      let match = true;
+      for (let j = 0; j < conn_tokens.length; j++) {
+        if (tokens[i + j] !== conn_tokens[j]) { match = false; break; }
+      }
+      if (match) {
+        occ++;
+        for (let j = 0; j < conn_tokens.length; j++) used[i + j] = true;
+        i += conn_tokens.length - 1;
+      }
+    }
+    if (occ > 0) {
+      types_found.add(conn);
+      categories_found.add(cat);
+      if (conn !== "و") total_occurrences_excl_waw += occ;
+      if (!category_breakdown[cat]) category_breakdown[cat] = [];
+      category_breakdown[cat].push({ conn, count: occ });
+    }
+  }
+
+  const distinct_types = types_found.size;
+  const arabic_connectives_per_100_words = Math.round((total_occurrences_excl_waw / word_count) * 1000) / 10;
+  const connective_category_count = categories_found.size;
+  const connective_diversity_score = Math.min(100, Math.round((distinct_types / 10) * 100));
+
+  // Scoring rebalanced (V1 — anti-gaming):
+  // 60% category spread (using different KINDS of connectives)
+  // 40% distinct types (variety of specific connectives)
+  // 0% raw frequency — prevents stuffing "أولاً ثم بعد ذلك كذلك لذلك" mechanically
+  const score = Math.round(
+    (connective_category_count / 6) * 100 * 0.60 +
+    connective_diversity_score * 0.40
+  );
+
+  return {
+    score,
+    word_count,
+    arabic_connectives_per_100_words,
+    connective_category_count,
+    connective_diversity_score,
+    distinct_types,
+    category_breakdown,
+    reason: `${distinct_types} distinct connective${distinct_types === 1 ? "" : "s"} across ${connective_category_count} of 6 categories. Frequency: ${arabic_connectives_per_100_words} per 100 words.`
+  };
 }
 
 async function scoreSample(qRaw, response, sampleNum) {
@@ -3173,6 +3295,10 @@ No extra keys. No markdown fences.
   if (typeof vocabScore === "number" && typeof morphScore === "number" && typeof sentenceScore === "number") {
     languageRangeScore = Math.round(vocabScore * 0.334 + morphScore * 0.333 + sentenceScore * 0.333);
   }
+
+  // ---- Arabic Cohesive Devices (code-only, deterministic) ----
+  const cohesiveResult = computeArabicCohesiveDevices(response);
+  console.log("[Cohesive Devices]", cohesiveResult);
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
   const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
@@ -3229,6 +3355,12 @@ No extra keys. No markdown fences.
     arabic_sentence_complexity_score: sentenceScore,
     arabic_sentence_complexity_reason: sentenceReason,
     language_range_score: languageRangeScore,
+    cohesive_devices_score: cohesiveResult.score,
+    cohesive_devices_reason: cohesiveResult.reason,
+    cohesive_devices_breakdown: cohesiveResult.category_breakdown,
+    cohesive_devices_distinct_types: cohesiveResult.distinct_types,
+    cohesive_devices_category_count: cohesiveResult.connective_category_count,
+    cohesive_devices_per_100_words: cohesiveResult.arabic_connectives_per_100_words,
     task_requirements_met: Math.round(taRequirementsMet),
     task_achievement: taFinal,
     content_quality: cqFinal,
@@ -3448,6 +3580,21 @@ function renderResults() {
               <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 33.4% Vocabulary + 33.3% Morphological + 33.3% Sentence Complexity</div>
             </div>
             <div class="detail-section">
+              <h4>Arabic Cohesive Devices — score: ${s.cohesive_devices_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.cohesive_devices_reason || "")}</div>
+              ${(() => {
+                const b = s.cohesive_devices_breakdown || {};
+                const keys = Object.keys(b);
+                if (!keys.length) return "";
+                const labels = { sequencing: "Sequencing", addition: "Addition", contrast: "Contrast", cause_effect: "Cause/Effect", example: "Example", conclusion: "Conclusion" };
+                const rows = keys.map(k => {
+                  const items = (b[k] || []).map(it => `<span dir="rtl">${escapeHtml(it.conn)}</span> (${it.count})`).join(", ");
+                  return `<div style="font-size: 12px; margin-top: 2px;"><strong>${labels[k] || k}:</strong> ${items}</div>`;
+                }).join("");
+                return `<div style="margin-top: 6px;">${rows}</div>`;
+              })()}
+            </div>
+            <div class="detail-section">
               <h4>Content Quality Scores</h4>
               ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
                 <div style="padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 12px; margin-bottom: 8px;">
@@ -3494,7 +3641,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","cohesive_devices_score","cohesive_devices_per_100_words","cohesive_devices_category_count","cohesive_devices_distinct_types","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
