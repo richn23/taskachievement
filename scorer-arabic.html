@@ -2475,6 +2475,9 @@ async function runBulkScoring() {
     cohesive_devices_distinct_types: 0,
     cohesive_devices_category_count: 0,
     cohesive_devices_per_100_words: null,
+    grammar_language_control_score: null,
+    grammar_language_control_reason: `ERROR: ${msg}`,
+    grammar_error_types: [],
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2593,6 +2596,9 @@ async function runScoring() {
     cohesive_devices_distinct_types: 0,
     cohesive_devices_category_count: 0,
     cohesive_devices_per_100_words: null,
+    grammar_language_control_score: null,
+    grammar_language_control_reason: `ERROR: ${msg}`,
+    grammar_error_types: [],
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -3208,11 +3214,81 @@ No extra keys. No markdown fences.
 
 <inputs><response>${response}</response></inputs>`;
 
+  // ---- Language Accuracy: Grammar & Language Control ----
+  // Philosophy: communicative control, NOT native-speaker perfection.
+  const grammarPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score grammar and language control only. Return JSON only.
+
+<core_principle>
+Evaluate grammatical and language control in Modern Standard Arabic.
+The score should reflect COMMUNICATIVE grammatical control, NOT native-speaker perfection.
+</core_principle>
+
+<focus_on>
+- Sentence formation
+- Agreement (subject\u2013verb, gender, number)
+- Verb forms and tense control
+- Grammatical consistency
+- Whether grammatical errors interfere with understanding
+</focus_on>
+
+<do_not_heavily_penalise>
+- Missing case endings (\u0625\u0639\u0631\u0627\u0628)
+- Minor spelling variation
+- Stylistic preference
+- Occasional informal influence unless it clearly disrupts formal writing
+</do_not_heavily_penalise>
+
+<out_of_scope>
+Handled by other metrics, do NOT let these influence the score:
+- Spelling and orthography
+- Dialect markers
+- Register / formality
+- Vocabulary range
+- Sentence complexity
+- Morphological variety
+- Idea quality and task completion
+- Punctuation
+</out_of_scope>
+
+<scoring_guidance>
+- High scores should indicate clear, controlled, and understandable grammar.
+- Occasional non-blocking errors are acceptable, especially at lower CEFR levels.
+- Frequent grammatical errors should only strongly reduce the score when they interfere with clarity or consistency.
+</scoring_guidance>
+
+<scoring:bands>
+0\u201320   Frequent errors seriously affect understanding throughout.
+21\u201340  Frequent basic errors; meaning sometimes unclear.
+41\u201360  Errors noticeable but message generally understandable.
+61\u201380  Good control with occasional errors; meaning never obscured.
+81\u2013100 Strong and consistent grammatical control.
+</scoring:bands>
+
+<rule:hard_caps>
+\u2192 Response under 30 words: return { "score": null, "reason": "response too short to score" }
+\u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+\u2192 Response entirely in English: return { "score": null, "reason": "response not in Arabic" }
+\u2192 Agreement errors in every sentence: cap at 40.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "grammar_language_control_score": NUMBER,
+  "justification": "2-3 sentences explaining the score. Quote 1-2 specific Arabic phrases from the response as evidence \u2014 of either accuracy or error. Mention error frequency and whether meaning is preserved.",
+  "error_types_detected": ["agreement" | "conjugation" | "gender" | "number" | "sentence_formation" | "..."]
+}
+No extra keys. No markdown fences.
+</output_format>
+
+<inputs><response>${response}</response></inputs>`;
+
   console.log("[IE prompt sent]", iePrompt);
 
-  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData;
+  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, grammarData;
   try {
-    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData] = await Promise.all([
+    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, grammarData] = await Promise.all([
       callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
       callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
       callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
@@ -3220,7 +3296,8 @@ No extra keys. No markdown fences.
       callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 }),
       callOpenAI(vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
       callOpenAI(morphPrompt, null, "MORPH", { max_tokens: 1024 }),
-      callOpenAI(sentencePrompt, null, "SENT", { max_tokens: 1024 })
+      callOpenAI(sentencePrompt, null, "SENT", { max_tokens: 1024 }),
+      callOpenAI(grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -3299,6 +3376,12 @@ No extra keys. No markdown fences.
   // ---- Arabic Cohesive Devices (code-only, deterministic) ----
   const cohesiveResult = computeArabicCohesiveDevices(response);
   console.log("[Cohesive Devices]", cohesiveResult);
+
+  // ---- Grammar & Language Control extraction ----
+  const grammarScore = extractScore(grammarData, "grammar_language_control_score", "score");
+  const grammarReason = grammarData?.justification ?? grammarData?.reason ?? "";
+  const grammarErrorTypes = Array.isArray(grammarData?.error_types_detected) ? grammarData.error_types_detected : [];
+  console.log("[Grammar]", { grammarScore, grammarReason, grammarErrorTypes });
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
   const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
@@ -3361,6 +3444,9 @@ No extra keys. No markdown fences.
     cohesive_devices_distinct_types: cohesiveResult.distinct_types,
     cohesive_devices_category_count: cohesiveResult.connective_category_count,
     cohesive_devices_per_100_words: cohesiveResult.arabic_connectives_per_100_words,
+    grammar_language_control_score: grammarScore,
+    grammar_language_control_reason: grammarReason,
+    grammar_error_types: grammarErrorTypes,
     task_requirements_met: Math.round(taRequirementsMet),
     task_achievement: taFinal,
     content_quality: cqFinal,
@@ -3595,6 +3681,11 @@ function renderResults() {
               })()}
             </div>
             <div class="detail-section">
+              <h4>Grammar &amp; Language Control — score: ${s.grammar_language_control_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.grammar_language_control_reason || "")}</div>
+              ${Array.isArray(s.grammar_error_types) && s.grammar_error_types.length ? `<div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Error types detected: ${s.grammar_error_types.map(e => escapeHtml(e)).join(", ")}</div>` : ""}
+            </div>
+            <div class="detail-section">
               <h4>Content Quality Scores</h4>
               ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
                 <div style="padding: 8px 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; font-size: 12px; margin-bottom: 8px;">
@@ -3641,7 +3732,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","cohesive_devices_score","cohesive_devices_per_100_words","cohesive_devices_category_count","cohesive_devices_distinct_types","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","cohesive_devices_score","cohesive_devices_per_100_words","cohesive_devices_category_count","cohesive_devices_distinct_types","grammar_language_control_score","grammar_language_control_reason","grammar_error_types","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
