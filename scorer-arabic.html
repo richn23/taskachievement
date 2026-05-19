@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="AZE Arabic Writing Scorer — Task Achievement, Content Quality, and Intelligibility & Effect scoring for Arabic (MSA) writing samples." />
+<meta name="description" content="AZE Arabic Writing Scorer — six-dimension analytic scoring for Arabic (MSA) writing samples." />
 <meta name="color-scheme" content="light" />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%271%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%236366f1%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%238b5cf6%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ctext%20x%3D%2716%27%20y%3D%2722%27%20text-anchor%3D%27middle%27%20font-family%3D%27-apple-system%2Csans-serif%27%20font-size%3D%2718%27%20font-weight%3D%27700%27%20fill%3D%27%23fff%27%3EA%3C%2Ftext%3E%3C%2Fsvg%3E" />
 <title>AZE Arabic Writing Scorer</title>
@@ -526,7 +526,7 @@
 <header>
   <div>
     <h1>AZE Arabic Writing Scorer</h1>
-    <div class="subtitle">Task Achievement, Content Quality &amp; Intelligibility &amp; Effect scoring</div>
+    <div class="subtitle">Six-dimension analytic scoring for Arabic (MSA): Task Achievement · Content Quality · Style &amp; Register · Language Range · Organisation · Language Accuracy</div>
     <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
       Markers config: <span id="markers_status">not loaded</span>
       <button type="button" id="btn_load_markers" style="margin-left: 8px; padding: 2px 8px; font-size: 11px;">Upload question_markers.json</button>
@@ -559,36 +559,91 @@
   <div class="view active" id="view-step0">
     <div class="card">
       <h2 style="margin-bottom: 8px;">Scoring System</h2>
-      <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px;">Each response is scored on four metrics, then combined into a single Total Score.</p>
+      <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px;">Six dimensions, each producing a 0–100 score. Some dimensions combine multiple sub-metrics. Arabic-specific metrics use either Arabic-aware LLM prompts or deterministic code over Arabic lexicons.</p>
 
-      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">WCC — Word Count Compliance</h3>
-      <p style="margin: 0 0 4px; font-size: 13px;">Did the student write within the question's target word range?</p>
-      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Scored 0–100 by comparing word count to the midpoint of the min/max range.</p>
+      <!-- ========== Dimension 1: Task Achievement ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">1 · Task Achievement</h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Did the response complete the task, meet length, and communicate the message?</p>
 
-      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">TA — Task Achievement</h3>
-      <p style="margin: 0 0 4px; font-size: 13px;">Did the student address each task requirement?</p>
-      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement is marked PASS or FAIL using a strict test: the response must name the topic AND give at least one specific detail (a name, place, time, number, reason, or example).</p>
-      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Score = (PASS count + bonus) / (total + 1) × 100. A bonus point is awarded for one extra developed on-topic point.</p>
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">WCC — Word Count Compliance</h4>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Scored 0–100 by comparing word count to the midpoint of the min/max range.</p>
 
-      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">IE — Intelligibility &amp; Effect</h3>
-      <p style="margin: 0 0 4px; font-size: 13px;">Is the writing clear and effective?</p>
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">TA — Task Requirements</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement marked PASS / FAIL using a strict test: response must name the topic AND give at least one specific detail.</p>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Score = (PASS count + bonus) / (total + 1) × 100. Bonus for one extra developed on-topic point.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">IE — Intelligibility &amp; Effect</h4>
       <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Scored 0–100 against a banded scale:</p>
-      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted); padding-left: 12px;">
+      <p style="margin: 0 0 18px; font-size: 12px; color: var(--muted); padding-left: 12px;">
         0–20 unintelligible · 21–40 barely intelligible · 41–60 partial · 61–75 mostly clear · 76–90 clear and effective · 91–100 fluent and compelling
       </p>
 
-      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">CQ — Content Quality</h3>
-      <p style="margin: 0 0 4px; font-size: 13px;">For each requirement, how developed is the answer?</p>
-      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement scored 0–3 against a ladder:</p>
-      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted); padding-left: 12px;">
-        0 absent · 1 mentioned · 2 developed (with reason or cause) · 3 extended (with reason AND specific example)
-      </p>
-      <p style="margin: 0 0 22px; font-size: 13px; color: var(--muted);">Score = sum / max possible × 100.</p>
+      <!-- ========== Dimension 2: Content Quality ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">2 · Content Quality</h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">How well are ideas developed, supported, and extended?</p>
 
-      <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">Total Score</h3>
-      <p style="margin: 0 0 4px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">Total = (TA × 0.4) + (IE × 0.1) + (CQ × 0.5)</p>
-      <p style="margin: 8px 0 4px; font-size: 13px; color: var(--muted);">TA and IE together account for 50% (weighted 80/20 toward TA).</p>
-      <p style="margin: 0; font-size: 13px; color: var(--muted);">CQ accounts for the other 50%.</p>
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">CQ — Content &amp; Ideas Markers</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Each requirement scored 0–3:</p>
+      <p style="margin: 0 0 4px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        0 absent · 1 mentioned · 2 developed (with reason / cause) · 3 extended (reason AND specific example)
+      </p>
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted);">Score = sum / max possible × 100.</p>
+
+      <!-- ========== Dimension 3: Style & Register ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">3 · Style &amp; Register <span style="font-size: 11px; font-weight: 500; color: var(--muted);">(Arabic-specific)</span></h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Is the writing in formal Modern Standard Arabic (MSA) appropriate for the task?</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">MSA Consistency</h4>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Holistic 0–100. Does the writing read as composed MSA or as transcribed speech / dialect?</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Dialect Influence Detection</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">LLM-only severity classification. Detects markers from Gulf / Egyptian / Levantine / Maghrebi dialects. Severity → score:</p>
+      <p style="margin: 0 0 8px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        none → 100 · isolated → 90 · moderate → 70 · pervasive → 40
+      </p>
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted);"><strong>Combined Style &amp; Register =</strong> MSA × 0.70 + Dialect × 0.30</p>
+
+      <!-- ========== Dimension 4: Language Range ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">4 · Language Range</h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">How varied, flexible, and sophisticated is the language?</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Vocabulary Diversity</h4>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Holistic 0–100. Range of distinct lexical items used (not penalised for derived forms of the same root).</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Morphological Variety</h4>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Holistic 0–100. Evidence of masdar, active / passive participles, broken plurals, derived verb patterns.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Arabic Sentence Complexity</h4>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">Holistic 0–100. Relative clauses, conditional sentences, nominal vs verbal sentence variety.</p>
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted);"><strong>Combined Language Range =</strong> Vocab × 0.334 + Morphology × 0.333 + Sentence × 0.333</p>
+
+      <!-- ========== Dimension 5: Organisation & Coherence ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">5 · Organisation &amp; Coherence <span style="font-size: 11px; font-weight: 500; color: var(--muted);">(Arabic-specific · code-only)</span></h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Is the writing structured logically with appropriate connectives?</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Arabic Cohesive Devices</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Deterministic scan of ~40 Arabic connectives across 6 categories: sequencing, addition, contrast, cause / effect, example, conclusion.</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Score rewards variety and category spread, NOT raw frequency (to prevent mechanical stuffing).</p>
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">Score = (categories used / 6) × 60% + (distinct types / 10) × 40%</p>
+
+      <!-- ========== Dimension 6: Language Accuracy ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">6 · Language Accuracy</h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Is the language controlled and accurate enough for clear communication?</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Grammar &amp; Language Control</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Holistic 0–100. Measures COMMUNICATIVE control, NOT native-speaker perfection.</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);"><strong>Focus on:</strong> sentence formation, agreement, verb forms and tense, grammatical consistency, whether errors interfere with understanding.</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);"><strong>Does NOT penalise:</strong> missing case endings (إعراب), minor spelling variation, stylistic preference.</p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Banded scale:</p>
+      <p style="margin: 0 0 18px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        0–20 errors block understanding · 21–40 frequent basic errors · 41–60 noticeable but understandable · 61–80 good control · 81–100 strong consistent control
+      </p>
+
+      <!-- ========== Summary ========== -->
+      <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Summary</h3>
+      <p style="margin: 0 0 8px; font-size: 13px;">V1 = 6 dimensions, 11 metrics total (8 LLM, 3 code-based, 1 hybrid).</p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All metrics return 0–100. Each is reported separately with justification — there is no single Total Score in V1. Stakeholders read the dimension-by-dimension breakdown.</p>
+      <p style="margin: 0; font-size: 12px; color: var(--muted); font-style: italic;">Arabic-specific metrics (MSA, Dialect, Cohesive Devices) use Arabic lexicons and Arabic-aware prompts. Other metrics reuse English scoring patterns with Arabic content as input.</p>
     </div>
   </div>
 
@@ -3588,7 +3643,7 @@ function renderResults() {
         </div>
         <table>
           <thead><tr>
-            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th>WC Compliance</th><th>Intelligibility &amp; Effect</th><th>Task Achievement</th><th>Content Quality</th><th></th>
+            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th>WCC</th><th>IE</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Cohesion</th><th>Grammar</th><th></th>
           </tr></thead>
           <tbody>`;
       samples.forEach((s, sIdx) => {
@@ -3610,7 +3665,7 @@ function renderResults() {
           }
         }
         const ieReasonVal = s.intelligibility_effect_reason ?? s.effect_reason ?? "—";
-        const colspan = isBulk ? 8 : 7;
+        const colspan = isBulk ? 12 : 11;
         html += `
           <tr class="expandable" data-toggle="${id}">
             <td><strong>#${s.sample_num ?? ""}</strong></td>
@@ -3620,6 +3675,10 @@ function renderResults() {
             <td><strong>${ieScoreVal}</strong></td>
             <td><strong>${s.task_achievement ?? "—"}</strong></td>
             <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠ dup</span>` : ""}</td>
+            <td><strong>${s.style_register_score ?? "—"}</strong></td>
+            <td><strong>${s.language_range_score ?? "—"}</strong></td>
+            <td><strong>${s.cohesive_devices_score ?? "—"}</strong></td>
+            <td><strong>${s.grammar_language_control_score ?? "—"}</strong></td>
             <td style="text-align: right; color: var(--muted);">▼</td>
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
