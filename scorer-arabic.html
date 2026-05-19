@@ -539,23 +539,30 @@
       <span style="margin-left: 16px;" id="storageIndicator">Storage: —</span>
     </div>
   </div>
-  <div class="api-row">
-    <span style="font-size: 12px; color: var(--muted);">Key on server</span>
-    <select id="modelSelect" style="width: 200px;">
-      <optgroup label="OpenAI">
-        <option value="gpt-5">gpt-5</option>
-        <option value="gpt-5-mini">gpt-5-mini</option>
-        <option value="gpt-4o" selected>gpt-4o</option>
-        <option value="gpt-4o-mini">gpt-4o-mini</option>
-        <option value="gpt-4.1">gpt-4.1</option>
-        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-      </optgroup>
-      <optgroup label="Anthropic (Claude)">
-        <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-        <option value="claude-opus-4-6">Claude Opus 4.6</option>
-        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
-      </optgroup>
-    </select>
+  <div class="api-row" style="display: flex; align-items: center; gap: 16px;">
+    <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer;" title="When ON: limit concurrent API calls to avoid rate limits. Slower but safer.">
+      <input type="checkbox" id="throttleToggle" style="margin: 0; cursor: pointer;" />
+      <span>Throttle</span>
+      <span id="throttleIndicator" style="display: none; font-size: 11px; color: #7c3aed; font-weight: 600;">⏳ queue active</span>
+    </label>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 12px; color: var(--muted);">Key on server</span>
+      <select id="modelSelect" style="width: 200px;">
+        <optgroup label="OpenAI">
+          <option value="gpt-5">gpt-5</option>
+          <option value="gpt-5-mini">gpt-5-mini</option>
+          <option value="gpt-4o" selected>gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+        </optgroup>
+        <optgroup label="Anthropic (Claude)">
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+        </optgroup>
+      </select>
+    </div>
   </div>
 </header>
 
@@ -1247,6 +1254,12 @@ function applyMarkersOverride(q) {
 
 document.getElementById("modelSelect").value = localStorage.getItem("aze_model") || "gpt-4o";
 document.getElementById("modelSelect").addEventListener("change", e => localStorage.setItem("aze_model", e.target.value));
+
+// Throttle toggle — persist preference; ON limits concurrent API calls
+document.getElementById("throttleToggle").checked = localStorage.getItem("aze_throttle") === "1";
+document.getElementById("throttleToggle").addEventListener("change", e => {
+  localStorage.setItem("aze_throttle", e.target.checked ? "1" : "0");
+});
 
 // ============= TABS =============
 document.querySelectorAll(".tab").forEach(btn => {
@@ -3797,13 +3810,68 @@ function assistantContentFromCompletion(data) {
   return "";
 }
 
+// ---- Request throttle: limit concurrent API calls when toggle is ON ----
+// When the "Throttle" toggle is checked, the app caps in-flight LLM calls
+// and adds a short release delay so we stay under provider rate limits
+// (e.g. Anthropic Tier 1 = 30K TPM).
+const THROTTLE_MAX_CONCURRENT = 3;
+const THROTTLE_RELEASE_DELAY_MS = 800;
+const _throttleState = { active: 0, queue: [] };
+
+function _isThrottleEnabled() {
+  return document.getElementById("throttleToggle")?.checked || false;
+}
+
+function _updateThrottleIndicator() {
+  const el = document.getElementById("throttleIndicator");
+  if (!el) return;
+  if (_isThrottleEnabled() && (_throttleState.active > 0 || _throttleState.queue.length > 0)) {
+    el.style.display = "inline";
+    el.textContent = `⏳ queue active (${_throttleState.active} running, ${_throttleState.queue.length} waiting)`;
+  } else {
+    el.style.display = "none";
+  }
+}
+
+async function _acquireSlot() {
+  if (!_isThrottleEnabled()) return;
+  if (_throttleState.active < THROTTLE_MAX_CONCURRENT) {
+    _throttleState.active++;
+    _updateThrottleIndicator();
+    return;
+  }
+  await new Promise(resolve => {
+    _throttleState.queue.push(resolve);
+    _updateThrottleIndicator();
+  });
+  _throttleState.active++;
+  _updateThrottleIndicator();
+}
+
+function _releaseSlot() {
+  if (!_isThrottleEnabled()) {
+    _updateThrottleIndicator();
+    return;
+  }
+  setTimeout(() => {
+    _throttleState.active--;
+    if (_throttleState.queue.length > 0) {
+      const next = _throttleState.queue.shift();
+      next();
+    }
+    _updateThrottleIndicator();
+  }, THROTTLE_RELEASE_DELAY_MS);
+}
+
 async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   const model = document.getElementById("modelSelect").value;
   const max_tokens = options.max_tokens ?? 2000;
   const system = options.system ?? "You are a strict English-writing scorer. Always return valid JSON only — no prose, no markdown fences.";
   const isClaudeModel = /^claude-/.test(model);
   const endpoint = isClaudeModel ? "/api/claude" : "/api/openai";
-  console.log(`[${label}] calling ${endpoint}`, { model, promptLength: prompt.length, max_tokens });
+  console.log(`[${label}] calling ${endpoint}`, { model, promptLength: prompt.length, max_tokens, throttled: _isThrottleEnabled() });
+  await _acquireSlot();
+  try {
   const maxAttempts = 4;
   let res, lastErr;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -3886,6 +3954,9 @@ async function callOpenAI(prompt, _unused, label = "?", options = {}) {
   } catch (e) {
     console.error(`[${label}] JSON.parse failed on:`, match[0]);
     throw new Error("Invalid JSON: " + match[0].slice(0, 100));
+  }
+  } finally {
+    _releaseSlot();
   }
 }
 
