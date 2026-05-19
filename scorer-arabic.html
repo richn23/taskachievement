@@ -2744,6 +2744,20 @@ function computeArabicCohesiveDevices(response) {
   const tokens = rawTokens.map(t => stripPunct(t));
   const used = new Array(tokens.length).fill(false);
 
+  // Arabic clitic prefixes commonly attached to connectives:
+  //   و (and), ف (so/then). Allowed on FIRST token of a connective only.
+  // Example: "وأيضاً" (and also) should match the connective "أيضاً".
+  const CLITIC_PREFIXES = ["و", "ف"];
+  function firstTokenMatches(respTok, targetTok) {
+    if (respTok === targetTok) return true;
+    for (const p of CLITIC_PREFIXES) {
+      if (respTok.length > p.length && respTok.startsWith(p) && respTok.slice(p.length) === targetTok) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Build flat list, sorted longest-token-count first so multi-word connectives win
   const allConn = [];
   for (const [cat, list] of Object.entries(CONNECTIVES)) {
@@ -2770,7 +2784,13 @@ function computeArabicCohesiveDevices(response) {
       if (conflict) continue;
       let match = true;
       for (let j = 0; j < conn_tokens.length; j++) {
-        if (tokens[i + j] !== conn_tokens[j]) { match = false; break; }
+        // First token of a multi-word connective may carry a و/ف clitic prefix;
+        // subsequent tokens must match exactly.
+        if (j === 0) {
+          if (!firstTokenMatches(tokens[i + j], conn_tokens[j])) { match = false; break; }
+        } else {
+          if (tokens[i + j] !== conn_tokens[j]) { match = false; break; }
+        }
       }
       if (match) {
         occ++;
