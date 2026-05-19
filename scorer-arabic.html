@@ -3210,6 +3210,10 @@ Arabic-specific note: Do not penalise different derived forms of the same root (
 
 <ceiling_principle>
 A score of 81+ requires variety AND precision \u2014 topic-specific, varied, or purposeful lexical choices. "Understandable everyday Arabic" alone is mid-band, not upper-band.
+
+Do not award high Language Range scores for length alone. High scores require flexible vocabulary across the response.
+
+A score of 85+ requires precise AND flexible vocabulary \u2014 words chosen for nuance or specificity, not just understood. Repetition of common verbs or safe lexical choices keeps the score in mid bands regardless of response length.
 </ceiling_principle>
 
 <output_format>
@@ -3221,7 +3225,11 @@ Return exactly:
 No extra keys. No markdown fences.
 </output_format>
 
-<inputs><response>${response}</response></inputs>`;
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>`;
 
   // ---- Language Range: Morphological Variety ----
   const morphPrompt = `You are a structured scoring engine for an Arabic writing assessment.
@@ -3258,6 +3266,8 @@ IMPORTANT: Arabic naturally contains morphology in almost every sentence. Do NOT
 
 <ceiling_principle>
 A score of 81+ requires multiple distinct pattern types (masdar + active/passive participle + broken plural + derived verb form) appearing in different contexts across the response \u2014 not one or two scattered forms. Arabic naturally contains morphology; mere presence is not sufficient.
+
+A score of 85+ requires controlled variety AND consistency \u2014 multiple morphological patterns used accurately across the whole response, not just in one or two sentences.
 </ceiling_principle>
 
 <output_format>
@@ -3269,7 +3279,11 @@ Return exactly:
 No extra keys. No markdown fences.
 </output_format>
 
-<inputs><response>${response}</response></inputs>`;
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>`;
 
   // ---- Language Range: Arabic Sentence Complexity ----
   const sentencePrompt = `You are a structured scoring engine for an Arabic writing assessment.
@@ -3305,6 +3319,8 @@ OUT OF SCOPE: grammar, vocabulary, morphology, ideas, spelling.
 
 <ceiling_principle>
 A score of 81+ requires multiple types of subordination (relative + conditional + subordinate) appearing across multiple sentences, used purposefully \u2014 not just an occasional \u0627\u0644\u0630\u064a or \u0644\u0623\u0646. Simple-but-grammatical sentence chaining is mid-band.
+
+A score of 85+ requires controlled variety of sentence structures \u2014 varied subordination, nominal/verbal mixing, embedded clauses \u2014 used consistently and accurately across the response, not just present once.
 </ceiling_principle>
 
 <output_format>
@@ -3316,7 +3332,11 @@ Return exactly:
 No extra keys. No markdown fences.
 </output_format>
 
-<inputs><response>${response}</response></inputs>`;
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>`;
 
   // ---- Organisation & Coherence: Coherence & Flow (LLM) ----
   // Scope-locked to logical progression, paragraph flow, idea linking ONLY.
@@ -3360,6 +3380,8 @@ What prevents 81+:
 - Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 75.
 - Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 75.
 A score of 81+ requires logical progression across the WHOLE response — ideas build on each other, paragraphs have clear internal coherence and connect to each other, the reader follows without effort.
+
+A score of 85+ requires organisation that feels natural and mature — ideas develop with purpose, paragraphs serve a clear function, the structure feels intentional rather than mechanical.
 </ceiling_blockers>
 
 <rule:hard_caps>
@@ -3377,7 +3399,11 @@ Return exactly:
 No extra keys. No markdown fences.
 </output_format>
 
-<inputs><response>${response}</response></inputs>`;
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>`;
 
   // ---- Language Accuracy: Grammar & Language Control ----
   // Philosophy: communicative control, NOT native-speaker perfection.
@@ -3439,10 +3465,16 @@ Handled by other metrics, do NOT let these influence the score:
 \u2192 Simple, safe sentence structures only (basic SVO + simple past throughout) used accurately: cap at 75.
 \u2192 "Absence of visible errors" without evidence of grammatical range (no varied tenses, no subordination, no complex agreement): cap at 75.
 \u2192 Limited grammatical complexity \u2014 narrow construction range, even if error-free: cap at 78.
+\u2192 Response is very short (< 50 words) AND uses only simple SVO sentence patterns: cap at 65.
+\u2192 Response is below expected word range AND uses only simple sentence patterns: cap at 75.
 </rule:hard_caps>
 
 <ceiling_principle>
-A score of 81+ requires BOTH accuracy AND evidence of grammatical range: varied constructions (subordination, varied tenses, complex agreement, embedded clauses) correctly executed. A learner who only uses safe simple structures correctly is showing accuracy but not grammatical CONTROL \u2014 that is mid-band (61\u201375), not upper-band.
+A score of 81+ requires BOTH accuracy AND evidence of grammatical range: varied constructions (subordination, varied tenses, complex agreement, embedded clauses) correctly executed.
+
+Do not give 80+ for grammar if the response is very short and only uses simple sentence patterns. In short/basic responses, grammar may appear "mostly correct" because the learner avoids complexity \u2014 that is avoidance, not control. Reward accuracy, but cap high scores when there is not enough language to demonstrate control.
+
+A score of 85+ requires grammar to remain accurate across complex language \u2014 subordination, varied tenses, complex agreement, embedded clauses \u2014 not just simple structures executed correctly.
 </ceiling_principle>
 
 <output_format>
@@ -3455,7 +3487,11 @@ Return exactly:
 No extra keys. No markdown fences.
 </output_format>
 
-<inputs><response>${response}</response></inputs>`;
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>`;
 
   console.log("[IE prompt sent]", iePrompt);
 
