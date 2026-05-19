@@ -2533,6 +2533,7 @@ async function runBulkScoring() {
     grammar_language_control_score: null,
     grammar_language_control_reason: `ERROR: ${msg}`,
     grammar_error_types: [],
+    overall_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -2654,6 +2655,7 @@ async function runScoring() {
     grammar_language_control_score: null,
     grammar_language_control_reason: `ERROR: ${msg}`,
     grammar_error_types: [],
+    overall_score: null,
     task_requirements_met: null,
     task_achievement: null,
     content_quality: null,
@@ -3195,10 +3197,12 @@ Score morphological variety only. Return JSON only.
 
 <definition:scope>
 Score ONLY:
-1. Variety of Arabic morphological patterns across the response.
-2. Evidence of derived forms: verbal nouns (masdar), active/passive participles, broken plurals, varied verb conjugations, derived verb patterns.
+1. The VARIETY of CONTROLLED morphological usage — multiple patterns used purposefully and accurately, not just presence of any derived forms.
+2. Whether the writer uses a RANGE of morphological forms (masdar, active/passive participles, broken plurals, varied verb conjugations, derived verb patterns) — mere existence of one or two forms is not sufficient for a high score.
 
 OUT OF SCOPE: grammar correctness, vocabulary richness, sentence complexity, ideas, spelling.
+
+IMPORTANT: Arabic naturally contains morphology in almost every sentence. Do NOT score high just because derived forms appear — high scores require purposeful variety across multiple distinct pattern types used controlled and consistently.
 </definition:scope>
 
 <scoring:bands>
@@ -3290,7 +3294,7 @@ The score should reflect COMMUNICATIVE grammatical control, NOT native-speaker p
 - Missing case endings (\u0625\u0639\u0631\u0627\u0628)
 - Minor spelling variation
 - Stylistic preference
-- Occasional informal influence unless it clearly disrupts formal writing
+- Occasional informal influence is acceptable at lower CEFR levels, but repeated spoken-style grammar or agreement issues should reduce the score
 </do_not_heavily_penalise>
 
 <out_of_scope>
@@ -3306,9 +3310,10 @@ Handled by other metrics, do NOT let these influence the score:
 </out_of_scope>
 
 <scoring_guidance>
-- High scores should indicate clear, controlled, and understandable grammar.
-- Occasional non-blocking errors are acceptable, especially at lower CEFR levels.
-- Frequent grammatical errors should only strongly reduce the score when they interfere with clarity or consistency.
+- High scores (81+) should indicate consistently controlled grammar across the response, not simply understandable meaning.
+- Mid-range scores (61\u201380) suit responses that are understandable with occasional non-blocking errors.
+- Lower scores reflect repeated errors that disrupt control or consistency, even if individual sentences remain understandable.
+- Errors must be REPEATED or PATTERNED to push the score below 60. One or two isolated slips do not.
 </scoring_guidance>
 
 <scoring:bands>
@@ -3436,6 +3441,20 @@ No extra keys. No markdown fences.
   const grammarReason = grammarData?.justification ?? grammarData?.reason ?? "";
   const grammarErrorTypes = Array.isArray(grammarData?.error_types_detected) ? grammarData.error_types_detected : [];
   console.log("[Grammar]", { grammarScore, grammarReason, grammarErrorTypes });
+
+  // ---- Overall Score: equal-weight average of 6 dimensions ----
+  // 1. Task Achievement (taFinal) — already blends WCC/TA/IE
+  // 2. Content Quality (cqFinal)
+  // 3. Style & Register (styleRegisterScore)
+  // 4. Language Range (languageRangeScore)
+  // 5. Organisation & Coherence (cohesiveResult.score)
+  // 6. Language Accuracy (grammarScore)
+  const dimensionScores = [taFinal, cqFinal, styleRegisterScore, languageRangeScore, cohesiveResult.score, grammarScore];
+  const validDim = dimensionScores.filter(s => typeof s === "number");
+  const overallScore = validDim.length > 0
+    ? Math.round(validDim.reduce((a, b) => a + b, 0) / validDim.length)
+    : null;
+  console.log("[Overall]", { dimensionScores, overallScore });
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
   const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
@@ -3501,6 +3520,7 @@ No extra keys. No markdown fences.
     grammar_language_control_score: grammarScore,
     grammar_language_control_reason: grammarReason,
     grammar_error_types: grammarErrorTypes,
+    overall_score: overallScore,
     task_requirements_met: Math.round(taRequirementsMet),
     task_achievement: taFinal,
     content_quality: cqFinal,
@@ -3642,7 +3662,7 @@ function renderResults() {
         </div>
         <table>
           <thead><tr>
-            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th>WCC</th><th>IE</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Cohesion</th><th>Grammar</th><th></th>
+            <th>Sample</th>${isBulk ? "<th>Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700;">OVERALL</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Cohesion</th><th>Grammar</th><th></th>
           </tr></thead>
           <tbody>`;
       samples.forEach((s, sIdx) => {
@@ -3664,14 +3684,13 @@ function renderResults() {
           }
         }
         const ieReasonVal = s.intelligibility_effect_reason ?? s.effect_reason ?? "—";
-        const colspan = isBulk ? 12 : 11;
+        const colspan = isBulk ? 11 : 10;
         html += `
           <tr class="expandable" data-toggle="${id}">
             <td><strong>#${s.sample_num ?? ""}</strong></td>
             ${isBulk ? `<td style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
             <td>${s.word_count ?? "—"}</td>
-            <td>${wcc}</td>
-            <td><strong>${ieScoreVal}</strong></td>
+            <td style="background: #f5f3ff; font-weight: 700; font-size: 16px;">${s.overall_score ?? "—"}</td>
             <td><strong>${s.task_achievement ?? "—"}</strong></td>
             <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠ dup</span>` : ""}</td>
             <td><strong>${s.style_register_score ?? "—"}</strong></td>
@@ -3787,7 +3806,7 @@ document.getElementById("btn_clear_results").addEventListener("click", () => {
 
 document.getElementById("btn_export_results").addEventListener("click", () => {
   if (resultsStore.length === 0) return alert("No results to export.");
-  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","cohesive_devices_score","cohesive_devices_per_100_words","cohesive_devices_category_count","cohesive_devices_distinct_types","grammar_language_control_score","grammar_language_control_reason","grammar_error_types","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
+  const cols = ["timestamp","run_label","question_id","cefr_level","task_type","sample_num","word_count","overall_score","word_count_compliance","content_score","task_type_score","intelligibility_effect_score","intelligibility_effect_reason","msa_consistency_score","msa_consistency_reason","dialect_severity","dialect_score","dialect_reason","style_register_score","vocabulary_diversity_score","morphological_variety_score","arabic_sentence_complexity_score","language_range_score","cohesive_devices_score","cohesive_devices_per_100_words","cohesive_devices_category_count","cohesive_devices_distinct_types","grammar_language_control_score","grammar_language_control_reason","grammar_error_types","task_requirements_met","task_achievement","content_quality","task_checks","task_type_checks","cq_scores","error","response"];
   const rows = [];
   resultsStore.forEach(run => {
     const isBulk = run.is_bulk === true;
@@ -3799,7 +3818,7 @@ document.getElementById("btn_export_results").addEventListener("click", () => {
       const sampleTaskType = isBulk ? (s.task_type || "") : run.task_type;
       rows.push([
         run.timestamp, run.question_id, sampleQId, sampleCefr, sampleTaskType,
-        s.sample_num, s.word_count, s.word_count_compliance,
+        s.sample_num, s.word_count, s.overall_score ?? "", s.word_count_compliance,
         s.content_score ?? "", s.task_type_score ?? "", ieScoreVal, ieReasonVal,
         s.task_requirements_met, s.task_achievement, s.content_quality,
         JSON.stringify(s.task_checks || []), JSON.stringify(s.task_type_checks || []),
@@ -3856,8 +3875,7 @@ function downloadCSV(filename, rows) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename;
-  document.body.appendChild(a);
-  a.click(); a.remove();
+  document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
 </script>
