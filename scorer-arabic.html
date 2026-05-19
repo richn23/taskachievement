@@ -948,8 +948,8 @@ const TASK_TYPE_REQUIREMENTS = {
 const CEFR_LEVELS = ["A1","A2","A2+","B1","B1+","B2","B2+","C1","C2"];
 
 const CEFR_ESTIMATE_THRESHOLDS = [
-  ["A1", 32], ["A2", 38], ["A2+", 46], ["B1", 54], ["B1+", 62],
-  ["B2", 70], ["B2+", 80], ["C1", 93], ["C2", 100]
+  ["Pre-A1", 9], ["A1", 28], ["A2", 35], ["A2+", 40], ["B1", 50], ["B1+", 57],
+  ["B2", 66], ["B2+", 73], ["C1", 85], ["C2", 100]
 ];
 
 const EMBEDDED_QUESTION_MARKERS = {
@@ -3203,9 +3203,9 @@ Arabic-specific note: Do not penalise different derived forms of the same root (
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Fewer than 10 distinct content words: cap at 20.
 \u2192 Identical vocabulary in every sentence: cap at 25.
-\u2192 Heavy repetition of the same content verbs (e.g. \u0630\u0647\u0628\u0646\u0627\u060c \u0623\u0643\u0644\u0646\u0627\u060c \u0631\u062c\u0639\u0646\u0627) across the response: cap at 60.
-\u2192 Basic everyday vocabulary throughout with no topic-specific or precise lexical choices: cap at 65.
-\u2192 Narrow lexical scope (small set of nouns/verbs recycled), even if grammatically accurate: cap at 65.
+\u2192 Heavy repetition of the same content verbs (e.g. \u0630\u0647\u0628\u0646\u0627\u060c \u0623\u0643\u0644\u0646\u0627\u060c \u0631\u062c\u0639\u0646\u0627) across the response: cap at 30.
+\u2192 Basic everyday vocabulary throughout with no topic-specific or precise lexical choices: cap at 35.
+\u2192 Narrow lexical scope (small set of nouns/verbs recycled), even if grammatically accurate: cap at 35.
 </rule:hard_caps>
 
 <ceiling_principle>
@@ -3259,9 +3259,9 @@ IMPORTANT: Arabic naturally contains morphology in almost every sentence. Do NOT
 \u2192 Under 30 words: return { "score": null, "reason": "response too short to score" }
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Only isolated words with no connected text: cap at 20.
-\u2192 Same simple past-tense verbs used throughout (no tense variation, no derived forms): cap at 50.
-\u2192 Only one or two derived forms appearing once across the response: cap at 60.
-\u2192 Same handful of verb forms repeated across sentences with no morphological flex: cap at 65.
+\u2192 Same simple past-tense verbs used throughout (no tense variation, no derived forms): cap at 25.
+\u2192 Only one or two derived forms appearing once across the response: cap at 30.
+\u2192 Same handful of verb forms repeated across sentences with no morphological flex: cap at 35.
 </rule:hard_caps>
 
 <ceiling_principle>
@@ -3312,9 +3312,9 @@ OUT OF SCOPE: grammar, vocabulary, morphology, ideas, spelling.
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 All fragments under 4 words: cap at 15.
 \u2192 Every sentence identical SVO with no variation: cap at 35.
-\u2192 Simple SVO sentences chained with \u0648 / \u062b\u0645 / \u0628\u0639\u062f \u0630\u0644\u0643 throughout, no subordination: cap at 55.
-\u2192 Coordination only (\u0648\u060c \u062b\u0645\u060c \u0628\u0639\u062f \u0630\u0644\u0643) with no relative clauses or subordinate clauses anywhere: cap at 60.
-\u2192 A single subordinate construction appearing once in a long response: cap at 70.
+\u2192 Simple SVO sentences chained with \u0648 / \u062b\u0645 / \u0628\u0639\u062f \u0630\u0644\u0643 throughout, no subordination: cap at 25.
+\u2192 Coordination only (\u0648\u060c \u062b\u0645\u060c \u0628\u0639\u062f \u0630\u0644\u0643) with no relative clauses or subordinate clauses anywhere: cap at 30.
+\u2192 A single subordinate construction appearing once in a long response: cap at 50.
 </rule:hard_caps>
 
 <ceiling_principle>
@@ -3376,9 +3376,9 @@ Handled by other metrics; do NOT let these influence the score:
 
 <ceiling_blockers>
 What prevents 81+:
-- One or two abrupt topic shifts the reader has to reconstruct: cap at 70.
-- Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 75.
-- Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 75.
+- One or two abrupt topic shifts the reader has to reconstruct: cap at 45.
+- Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 40.
+- Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 40.
 A score of 81+ requires logical progression across the WHOLE response — ideas build on each other, paragraphs have clear internal coherence and connect to each other, the reader follows without effort.
 
 A score of 85+ requires organisation that feels natural and mature — ideas develop with purpose, paragraphs serve a clear function, the structure feels intentional rather than mechanical.
@@ -3462,11 +3462,11 @@ Handled by other metrics, do NOT let these influence the score:
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Response entirely in English: return { "score": null, "reason": "response not in Arabic" }
 \u2192 Agreement errors in every sentence: cap at 40.
-\u2192 Simple, safe sentence structures only (basic SVO + simple past throughout) used accurately: cap at 75.
-\u2192 "Absence of visible errors" without evidence of grammatical range (no varied tenses, no subordination, no complex agreement): cap at 75.
-\u2192 Limited grammatical complexity \u2014 narrow construction range, even if error-free: cap at 78.
-\u2192 Response is very short (< 50 words) AND uses only simple SVO sentence patterns: cap at 65.
-\u2192 Response is below expected word range AND uses only simple sentence patterns: cap at 75.
+\u2192 Simple, safe sentence structures only (basic SVO + simple past throughout) used accurately: cap at 45.
+\u2192 "Absence of visible errors" without evidence of grammatical range (no varied tenses, no subordination, no complex agreement): cap at 50.
+\u2192 Limited grammatical complexity \u2014 narrow construction range, even if error-free: cap at 60.
+\u2192 Response is very short (< 50 words) AND uses only simple SVO sentence patterns: cap at 30.
+\u2192 Response is below expected word range AND uses only simple sentence patterns: cap at 45.
 </rule:hard_caps>
 
 <ceiling_principle>
@@ -3651,7 +3651,7 @@ No extra keys. No markdown fences.
     return dupes;
   })();
 
-  const cefrEstimate = estimateCEFR((taFinal + cqFinal) / 2);
+  const cefrEstimate = (typeof overallScore === "number") ? estimateCEFR(overallScore) : null;
 
   return {
     sample_num: sampleNum,
@@ -3886,7 +3886,10 @@ function renderResults() {
             <td><strong>#${s.sample_num ?? ""}</strong></td>
             ${isBulk ? `<td class="q-col" style="font-size: 12px;">${escapeHtml(s.question_id || "—")}</td>` : ""}
             <td>${s.word_count ?? "—"}</td>
-            <td style="background: #f5f3ff; font-weight: 700; font-size: 16px; color: #5b21b6;">${s.overall_score ?? "—"}</td>
+            <td style="background: #f5f3ff; color: #5b21b6; padding: 8px 6px;">
+              <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? "—"}</div>
+              ${s.cefr_estimate ? `<div style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #7c3aed; margin-top: 3px; text-transform: uppercase;">≈ ${escapeHtml(s.cefr_estimate)}</div>` : ""}
+            </td>
             <td><strong>${s.task_achievement ?? "—"}</strong></td>
             <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
             <td><strong>${s.style_register_score ?? "—"}</strong></td>
