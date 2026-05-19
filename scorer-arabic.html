@@ -3203,7 +3203,14 @@ Arabic-specific note: Do not penalise different derived forms of the same root (
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Fewer than 10 distinct content words: cap at 20.
 \u2192 Identical vocabulary in every sentence: cap at 25.
+\u2192 Heavy repetition of the same content verbs (e.g. \u0630\u0647\u0628\u0646\u0627\u060c \u0623\u0643\u0644\u0646\u0627\u060c \u0631\u062c\u0639\u0646\u0627) across the response: cap at 60.
+\u2192 Basic everyday vocabulary throughout with no topic-specific or precise lexical choices: cap at 65.
+\u2192 Narrow lexical scope (small set of nouns/verbs recycled), even if grammatically accurate: cap at 65.
 </rule:hard_caps>
+
+<ceiling_principle>
+A score of 81+ requires variety AND precision \u2014 topic-specific, varied, or purposeful lexical choices. "Understandable everyday Arabic" alone is mid-band, not upper-band.
+</ceiling_principle>
 
 <output_format>
 Return exactly:
@@ -3244,7 +3251,14 @@ IMPORTANT: Arabic naturally contains morphology in almost every sentence. Do NOT
 \u2192 Under 30 words: return { "score": null, "reason": "response too short to score" }
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Only isolated words with no connected text: cap at 20.
+\u2192 Same simple past-tense verbs used throughout (no tense variation, no derived forms): cap at 50.
+\u2192 Only one or two derived forms appearing once across the response: cap at 60.
+\u2192 Same handful of verb forms repeated across sentences with no morphological flex: cap at 65.
 </rule:hard_caps>
+
+<ceiling_principle>
+A score of 81+ requires multiple distinct pattern types (masdar + active/passive participle + broken plural + derived verb form) appearing in different contexts across the response \u2014 not one or two scattered forms. Arabic naturally contains morphology; mere presence is not sufficient.
+</ceiling_principle>
 
 <output_format>
 Return exactly:
@@ -3284,13 +3298,81 @@ OUT OF SCOPE: grammar, vocabulary, morphology, ideas, spelling.
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 All fragments under 4 words: cap at 15.
 \u2192 Every sentence identical SVO with no variation: cap at 35.
+\u2192 Simple SVO sentences chained with \u0648 / \u062b\u0645 / \u0628\u0639\u062f \u0630\u0644\u0643 throughout, no subordination: cap at 55.
+\u2192 Coordination only (\u0648\u060c \u062b\u0645\u060c \u0628\u0639\u062f \u0630\u0644\u0643) with no relative clauses or subordinate clauses anywhere: cap at 60.
+\u2192 A single subordinate construction appearing once in a long response: cap at 70.
 </rule:hard_caps>
+
+<ceiling_principle>
+A score of 81+ requires multiple types of subordination (relative + conditional + subordinate) appearing across multiple sentences, used purposefully \u2014 not just an occasional \u0627\u0644\u0630\u064a or \u0644\u0623\u0646. Simple-but-grammatical sentence chaining is mid-band.
+</ceiling_principle>
 
 <output_format>
 Return exactly:
 {
   "arabic_sentence_complexity_score": NUMBER,
   "justification": "2-3 sentences explaining the score. Quote 1-2 specific sentence structures from the response (e.g. a relative clause with الذي/التي, a conditional with إذا/لو, a subordinate clause) — or note their absence. Mention what kinds of sentences dominate."
+}
+No extra keys. No markdown fences.
+</output_format>
+
+<inputs><response>${response}</response></inputs>`;
+
+  // ---- Organisation & Coherence: Coherence & Flow (LLM) ----
+  // Scope-locked to logical progression, paragraph flow, idea linking ONLY.
+  // Explicitly NOT vividness/engagement/style/fluency — those belong to S&R and IE.
+  const coherenceFlowPrompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score Coherence & Flow only. Return JSON only.
+
+<core_principle>
+Evaluate how clearly ideas progress and link together across the response.
+Score ONLY: logical progression, paragraph flow, idea linking, and progression clarity.
+</core_principle>
+
+<focus_on>
+- Logical progression: does each idea follow naturally from the previous one?
+- Paragraph flow: do paragraphs cohere internally and connect to each other?
+- Idea linking: are ideas connected explicitly or by clear implication?
+- Progression clarity: can the reader follow the line of reasoning without effort?
+</focus_on>
+
+<out_of_scope>
+Handled by other metrics; do NOT let these influence the score:
+- Vividness, engagement, style, fluency — handled by Style & Register and Intelligibility & Effect
+- Grammatical accuracy — handled by Language Accuracy
+- Vocabulary range — handled by Language Range
+- Specific cohesive-device usage — handled by Arabic Cohesive Devices
+- Task completion, idea quality — handled by Task Achievement and Content Quality
+- Punctuation, spelling
+</out_of_scope>
+
+<scoring:bands>
+0–20   No logical progression. Ideas appear in random order with no detectable structure.
+21–40  Weak progression. Several jumps or abrupt shifts the reader must reconstruct.
+41–60  Some progression. Order broadly works but has gaps or unclear links between ideas.
+61–80  Clear progression. Ideas link logically across the response with minor unevenness.
+81–100 Strong progression. Each idea builds on the previous; paragraphs flow naturally.
+</scoring:bands>
+
+<ceiling_blockers>
+What prevents 81+:
+- One or two abrupt topic shifts the reader has to reconstruct: cap at 70.
+- Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 75.
+- Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 75.
+A score of 81+ requires logical progression across the WHOLE response — ideas build on each other, paragraphs have clear internal coherence and connect to each other, the reader follows without effort.
+</ceiling_blockers>
+
+<rule:hard_caps>
+→ Response under 30 words: return { "score": null, "reason": "response too short to score" }
+→ No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+→ Ideas in random order with no detectable progression: cap at 25.
+</rule:hard_caps>
+
+<output_format>
+Return exactly:
+{
+  "coherence_flow_score": NUMBER,
+  "justification": "2-3 sentences explaining the score. Refer specifically to how ideas progress (or fail to progress). Quote 1-2 short phrases showing where progression succeeds or breaks down. Do NOT comment on vividness, style, or grammar."
 }
 No extra keys. No markdown fences.
 </output_format>
@@ -3354,7 +3436,14 @@ Handled by other metrics, do NOT let these influence the score:
 \u2192 No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
 \u2192 Response entirely in English: return { "score": null, "reason": "response not in Arabic" }
 \u2192 Agreement errors in every sentence: cap at 40.
+\u2192 Simple, safe sentence structures only (basic SVO + simple past throughout) used accurately: cap at 75.
+\u2192 "Absence of visible errors" without evidence of grammatical range (no varied tenses, no subordination, no complex agreement): cap at 75.
+\u2192 Limited grammatical complexity \u2014 narrow construction range, even if error-free: cap at 78.
 </rule:hard_caps>
+
+<ceiling_principle>
+A score of 81+ requires BOTH accuracy AND evidence of grammatical range: varied constructions (subordination, varied tenses, complex agreement, embedded clauses) correctly executed. A learner who only uses safe simple structures correctly is showing accuracy but not grammatical CONTROL \u2014 that is mid-band (61\u201375), not upper-band.
+</ceiling_principle>
 
 <output_format>
 Return exactly:
@@ -3370,9 +3459,9 @@ No extra keys. No markdown fences.
 
   console.log("[IE prompt sent]", iePrompt);
 
-  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, grammarData;
+  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData;
   try {
-    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, grammarData] = await Promise.all([
+    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData] = await Promise.all([
       callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
       callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
       callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
@@ -3381,6 +3470,7 @@ No extra keys. No markdown fences.
       callOpenAI(vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
       callOpenAI(morphPrompt, null, "MORPH", { max_tokens: 1024 }),
       callOpenAI(sentencePrompt, null, "SENT", { max_tokens: 1024 }),
+      callOpenAI(coherenceFlowPrompt, null, "COHFLOW", { max_tokens: 1024 }),
       callOpenAI(grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 })
     ]);
   } catch (err) {
@@ -3461,6 +3551,21 @@ No extra keys. No markdown fences.
   const cohesiveResult = computeArabicCohesiveDevices(response);
   console.log("[Cohesive Devices]", cohesiveResult);
 
+  // ---- Coherence & Flow (LLM) ----
+  const coherenceFlowScore = extractScore(coherenceFlowData, "coherence_flow_score", "score");
+  const coherenceFlowReason = coherenceFlowData?.justification ?? coherenceFlowData?.reason ?? "";
+  console.log("[Coherence & Flow]", { coherenceFlowScore, coherenceFlowReason });
+
+  // ---- Combined Organisation & Coherence (30% deterministic connectives / 70% LLM coherence) ----
+  let orgCohScore = null;
+  if (typeof cohesiveResult.score === "number" && typeof coherenceFlowScore === "number") {
+    orgCohScore = Math.round(cohesiveResult.score * 0.30 + coherenceFlowScore * 0.70);
+  } else if (typeof coherenceFlowScore === "number") {
+    orgCohScore = coherenceFlowScore;
+  } else if (typeof cohesiveResult.score === "number") {
+    orgCohScore = cohesiveResult.score;
+  }
+
   // ---- Grammar & Language Control extraction ----
   const grammarScore = extractScore(grammarData, "grammar_language_control_score", "score");
   const grammarReason = grammarData?.justification ?? grammarData?.reason ?? "";
@@ -3477,9 +3582,9 @@ No extra keys. No markdown fences.
   // 2. Content Quality (cqFinal)
   // 3. Style & Register (styleRegisterScore)
   // 4. Language Range (languageRangeScore)
-  // 5. Organisation & Coherence (cohesiveResult.score)
+  // 5. Organisation & Coherence (orgCohScore = 30% cohesive devices + 70% coherence & flow)
   // 6. Language Accuracy (grammarScore)
-  const dimensionScores = [taFinal, cqFinal, styleRegisterScore, languageRangeScore, cohesiveResult.score, grammarScore];
+  const dimensionScores = [taFinal, cqFinal, styleRegisterScore, languageRangeScore, orgCohScore, grammarScore];
   const validDim = dimensionScores.filter(s => typeof s === "number");
   const overallScore = validDim.length > 0
     ? Math.round(validDim.reduce((a, b) => a + b, 0) / validDim.length)
@@ -3543,6 +3648,9 @@ No extra keys. No markdown fences.
     cohesive_devices_distinct_types: cohesiveResult.distinct_types,
     cohesive_devices_category_count: cohesiveResult.connective_category_count,
     cohesive_devices_per_100_words: cohesiveResult.arabic_connectives_per_100_words,
+    coherence_flow_score: coherenceFlowScore,
+    coherence_flow_reason: coherenceFlowReason,
+    organisation_coherence_score: orgCohScore,
     grammar_language_control_score: grammarScore,
     grammar_language_control_reason: grammarReason,
     grammar_error_types: grammarErrorTypes,
@@ -3747,7 +3855,7 @@ function renderResults() {
             <td><strong>${s.content_quality ?? "—"}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
             <td><strong>${s.style_register_score ?? "—"}</strong></td>
             <td><strong>${s.language_range_score ?? "—"}</strong></td>
-            <td><strong>${s.cohesive_devices_score ?? "—"}</strong></td>
+            <td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? "—"}</strong></td>
             <td><strong>${s.grammar_language_control_score ?? "—"}</strong></td>
             <td class="expand-col">▼</td>
           </tr>
@@ -3791,6 +3899,10 @@ function renderResults() {
               <h4 style="margin: 0;">Language Range (combined) — score: ${s.language_range_score ?? "—"}</h4>
               <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 33.4% Vocabulary + 33.3% Morphological + 33.3% Sentence Complexity</div>
             </div>
+            <div class="detail-section" style="background: #ecfdf5; padding: 10px 12px; border-radius: 6px;">
+              <h4 style="margin: 0;">Organisation &amp; Coherence (combined) — score: ${s.organisation_coherence_score ?? "—"}</h4>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Weighted: 30% Arabic Cohesive Devices + 70% Coherence &amp; Flow</div>
+            </div>
             <div class="detail-section">
               <h4>Arabic Cohesive Devices — score: ${s.cohesive_devices_score ?? "—"}</h4>
               <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.cohesive_devices_reason || "")}</div>
@@ -3805,6 +3917,10 @@ function renderResults() {
                 }).join("");
                 return `<div style="margin-top: 6px;">${rows}</div>`;
               })()}
+            </div>
+            <div class="detail-section">
+              <h4>Coherence &amp; Flow — score: ${s.coherence_flow_score ?? "—"}</h4>
+              <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.coherence_flow_reason || "")}</div>
             </div>
             <div class="detail-section">
               <h4>Grammar &amp; Language Control — score: ${s.grammar_language_control_score ?? "—"}</h4>
