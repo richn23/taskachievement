@@ -524,6 +524,50 @@
   /* Subtle visual cue for RTL fields */
   .rtl-content::placeholder { color: #94a3b8; font-style: italic; }
 
+  /* ============= CALIBRATION ============= */
+  .calib-list { list-style: none; margin: 0; padding: 0; }
+  .calib-dim-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+  }
+  .calib-dim-row:last-of-type { border-bottom: none; }
+  .calib-dim-row.dim-disabled { opacity: 0.5; }
+  .calib-label { flex: 1; font-size: 14px; font-weight: 600; }
+  .calib-weight { width: 78px; text-align: right; padding: 6px 10px; font-size: 14px; }
+  .calib-weight:disabled { background: #f3f4f6; color: var(--muted); cursor: not-allowed; }
+  .calib-pct-label { font-size: 13px; color: var(--muted); }
+  .calib-caret {
+    width: 32px; height: 32px; padding: 0; border: 1px solid var(--border);
+    border-radius: 6px; background: #fff; font-size: 13px; color: var(--muted);
+    cursor: pointer; flex-shrink: 0; line-height: 1; font-family: inherit;
+  }
+  .calib-caret:hover { background: #f3f4f6; }
+  .calib-caret-placeholder { width: 32px; flex-shrink: 0; display: inline-block; }
+  .calib-metrics-panel {
+    list-style: none; padding: 4px 0 8px 28px; margin: 0 0 4px 8px;
+    border-left: 3px solid var(--border);
+  }
+  .calib-metric-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .calib-metric-leader {
+    font-size: 12px; color: var(--muted); width: 20px; flex-shrink: 0;
+    font-family: ui-monospace, monospace;
+  }
+  .calib-metric-label { flex: 1; font-size: 13px; color: var(--muted); }
+  .calib-sub-total {
+    text-align: right; font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--border); padding-top: 5px; margin-top: 4px;
+  }
+  .calib-total-row {
+    display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+    padding-top: 12px; border-top: 1px solid var(--border-strong);
+    margin-top: 4px; font-size: 13px; color: var(--muted);
+  }
+  .calib-total-val { font-weight: 700; font-size: 14px; color: var(--text); }
+  .calib-footer {
+    display: flex; align-items: center; justify-content: space-between; margin-top: 18px;
+  }
+  .calib-save-indicator { font-size: 12px; color: var(--muted); font-style: italic; }
+
 </style>
 </head>
 <body>
@@ -569,6 +613,7 @@
 <div class="container">
   <div class="tabs">
     <button class="tab active" data-tab="step0">Scoring System</button>
+    <button class="tab" data-tab="calibration">Calibration</button>
     <button class="tab" data-tab="step1">1. Create Question</button>
     <button class="tab" data-tab="step2">2. Test Samples</button>
     <button class="tab" data-tab="step3">3. Results</button>
@@ -722,6 +767,24 @@
       <p style="margin: 0 0 8px; font-size: 13px;">V1 = 6 dimensions, 12 metrics total (10 LLM + 2 code-only: WCC and Arabic Cohesive Devices). Organisation &amp; Coherence is the only <em>dimension</em> that combines code and LLM metrics into one score. Construct-based scoring with band pressure rules; CEFR mapping applied only at the interpretation layer.</p>
       <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All metrics return 0–100. Each dimension is reported separately with justification. The Overall Score is the equal-weight average of all 6 dimensions and is the input to the CEFR badge.</p>
       <p style="margin: 0; font-size: 12px; color: var(--muted); font-style: italic;">Arabic-specific metrics (MSA, Dialect, Cohesive Devices) use Arabic lexicons and Arabic-aware prompts. Other metrics reuse English scoring patterns with Arabic content as input.</p>
+    </div>
+  </div>
+
+  <!-- ========== CALIBRATION ========== -->
+  <div class="view" id="view-calibration">
+    <div class="card">
+      <h2 style="margin-bottom: 4px;">Calibration</h2>
+      <p class="hint">Tune the weight each dimension carries in the Overall Score, and the weight each metric carries within its dimension. Changes save automatically and apply on the next Run Scoring.</p>
+      <ul class="calib-list" id="calib-dim-list"></ul>
+      <div class="calib-total-row">
+        <span>Total:</span>
+        <span class="calib-total-val" id="calib-total">100.0</span>
+        <span>%</span>
+      </div>
+      <div class="calib-footer">
+        <button id="btn-calib-reset">Reset to defaults</button>
+        <span class="calib-save-indicator" id="calib-save-indicator"></span>
+      </div>
     </div>
   </div>
 
@@ -1296,6 +1359,7 @@ document.querySelectorAll(".tab").forEach(btn => {
     document.getElementById("view-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "step2") refreshStep2();
     if (btn.dataset.tab === "step3") renderResults();
+    if (btn.dataset.tab === "calibration") renderCalibrationUI();
   });
 });
 
@@ -3606,19 +3670,27 @@ No extra keys. No markdown fences.
 
   console.log("[IE prompt sent]", iePrompt);
 
+  const _cal = getCalibration();
+  const _dimEnabled = id => _cal.dimensions.find(d => d.id === id)?.enabled !== false;
+  const _metricPct = (dimId, metricId) => {
+    const dim = _cal.dimensions.find(d => d.id === dimId);
+    return ((dim?.metrics?.find(m => m.id === metricId)?.weight_pct) ?? 0) / 100;
+  };
+  const _maybeCall = (enabled, ...args) => enabled ? callOpenAI(...args) : Promise.resolve(null);
+
   let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData;
   try {
     [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData] = await Promise.all([
-      callOpenAI(taPrompt, null, "TA", { max_tokens: 8192 }),
-      callOpenAI(cqPrompt, null, "CQ", { max_tokens: 16384 }),
-      callOpenAI(iePrompt, null, "IE", { max_tokens: 2048 }),
-      callOpenAI(msaPrompt, null, "MSA", { max_tokens: 1024 }),
-      callOpenAI(dialectPrompt, null, "DIALECT", { max_tokens: 1024 }),
-      callOpenAI(vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
-      callOpenAI(morphPrompt, null, "MORPH", { max_tokens: 1024 }),
-      callOpenAI(sentencePrompt, null, "SENT", { max_tokens: 1024 }),
-      callOpenAI(coherenceFlowPrompt, null, "COHFLOW", { max_tokens: 1024 }),
-      callOpenAI(grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 })
+      _maybeCall(_dimEnabled("task_achievement"), taPrompt, null, "TA", { max_tokens: 8192 }),
+      _maybeCall(_dimEnabled("content_quality"), cqPrompt, null, "CQ", { max_tokens: 16384 }),
+      _maybeCall(_dimEnabled("task_achievement"), iePrompt, null, "IE", { max_tokens: 2048 }),
+      _maybeCall(_dimEnabled("style_register"), msaPrompt, null, "MSA", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("style_register"), dialectPrompt, null, "DIALECT", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("language_range"), vocabPrompt, null, "VOCAB", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("language_range"), morphPrompt, null, "MORPH", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("language_range"), sentencePrompt, null, "SENT", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("organisation_coherence"), coherenceFlowPrompt, null, "COHFLOW", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("language_accuracy"), grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -3665,10 +3737,13 @@ No extra keys. No markdown fences.
   const dialectReason = dialectData?.reason ?? "";
   console.log("[Dialect extracted]", { dialectSeverity, dialectScore, dialectMarkers, dialectReason });
 
-  // ---- Combined Style & Register score (70% MSA / 30% Dialect) ----
+  // ---- Combined Style & Register score (calibrated weights) ----
   let styleRegisterScore = null;
-  if (typeof msaScore === "number" && typeof dialectScore === "number") {
-    styleRegisterScore = Math.round(msaScore * 0.70 + dialectScore * 0.30);
+  if (_dimEnabled("style_register") && typeof msaScore === "number" && typeof dialectScore === "number") {
+    styleRegisterScore = Math.round(
+      msaScore * _metricPct("style_register", "msa") +
+      dialectScore * _metricPct("style_register", "dialect")
+    );
   }
 
   // ---- Language Range extraction ----
@@ -3688,10 +3763,14 @@ No extra keys. No markdown fences.
   const sentenceReason = sentenceData?.justification ?? sentenceData?.reason ?? "";
   console.log("[LangRange]", { vocabScore, morphScore, sentenceScore });
 
-  // ---- Combined Language Range score (equal weight: 33.4 / 33.3 / 33.3) ----
+  // ---- Combined Language Range score (calibrated weights) ----
   let languageRangeScore = null;
-  if (typeof vocabScore === "number" && typeof morphScore === "number" && typeof sentenceScore === "number") {
-    languageRangeScore = Math.round(vocabScore * 0.334 + morphScore * 0.333 + sentenceScore * 0.333);
+  if (_dimEnabled("language_range") && typeof vocabScore === "number" && typeof morphScore === "number" && typeof sentenceScore === "number") {
+    languageRangeScore = Math.round(
+      vocabScore * _metricPct("language_range", "vocab") +
+      morphScore * _metricPct("language_range", "morph") +
+      sentenceScore * _metricPct("language_range", "sentence")
+    );
   }
 
   // ---- Arabic Cohesive Devices (code-only, deterministic) ----
@@ -3703,14 +3782,19 @@ No extra keys. No markdown fences.
   const coherenceFlowReason = coherenceFlowData?.justification ?? coherenceFlowData?.reason ?? "";
   console.log("[Coherence & Flow]", { coherenceFlowScore, coherenceFlowReason });
 
-  // ---- Combined Organisation & Coherence (30% deterministic connectives / 70% LLM coherence) ----
+  // ---- Combined Organisation & Coherence (calibrated weights) ----
   let orgCohScore = null;
-  if (typeof cohesiveResult.score === "number" && typeof coherenceFlowScore === "number") {
-    orgCohScore = Math.round(cohesiveResult.score * 0.30 + coherenceFlowScore * 0.70);
-  } else if (typeof coherenceFlowScore === "number") {
-    orgCohScore = coherenceFlowScore;
-  } else if (typeof cohesiveResult.score === "number") {
-    orgCohScore = cohesiveResult.score;
+  if (_dimEnabled("organisation_coherence")) {
+    if (typeof cohesiveResult.score === "number" && typeof coherenceFlowScore === "number") {
+      orgCohScore = Math.round(
+        cohesiveResult.score * _metricPct("organisation_coherence", "cohesive_devices") +
+        coherenceFlowScore * _metricPct("organisation_coherence", "coherence_flow")
+      );
+    } else if (typeof coherenceFlowScore === "number") {
+      orgCohScore = coherenceFlowScore;
+    } else if (typeof cohesiveResult.score === "number") {
+      orgCohScore = cohesiveResult.score;
+    }
   }
 
   // ---- Grammar & Language Control extraction ----
@@ -3720,26 +3804,39 @@ No extra keys. No markdown fences.
   console.log("[Grammar]", { grammarScore, grammarReason, grammarErrorTypes });
 
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
-  const taRequirementsMet = (taScore * 0.80) + (ieForFormula * 0.20);
-  const taFinal = Math.round((wordCompliance * 0.40) + (taRequirementsMet * 0.60));
-  const cqFinal = cqData.content_quality ?? 0;
-
-  // ---- Overall Score: equal-weight average of 6 dimensions ----
-  // 1. Task Achievement (taFinal) — already blends WCC/TA/IE
-  // 2. Content Quality (cqFinal)
-  // 3. Style & Register (styleRegisterScore)
-  // 4. Language Range (languageRangeScore)
-  // 5. Organisation & Coherence (orgCohScore = 30% cohesive devices + 70% coherence & flow)
-  // 6. Language Accuracy (grammarScore)
-  const dimensionScores = [taFinal, cqFinal, styleRegisterScore, languageRangeScore, orgCohScore, grammarScore];
-  const validDim = dimensionScores.filter(s => typeof s === "number");
-  const overallScore = validDim.length > 0
-    ? Math.round(validDim.reduce((a, b) => a + b, 0) / validDim.length)
+  const taRequirementsMet = _dimEnabled("task_achievement")
+    ? (taScore * 0.80) + (ieForFormula * 0.20)
     : null;
-  console.log("[Overall]", { dimensionScores, overallScore });
+  const taFinal = _dimEnabled("task_achievement")
+    ? Math.round(
+        wordCompliance * _metricPct("task_achievement", "wcc") +
+        taScore * _metricPct("task_achievement", "ta") +
+        ieForFormula * _metricPct("task_achievement", "ie")
+      )
+    : null;
+  const cqFinal = _dimEnabled("content_quality") ? (cqData?.content_quality ?? 0) : null;
+
+  // ---- Overall Score: calibration-weighted sum of enabled valid dimensions ----
+  const _dimScoreMap = {
+    task_achievement: taFinal, content_quality: cqFinal,
+    style_register: styleRegisterScore, language_range: languageRangeScore,
+    organisation_coherence: orgCohScore, language_accuracy: grammarScore
+  };
+  const _enabledValidDims = _cal.dimensions.filter(d => d.enabled && typeof _dimScoreMap[d.id] === "number");
+  const _enabledDims = _cal.dimensions.filter(d => d.enabled);
+  let overallScore = null;
+  if (_enabledValidDims.length > 0) {
+    const _weightedSum = _enabledValidDims.reduce((s, d) => s + _dimScoreMap[d.id] * d.weight_pct, 0);
+    // Divide by 100 when all enabled dims are valid to avoid float-precision drift vs prior equal-mean
+    const _divisor = _enabledValidDims.length === _enabledDims.length
+      ? 100
+      : _enabledValidDims.reduce((s, d) => s + d.weight_pct, 0);
+    overallScore = Math.round(_weightedSum / _divisor);
+  }
+  console.log("[Overall]", { _dimScoreMap, overallScore });
 
   const cqEvidenceDuplicates = (() => {
-    const scores = Array.isArray(cqData.scores) ? cqData.scores : [];
+    const scores = Array.isArray(cqData?.scores) ? cqData.scores : [];
     const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     const evMap = new Map();
     scores.forEach(s => {
@@ -3808,7 +3905,7 @@ No extra keys. No markdown fences.
     cefr_estimate: cefrEstimate,
     task_checks: taChecks,
     task_type_checks: Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [],
-    cq_scores: cqData.scores || [],
+    cq_scores: cqData?.scores || [],
     cq_evidence_duplicates: cqEvidenceDuplicates
   };
 }
@@ -4009,6 +4106,9 @@ function renderResults() {
       return;
     }
     let html = "";
+    const _rCal = getCalibration();
+    const _rDimOn = id => _rCal.dimensions.find(d => d.id === id)?.enabled !== false;
+    const _rEnabledCount = _rCal.dimensions.filter(d => d.enabled).length;
     resultsStore.forEach((run, runIdx) => {
       const samples = Array.isArray(run.samples) ? run.samples : [];
       const isBulk = run.is_bulk === true;
@@ -4046,7 +4146,7 @@ function renderResults() {
                 <col style="width: 6%;">
               </colgroup>`}
           <thead><tr>
-            <th>Sample</th>${isBulk ? "<th class=\"q-col\">Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700; color: #5b21b6;">OVERALL</th><th>TA</th><th>CQ</th><th>S&amp;R</th><th>Lang Range</th><th>Org &amp; Coh</th><th>Lang Acc</th><th class="expand-col"></th>
+            <th>Sample</th>${isBulk ? "<th class=\"q-col\">Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700; color: #5b21b6;">OVERALL</th>${_rDimOn("task_achievement") ? "<th>TA</th>" : ""}${_rDimOn("content_quality") ? "<th>CQ</th>" : ""}${_rDimOn("style_register") ? "<th>S&amp;R</th>" : ""}${_rDimOn("language_range") ? "<th>Lang Range</th>" : ""}${_rDimOn("organisation_coherence") ? "<th>Org &amp; Coh</th>" : ""}${_rDimOn("language_accuracy") ? "<th>Lang Acc</th>" : ""}<th class="expand-col"></th>
           </tr></thead>
           <tbody>`;
       samples.forEach((s, sIdx) => {
@@ -4068,7 +4168,7 @@ function renderResults() {
           }
         }
         const ieReasonVal = s.intelligibility_effect_reason ?? s.effect_reason ?? "—";
-        const colspan = isBulk ? 11 : 10;
+        const colspan = (isBulk ? 5 : 4) + _rEnabledCount;
         html += `
           <tr class="expandable" data-toggle="${id}">
             <td><strong>#${s.sample_num ?? ""}</strong></td>
@@ -4078,12 +4178,12 @@ function renderResults() {
               <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? `<span title="Sample too short — below 30-word minimum on key metrics" style="font-size: 13px; color: #9ca3af;">N/A*</span>`}</div>
               ${s.cefr_estimate ? `<div style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #7c3aed; margin-top: 3px; text-transform: uppercase;">≈ ${escapeHtml(s.cefr_estimate)}</div>` : ""}
             </td>
-            <td><strong>${s.task_achievement ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
-            <td><strong>${s.content_quality ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>
-            <td><strong>${s.style_register_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
-            <td><strong>${s.language_range_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
-            <td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
-            <td><strong>${s.grammar_language_control_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>
+            ${_rDimOn("task_achievement") ? `<td><strong>${s.task_achievement ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
+            ${_rDimOn("content_quality") ? `<td><strong>${s.content_quality ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>` : ""}
+            ${_rDimOn("style_register") ? `<td><strong>${s.style_register_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
+            ${_rDimOn("language_range") ? `<td><strong>${s.language_range_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
+            ${_rDimOn("organisation_coherence") ? `<td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
+            ${_rDimOn("language_accuracy") ? `<td><strong>${s.grammar_language_control_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             <td class="expand-col">▼</td>
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
@@ -4264,6 +4364,238 @@ function parseCSV(text) {
   if (cell.length > 0 || row.length > 0) { row.push(cell); rows.push(row); }
   return rows;
 }
+
+// ============= CALIBRATION =============
+const CALIB_KEY = "azescorer.arabic.calibration";
+const _EW = 100 / 6; // equal weight per dimension at defaults
+
+const CALIB_DEFAULTS = {
+  version: "1.0",
+  dimensions: [
+    {
+      id: "task_achievement", label: "Task Achievement", enabled: true, weight_pct: _EW,
+      metrics: [
+        { id: "wcc",  label: "Word Count Compliance",          weight_pct: 40.0 },
+        { id: "ta",   label: "Task Requirements (LLM)",        weight_pct: 48.0 },
+        { id: "ie",   label: "Intelligibility & Effect (LLM)", weight_pct: 12.0 }
+      ]
+    },
+    { id: "content_quality",        label: "Content Quality",          enabled: true, weight_pct: _EW, metrics: [] },
+    {
+      id: "style_register",         label: "Style & Register",         enabled: true, weight_pct: _EW,
+      metrics: [
+        { id: "msa",     label: "MSA Consistency",   weight_pct: 70.0 },
+        { id: "dialect", label: "Dialect Detection", weight_pct: 30.0 }
+      ]
+    },
+    {
+      id: "language_range",         label: "Language Range",           enabled: true, weight_pct: _EW,
+      metrics: [
+        { id: "vocab",    label: "Vocabulary Diversity",  weight_pct: 33.4 },
+        { id: "morph",    label: "Morphological Variety", weight_pct: 33.3 },
+        { id: "sentence", label: "Sentence Complexity",   weight_pct: 33.3 }
+      ]
+    },
+    {
+      id: "organisation_coherence", label: "Organisation & Coherence", enabled: true, weight_pct: _EW,
+      metrics: [
+        { id: "cohesive_devices", label: "Cohesive Devices (code)", weight_pct: 30.0 },
+        { id: "coherence_flow",   label: "Coherence & Flow (LLM)",  weight_pct: 70.0 }
+      ]
+    },
+    { id: "language_accuracy",      label: "Language Accuracy",        enabled: true, weight_pct: 100 - 5 * _EW, metrics: [] }
+  ]
+};
+
+let _calibLive = null;
+const _calibExpanded = new Set();
+let _calibSaveTimer = null;
+let _calibSaveDisplayTimer = null;
+
+function cloneCalibDefaults() {
+  return JSON.parse(JSON.stringify(CALIB_DEFAULTS));
+}
+
+function _isValidCalibSchema(c) {
+  return c && c.version === "1.0" && Array.isArray(c.dimensions) && c.dimensions.length >= 6;
+}
+
+function getCalibration() {
+  if (_calibLive) return _calibLive;
+  try {
+    const raw = localStorage.getItem(CALIB_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (_isValidCalibSchema(parsed)) { _calibLive = parsed; return _calibLive; }
+    }
+  } catch (e) {}
+  _calibLive = cloneCalibDefaults();
+  _saveCalibNow(_calibLive);
+  return _calibLive;
+}
+
+function _saveCalibNow(config) {
+  config.updated = new Date().toISOString();
+  try { localStorage.setItem(CALIB_KEY, JSON.stringify(config)); } catch (e) {}
+}
+
+function scheduleCalibSave() {
+  clearTimeout(_calibSaveTimer);
+  _calibSaveTimer = setTimeout(() => { _saveCalibNow(_calibLive); _showCalibSaved(); }, 300);
+}
+
+function _showCalibSaved() {
+  const el = document.getElementById("calib-save-indicator");
+  if (!el) return;
+  el.textContent = "Saved just now";
+  clearTimeout(_calibSaveDisplayTimer);
+  _calibSaveDisplayTimer = setTimeout(() => { if (el) el.textContent = "Saved 2 sec ago"; }, 2000);
+}
+
+function rebalanceItems(items, changedId, newVal) {
+  const active = items.filter(it => it.enabled !== false);
+  if (active.length === 0) return;
+  const changed = active.find(it => it.id === changedId);
+  if (!changed) return;
+  if (active.length === 1) { changed.weight_pct = 100; return; }
+  newVal = Math.max(0, Math.min(100, newVal));
+  changed.weight_pct = newVal;
+  const others = active.filter(it => it.id !== changedId);
+  const othersSum = others.reduce((s, it) => s + it.weight_pct, 0);
+  const remaining = 100 - newVal;
+  if (othersSum <= 0) {
+    others.forEach(it => { it.weight_pct = remaining / others.length; });
+  } else {
+    others.forEach(it => { it.weight_pct = (it.weight_pct / othersSum) * remaining; });
+  }
+  const total = active.reduce((s, it) => s + it.weight_pct, 0);
+  const lastOther = others[others.length - 1];
+  if (lastOther) lastOther.weight_pct += (100 - total);
+}
+
+function handleDimToggle(config, dimId, nowEnabled) {
+  const dim = config.dimensions.find(d => d.id === dimId);
+  if (!dim) return;
+  dim.enabled = nowEnabled;
+  const nowEnabledDims = config.dimensions.filter(d => d.enabled);
+  if (nowEnabled) {
+    if (nowEnabledDims.length === 1) { dim.weight_pct = 100; return; }
+    const avgWeight = 100 / nowEnabledDims.length;
+    dim.weight_pct = avgWeight;
+    const others = nowEnabledDims.filter(d => d.id !== dimId);
+    const remaining = 100 - avgWeight;
+    const othersSum = others.reduce((s, d) => s + d.weight_pct, 0);
+    others.forEach(d => {
+      d.weight_pct = othersSum > 0 ? (d.weight_pct / othersSum) * remaining : remaining / others.length;
+    });
+  } else {
+    if (nowEnabledDims.length === 0) return;
+    const total = nowEnabledDims.reduce((s, d) => s + d.weight_pct, 0);
+    if (total <= 0) {
+      nowEnabledDims.forEach(d => { d.weight_pct = 100 / nowEnabledDims.length; });
+    } else {
+      nowEnabledDims.forEach(d => { d.weight_pct = (d.weight_pct / total) * 100; });
+    }
+  }
+  const activeAfter = config.dimensions.filter(d => d.enabled);
+  if (activeAfter.length > 0) {
+    const sum = activeAfter.reduce((s, d) => s + d.weight_pct, 0);
+    activeAfter[activeAfter.length - 1].weight_pct += (100 - sum);
+  }
+}
+
+function renderCalibrationUI() {
+  const config = getCalibration();
+  const list = document.getElementById("calib-dim-list");
+  if (!list) return;
+  let html = "";
+  config.dimensions.forEach((dim) => {
+    const hasMetrics = dim.metrics && dim.metrics.length > 0;
+    const isExpanded = _calibExpanded.has(dim.id);
+    html += `<li class="calib-dim-row${dim.enabled ? "" : " dim-disabled"}">
+      <input type="checkbox" data-dim="${dim.id}" data-calib-type="enable"
+        ${dim.enabled ? "checked" : ""} style="width:auto;flex-shrink:0;margin:0;cursor:pointer;">
+      <span class="calib-label">${dim.label}</span>
+      <input type="number" class="calib-weight" min="0" max="100" step="0.1"
+        data-dim="${dim.id}" data-calib-type="dimweight"
+        value="${dim.weight_pct.toFixed(1)}" ${dim.enabled ? "" : "disabled"}>
+      <span class="calib-pct-label">%</span>
+      ${hasMetrics
+        ? `<button class="calib-caret" data-dim="${dim.id}" data-calib-type="caret"
+             title="${isExpanded ? "Collapse" : "Expand"}">${isExpanded ? "▾" : "▸"}</button>`
+        : `<span class="calib-caret-placeholder"></span>`}
+    </li>`;
+    if (hasMetrics && isExpanded) {
+      html += `<li><ul class="calib-metrics-panel">`;
+      dim.metrics.forEach((m, mi) => {
+        html += `<li class="calib-metric-row">
+          <span class="calib-metric-leader">${mi === dim.metrics.length - 1 ? "└" : "├"}</span>
+          <span class="calib-metric-label">${m.label}</span>
+          <input type="number" class="calib-weight" min="0" max="100" step="0.1"
+            data-dim="${dim.id}" data-metric="${m.id}" data-calib-type="metricweight"
+            value="${m.weight_pct.toFixed(1)}">
+          <span class="calib-pct-label">%</span>
+          <span class="calib-caret-placeholder"></span>
+        </li>`;
+      });
+      const subTotal = dim.metrics.reduce((s, m) => s + m.weight_pct, 0);
+      html += `<li class="calib-sub-total">Sub-total: <strong>${subTotal.toFixed(2)}</strong> %</li></ul></li>`;
+    }
+  });
+  list.innerHTML = html;
+  _updateCalibTotal();
+  _bindCalibEvents();
+}
+
+function _updateCalibTotal() {
+  const el = document.getElementById("calib-total");
+  if (!el || !_calibLive) return;
+  const sum = _calibLive.dimensions.filter(d => d.enabled).reduce((s, d) => s + d.weight_pct, 0);
+  el.textContent = sum.toFixed(2);
+}
+
+function _bindCalibEvents() {
+  const list = document.getElementById("calib-dim-list");
+  if (!list) return;
+  list.querySelectorAll("[data-calib-type='enable']").forEach(cb => {
+    cb.addEventListener("change", () => {
+      handleDimToggle(getCalibration(), cb.dataset.dim, cb.checked);
+      scheduleCalibSave();
+      renderCalibrationUI();
+    });
+  });
+  list.querySelectorAll("[data-calib-type='dimweight']").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const val = parseFloat(inp.value);
+      if (!isNaN(val)) { rebalanceItems(getCalibration().dimensions, inp.dataset.dim, val); scheduleCalibSave(); renderCalibrationUI(); }
+    });
+  });
+  list.querySelectorAll("[data-calib-type='caret']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.dim;
+      if (_calibExpanded.has(id)) _calibExpanded.delete(id); else _calibExpanded.add(id);
+      renderCalibrationUI();
+    });
+  });
+  list.querySelectorAll("[data-calib-type='metricweight']").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const val = parseFloat(inp.value);
+      if (isNaN(val)) return;
+      const dim = getCalibration().dimensions.find(d => d.id === inp.dataset.dim);
+      if (dim) { rebalanceItems(dim.metrics, inp.dataset.metric, val); scheduleCalibSave(); renderCalibrationUI(); }
+    });
+  });
+}
+
+document.getElementById("btn-calib-reset").addEventListener("click", () => {
+  _calibLive = cloneCalibDefaults();
+  _calibExpanded.clear();
+  _saveCalibNow(_calibLive);
+  _showCalibSaved();
+  renderCalibrationUI();
+});
+
+// ============= END CALIBRATION =============
 
 function downloadCSV(filename, rows) {
   const csv = rows.map(r => r.map(cell => {
