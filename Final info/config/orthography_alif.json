@@ -1,10 +1,21 @@
 {
-  "version": "v1.0.0",
+  "version": "v1.1.0",
   "category": "alif",
   "entries": [
-    { "incorrect": "الى",  "correct": "إلى",  "tier": "always_wrong",  "added": "2026-05-21", "added_by": "richard" },
-    { "incorrect": "حتي",  "correct": "حتى",  "tier": "always_wrong",  "added": "2026-05-21", "added_by": "richard" },
-    { "incorrect": "علي",  "correct": "على",  "tier": "usually_wrong", "added": "2026-05-21", "added_by": "richard" },
-    { "incorrect": "موسي", "correct": "موسى", "tier": "usually_wrong", "added": "2026-05-21", "added_by": "richard" }
+    { "incorrect": "الى",      "correct": "إلى",      "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "حتي",      "correct": "حتى",      "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "علي",      "correct": "على",      "tier": "usually_wrong", "added": "2026-05-21" },
+    { "incorrect": "موسي",     "correct": "موسى",     "tier": "usually_wrong", "added": "2026-05-21" },
+    { "incorrect": "عيسي",     "correct": "عيسى",     "tier": "usually_wrong", "added": "2026-05-21" },
+    { "incorrect": "يحيي",     "correct": "يحيى",     "tier": "usually_wrong", "added": "2026-05-21" },
+    { "incorrect": "المستشفي", "correct": "المستشفى", "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "مستشفي",   "correct": "مستشفى",   "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "الفتي",    "correct": "الفتى",    "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "الكبري",   "correct": "الكبرى",   "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "الصغري",   "correct": "الصغرى",   "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "الاخري",   "correct": "الأخرى",   "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "الأخري",   "correct": "الأخرى",   "tier": "always_wrong",  "added": "2026-05-21" },
+    { "incorrect": "ليلي",     "correct": "ليلى",     "tier": "usually_wrong", "added": "2026-05-21" },
+    { "incorrect": "سلمي",     "correct": "سلمى",     "tier": "usually_wrong", "added": "2026-05-21" }
   ]
 }

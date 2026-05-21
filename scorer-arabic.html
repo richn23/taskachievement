@@ -3680,11 +3680,18 @@ No extra keys. No markdown fences.
 
   // ---- Orthographic Control — deterministic branch (synchronous, before Promise.all) ----
   // Computed here so letter_form_counts can be injected into the LLM prompt below.
-  const _ocListVersions = { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version };
+  const _ocListVersions = { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version, general: ORTHOGRAPHY_GENERAL.version };
   const orthoDet = _dimEnabled("orthographic_control") && wc >= 10
     ? computeArabicOrthography(response, { allow_loanword_list: [], titles: ARABIC_TITLES, list_versions: _ocListVersions })
     : null;
   console.log("[Orthographic Control det]", orthoDet);
+
+  // ---- Deterministic flags summary for LLM context (brief §5.1) ----
+  const _orthoDetFlagsText = orthoDet
+    ? (orthoDet.flags || []).map(f =>
+        `- ${f.type}: ${f.text} (suggested: ${f.suggested}, ${f.tier}, ${f.occurrences}×)`
+      ).join("\n") || "(none — the curated lists did not catch any errors in this response)"
+    : "(orthographic dimension not run)";
 
   // ---- LLM Orthographic Accuracy prompt (spec §6, §8.3) ----
   const orthoPrompt = `You are an expert Arabic writing scorer. Evaluate the ORTHOGRAPHIC CONTROL of the Arabic response below.
@@ -3711,6 +3718,13 @@ LETTER-FORM DISTRIBUTION (descriptive context — use to spot anomalies such as 
 <letter_form_counts>
 ${JSON.stringify(orthoDet ? orthoDet.letter_form_counts : {})}
 </letter_form_counts>
+
+<deterministic_flags>
+The deterministic side has already flagged these errors using curated error lists.
+You do NOT need to re-find them. Your job is to identify additional orthographic
+issues the lists missed, and to judge the overall orthographic control of the response.
+${_orthoDetFlagsText}
+</deterministic_flags>
 
 <inputs>
 <word_count>${wc}</word_count>
@@ -4352,8 +4366,9 @@ function renderResults() {
                   ? `<div class="detail-section"><h4>Orthographic Control — score: <span style="color:#9ca3af;">N/A*</span></h4><div style="font-size:12px;color:var(--muted);margin-top:4px;">Not scored — response below 10-word minimum floor.</div></div>`
                   : "";
               }
+              const _flagTypeLabel = t => ({ taa_marbuta: "Taa Marbuta", alif: "Alif", hamza: "Hamza", general: "General Spelling" }[t] || t);
               const flagsHtml = Array.isArray(ocb.flags) && ocb.flags.length
-                ? `<ul style="margin:6px 0 0;padding-left:20px;">${ocb.flags.map(f => `<li style="margin-bottom:3px;"><span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--danger);">${escapeHtml(f.text)}</span> → <span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--success);">${escapeHtml(f.suggested)}</span> <span style="font-size:11px;padding:1px 6px;border-radius:3px;margin-left:4px;${f.tier==='always_wrong'?'background:#fee2e2;color:#991b1b':'background:#fef3c7;color:#92400e'}">${escapeHtml(f.tier)}</span> <span style="font-size:11px;color:var(--muted);">${f.occurrences}×</span></li>`).join("")}</ul>`
+                ? `<ul style="margin:6px 0 0;padding-left:20px;">${ocb.flags.map(f => `<li style="margin-bottom:3px;"><span style="font-size:10px;padding:1px 5px;border-radius:3px;margin-right:4px;background:#e0e7ff;color:#3730a3;">${escapeHtml(_flagTypeLabel(f.type))}</span><span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--danger);">${escapeHtml(f.text)}</span> → <span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--success);">${escapeHtml(f.suggested)}</span> <span style="font-size:11px;padding:1px 6px;border-radius:3px;margin-left:4px;${f.tier==='always_wrong'?'background:#fee2e2;color:#991b1b':'background:#fef3c7;color:#92400e'}">${escapeHtml(f.tier)}</span> <span style="font-size:11px;color:var(--muted);">${f.occurrences}×</span></li>`).join("")}</ul>`
                 : `<div style="font-size:12px;color:var(--muted);margin-top:4px;">No curated-list flags detected.</div>`;
               const lv = ocb.list_versions || {};
               return `
@@ -4367,13 +4382,13 @@ function renderResults() {
             </div>
             <div class="detail-section">
               <h4>Common Error Detection — score: ${ocb.common_error_detection ?? "—"}</h4>
-              ${ocb.common_error_detection_breakdown ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Taa Marbuta: ${ocb.common_error_detection_breakdown.taa_marbuta} · Alif Forms: ${ocb.common_error_detection_breakdown.alif_forms} · Hamza: ${ocb.common_error_detection_breakdown.hamza}</div>` : ""}
+              ${ocb.common_error_detection_breakdown ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Taa Marbuta: ${ocb.common_error_detection_breakdown.taa_marbuta} · Alif Forms: ${ocb.common_error_detection_breakdown.alif_forms} · Hamza: ${ocb.common_error_detection_breakdown.hamza} · General Spelling: ${ocb.common_error_detection_breakdown.general ?? "—"}</div>` : ""}
               <div style="margin-top:6px;"><strong style="font-size:12px;color:var(--muted);">Flags (incorrect → suggested)</strong>${flagsHtml}</div>
             </div>
             <div class="detail-section">
               <h4>LLM Orthographic Accuracy — score: ${ocb.llm_orthographic_accuracy ?? "—"}</h4>
               <div style="font-size:13px;color:var(--text);line-height:1.55;margin-top:4px;">${escapeHtml(ocb.llm_justification || "")}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:8px;">List versions — taa_marbuta: ${escapeHtml(lv.taa_marbuta||"—")} · alif: ${escapeHtml(lv.alif||"—")} · hamza: ${escapeHtml(lv.hamza||"—")}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:8px;">List versions — taa_marbuta: ${escapeHtml(lv.taa_marbuta||"—")} · alif: ${escapeHtml(lv.alif||"—")} · hamza: ${escapeHtml(lv.hamza||"—")} · general: ${escapeHtml(lv.general||"—")}</div>
             </div>`;
             })()}
             <div class="detail-section">
@@ -4764,45 +4779,119 @@ document.getElementById("btn-calib-reset").addEventListener("click", () => {
 
 // ============= ORTHOGRAPHIC CONTROL =============
 
-// Curated lists — synced from Final info/config/orthography_taa_marbuta.json (v1.0.0) on 2026-05-21
+// Curated lists — synced from Final info/config/orthography_taa_marbuta.json (v1.1.0) on 2026-05-21
 const ORTHOGRAPHY_TAA_MARBUTA = {
-  version: "v1.0.0",
+  version: "v1.1.0",
   category: "taa_marbuta",
   entries: [
-    { incorrect: "مدرسه", correct: "مدرسة", tier: "always_wrong" },
-    { incorrect: "حياه",  correct: "حياة",  tier: "always_wrong" },
-    { incorrect: "شجره",  correct: "شجرة",  tier: "always_wrong" },
-    { incorrect: "فكره",  correct: "فكرة",  tier: "always_wrong" },
-    { incorrect: "مكتبه", correct: "مكتبة", tier: "always_wrong" }
+    { incorrect: "مدرسه",   correct: "مدرسة",   tier: "always_wrong" },
+    { incorrect: "حياه",    correct: "حياة",    tier: "always_wrong" },
+    { incorrect: "شجره",    correct: "شجرة",    tier: "always_wrong" },
+    { incorrect: "فكره",    correct: "فكرة",    tier: "always_wrong" },
+    { incorrect: "مكتبه",   correct: "مكتبة",   tier: "always_wrong" },
+    { incorrect: "الرحله",  correct: "الرحلة",  tier: "always_wrong" },
+    { incorrect: "جميله",   correct: "جميلة",   tier: "always_wrong" },
+    { incorrect: "الحديقه", correct: "الحديقة", tier: "always_wrong" },
+    { incorrect: "كثيره",   correct: "كثيرة",   tier: "always_wrong" },
+    { incorrect: "جديده",   correct: "جديدة",   tier: "always_wrong" },
+    { incorrect: "العائله", correct: "العائلة", tier: "always_wrong" },
+    { incorrect: "قصه",     correct: "قصة",     tier: "always_wrong" },
+    { incorrect: "مره",     correct: "مرة",     tier: "always_wrong" },
+    { incorrect: "سنه",     correct: "سنة",     tier: "always_wrong" },
+    { incorrect: "اللغه",   correct: "اللغة",   tier: "always_wrong" },
+    { incorrect: "ساعه",    correct: "ساعة",    tier: "always_wrong" },
+    { incorrect: "النهايه", correct: "النهاية", tier: "always_wrong" },
+    { incorrect: "البدايه", correct: "البداية", tier: "always_wrong" },
+    { incorrect: "الجامعه", correct: "الجامعة", tier: "always_wrong" },
+    { incorrect: "الشركه",  correct: "الشركة",  tier: "always_wrong" },
+    { incorrect: "الحاله",  correct: "الحالة",  tier: "always_wrong" },
+    { incorrect: "الصحه",   correct: "الصحة",   tier: "always_wrong" },
+    { incorrect: "البيئه",  correct: "البيئة",  tier: "always_wrong" },
+    { incorrect: "العلاقه", correct: "العلاقة", tier: "always_wrong" },
+    { incorrect: "الفرصه",  correct: "الفرصة",  tier: "always_wrong" },
+    { incorrect: "الزوجه",  correct: "الزوجة",  tier: "always_wrong" },
+    { incorrect: "السياره", correct: "السيارة", tier: "always_wrong" },
+    { incorrect: "الحكومه", correct: "الحكومة", tier: "always_wrong" },
+    { incorrect: "الحضاره", correct: "الحضارة", tier: "always_wrong" },
+    { incorrect: "الدوله",  correct: "الدولة",  tier: "always_wrong" }
   ]
 };
 
-// Curated lists — synced from Final info/config/orthography_alif.json (v1.0.0) on 2026-05-21
-// علي / موسي are tagged usually_wrong (valid male names); proper-noun gate handles suppression.
+// Curated lists — synced from Final info/config/orthography_alif.json (v1.1.0) on 2026-05-21
+// usually_wrong entries (علي, موسي, عيسي, يحيي, ليلي, سلمي) are valid names; proper-noun gate handles suppression.
 const ORTHOGRAPHY_ALIF = {
-  version: "v1.0.0",
+  version: "v1.1.0",
   category: "alif",
   entries: [
-    { incorrect: "الى",  correct: "إلى",  tier: "always_wrong"  },
-    { incorrect: "حتي",  correct: "حتى",  tier: "always_wrong"  },
-    { incorrect: "علي",  correct: "على",  tier: "usually_wrong" },
-    { incorrect: "موسي", correct: "موسى", tier: "usually_wrong" }
+    { incorrect: "الى",      correct: "إلى",      tier: "always_wrong"  },
+    { incorrect: "حتي",      correct: "حتى",      tier: "always_wrong"  },
+    { incorrect: "علي",      correct: "على",      tier: "usually_wrong" },
+    { incorrect: "موسي",     correct: "موسى",     tier: "usually_wrong" },
+    { incorrect: "عيسي",     correct: "عيسى",     tier: "usually_wrong" },
+    { incorrect: "يحيي",     correct: "يحيى",     tier: "usually_wrong" },
+    { incorrect: "المستشفي", correct: "المستشفى", tier: "always_wrong"  },
+    { incorrect: "مستشفي",   correct: "مستشفى",   tier: "always_wrong"  },
+    { incorrect: "الفتي",    correct: "الفتى",    tier: "always_wrong"  },
+    { incorrect: "الكبري",   correct: "الكبرى",   tier: "always_wrong"  },
+    { incorrect: "الصغري",   correct: "الصغرى",   tier: "always_wrong"  },
+    { incorrect: "الاخري",   correct: "الأخرى",   tier: "always_wrong"  },
+    { incorrect: "الأخري",   correct: "الأخرى",   tier: "always_wrong"  },
+    { incorrect: "ليلي",     correct: "ليلى",     tier: "usually_wrong" },
+    { incorrect: "سلمي",     correct: "سلمى",     tier: "usually_wrong" }
   ]
 };
 
-// Curated lists — synced from Final info/config/orthography_hamza.json (v1.0.0) on 2026-05-21
-// Note: الاشجار is intentionally excluded from the seed list — including it raises hamza unique
-// errors to 3 in the spec §9 regression response and drives hamza score to 0 (expected: 33).
-// The spec §9 notes "assume الاشجار is not in the curated list". Add when calibration data warrants.
+// Curated lists — synced from Final info/config/orthography_hamza.json (v1.1.0) on 2026-05-21
+// اشرف is usually_wrong (valid male name). الاشجار added in v1.1.0 (held back in v1.0.0 for regression reasons).
 const ORTHOGRAPHY_HAMZA = {
-  version: "v1.0.0",
+  version: "v1.1.0",
   category: "hamza",
   entries: [
-    { incorrect: "انت",   correct: "أنت",   tier: "always_wrong" },
-    { incorrect: "اخذ",   correct: "أخذ",   tier: "always_wrong" },
-    { incorrect: "مسئلة", correct: "مسألة", tier: "always_wrong" },
-    { incorrect: "اولاد", correct: "أولاد", tier: "always_wrong" },
-    { incorrect: "ان",    correct: "أن",    tier: "always_wrong" }
+    { incorrect: "انت",     correct: "أنت",     tier: "always_wrong"  },
+    { incorrect: "اخذ",     correct: "أخذ",     tier: "always_wrong"  },
+    { incorrect: "مسئلة",   correct: "مسألة",   tier: "always_wrong"  },
+    { incorrect: "اولاد",   correct: "أولاد",   tier: "always_wrong"  },
+    { incorrect: "الاشجار", correct: "الأشجار", tier: "always_wrong"  },
+    { incorrect: "ان",      correct: "أن",      tier: "always_wrong"  },
+    { incorrect: "اخي",     correct: "أخي",     tier: "always_wrong"  },
+    { incorrect: "الانسان", correct: "الإنسان", tier: "always_wrong"  },
+    { incorrect: "اولا",    correct: "أولاً",   tier: "always_wrong"  },
+    { incorrect: "انا",     correct: "أنا",     tier: "always_wrong"  },
+    { incorrect: "ايضا",    correct: "أيضاً",   tier: "always_wrong"  },
+    { incorrect: "اذا",     correct: "إذا",     tier: "always_wrong"  },
+    { incorrect: "الام",    correct: "الأم",    tier: "always_wrong"  },
+    { incorrect: "الاب",    correct: "الأب",    tier: "always_wrong"  },
+    { incorrect: "الاخ",    correct: "الأخ",    tier: "always_wrong"  },
+    { incorrect: "الاخت",   correct: "الأخت",   tier: "always_wrong"  },
+    { incorrect: "اصبح",    correct: "أصبح",    tier: "always_wrong"  },
+    { incorrect: "ابدا",    correct: "أبداً",   tier: "always_wrong"  },
+    { incorrect: "اول",     correct: "أول",     tier: "always_wrong"  },
+    { incorrect: "اين",     correct: "أين",     tier: "always_wrong"  },
+    { incorrect: "امام",    correct: "أمام",    tier: "always_wrong"  },
+    { incorrect: "اعتقد",   correct: "أعتقد",   tier: "always_wrong"  },
+    { incorrect: "اعرف",    correct: "أعرف",    tier: "always_wrong"  },
+    { incorrect: "ارجو",    correct: "أرجو",    tier: "always_wrong"  },
+    { incorrect: "اشكر",    correct: "أشكر",    tier: "always_wrong"  },
+    { incorrect: "الافضل",  correct: "الأفضل",  tier: "always_wrong"  },
+    { incorrect: "اطفال",   correct: "أطفال",   tier: "always_wrong"  },
+    { incorrect: "احد",     correct: "أحد",     tier: "always_wrong"  },
+    { incorrect: "اشرف",    correct: "أشرف",    tier: "usually_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_general.json (v1.0.0) on 2026-05-21
+// Catches high-confidence spelling errors that don't fit taa_marbuta / alif / hamza buckets.
+const ORTHOGRAPHY_GENERAL = {
+  version: "v1.0.0",
+  category: "general",
+  entries: [
+    { incorrect: "ذالك",   correct: "ذلك",   tier: "always_wrong" },
+    { incorrect: "هاذا",   correct: "هذا",   tier: "always_wrong" },
+    { incorrect: "هاذه",   correct: "هذه",   tier: "always_wrong" },
+    { incorrect: "لاكن",   correct: "لكن",   tier: "always_wrong" },
+    { incorrect: "اللذي",  correct: "الذي",  tier: "always_wrong" },
+    { incorrect: "اللتي",  correct: "التي",  tier: "always_wrong" },
+    { incorrect: "هاؤلاء", correct: "هؤلاء", tier: "always_wrong" }
   ]
 };
 
@@ -4943,15 +5032,18 @@ function computeArabicOrthography(response, options) {
     return Math.round(Math.max(0, 100 - errRate * 8));
   };
 
-  const tmResult    = _scanForErrors(ORTHOGRAPHY_TAA_MARBUTA.entries, "taa_marbuta");
-  const alifResult  = _scanForErrors(ORTHOGRAPHY_ALIF.entries,        "alif");
-  const hamzaResult = _scanForErrors(ORTHOGRAPHY_HAMZA.entries,       "hamza");
+  const tmResult      = _scanForErrors(ORTHOGRAPHY_TAA_MARBUTA.entries, "taa_marbuta");
+  const alifResult    = _scanForErrors(ORTHOGRAPHY_ALIF.entries,        "alif");
+  const hamzaResult   = _scanForErrors(ORTHOGRAPHY_HAMZA.entries,       "hamza");
+  const generalResult = _scanForErrors(ORTHOGRAPHY_GENERAL.entries,     "general");
 
-  const taaMarbuta          = _errorScore(tmResult.uniqueErrorWeight);
-  const alifForms           = _errorScore(alifResult.uniqueErrorWeight);
-  const hamzaScore          = _errorScore(hamzaResult.uniqueErrorWeight);
-  // §5.2.6 Common Error Detection = mean of three
-  const commonErrorDetection = Math.round((taaMarbuta + alifForms + hamzaScore) / 3);
+  const taaMarbuta    = _errorScore(tmResult.uniqueErrorWeight);
+  const alifForms     = _errorScore(alifResult.uniqueErrorWeight);
+  const hamzaScore    = _errorScore(hamzaResult.uniqueErrorWeight);
+  const generalScore  = _errorScore(generalResult.uniqueErrorWeight);
+  // NOTE: Common Error Detection scans 4 lists as of 2026-05-21 (added "general"
+  // category). Spec v1.1 documents 3 lists; v1.2 will codify the 4th.
+  const commonErrorDetection = Math.round((taaMarbuta + alifForms + hamzaScore + generalScore) / 4);
 
   // ================================================================
   // 3. DETERMINISTIC ORTHOGRAPHY SCORE  (spec §3)
@@ -4961,11 +5053,12 @@ function computeArabicOrthography(response, options) {
   // ================================================================
   // 4. FLAGS & SUMMARIES
   // ================================================================
-  const flags = [...tmResult.flags, ...alifResult.flags, ...hamzaResult.flags];
+  const flags = [...tmResult.flags, ...alifResult.flags, ...hamzaResult.flags, ...generalResult.flags];
   const flags_summary = {
     taa_marbuta: { unique: tmResult.flags.length,    occurrences: tmResult.flags.reduce((s, f) => s + f.occurrences, 0) },
     alif:        { unique: alifResult.flags.length,  occurrences: alifResult.flags.reduce((s, f) => s + f.occurrences, 0) },
-    hamza:       { unique: hamzaResult.flags.length, occurrences: hamzaResult.flags.reduce((s, f) => s + f.occurrences, 0) }
+    hamza:       { unique: hamzaResult.flags.length, occurrences: hamzaResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    general:     { unique: generalResult.flags.length, occurrences: generalResult.flags.reduce((s, f) => s + f.occurrences, 0) }
   };
 
   // ================================================================
@@ -5002,11 +5095,11 @@ function computeArabicOrthography(response, options) {
     technical_quality: technicalQuality,
     technical_quality_breakdown: { punctuation: punctScore, whitespace: whitespaceScore, tatweel: tatweelScore, non_arabic_intrusion: intrusionScore },
     common_error_detection: commonErrorDetection,
-    common_error_detection_breakdown: { taa_marbuta: taaMarbuta, alif_forms: alifForms, hamza: hamzaScore },
+    common_error_detection_breakdown: { taa_marbuta: taaMarbuta, alif_forms: alifForms, hamza: hamzaScore, general: generalScore },
     deterministic_orthography_score: deterministicOrthographyScore,
     flags,
     flags_summary,
-    list_versions: list_versions || { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version },
+    list_versions: list_versions || { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version, general: ORTHOGRAPHY_GENERAL.version },
     letter_form_counts
   };
 }

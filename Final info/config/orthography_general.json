@@ -1,0 +1,13 @@
+{
+  "version": "v1.0.0",
+  "category": "general",
+  "entries": [
+    { "incorrect": "ذالك",   "correct": "ذلك",   "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "هاذا",   "correct": "هذا",   "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "هاذه",   "correct": "هذه",   "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "لاكن",   "correct": "لكن",   "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "اللذي",  "correct": "الذي",  "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "اللتي",  "correct": "التي",  "tier": "always_wrong", "added": "2026-05-21" },
+    { "incorrect": "هاؤلاء", "correct": "هؤلاء", "tier": "always_wrong", "added": "2026-05-21" }
+  ]
+}
