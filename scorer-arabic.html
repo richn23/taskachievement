@@ -5189,10 +5189,12 @@ For questions about implementation, calibration, or use in a specific assessment
 // ============= END ARABIC WRITING FAQ =============
 // ============= ARABIC WRITING TECHNICAL GUIDE =============
 // Source of truth: Final info/technical_guide.md
-// Synced on: 2026-05-21
+// Synced on: 2026-05-21 (re-sync to pick up section 2.7 / 4 / 7 / 8 clarifications)
 // When the .md file changes, re-sync this constant.
-// Note: backticks in the source are escaped as \` — a regular template literal
-// (not String.raw) is used here because the content contains code spans.
+// Note: backticks in the source are escaped as \` -- a regular template literal
+// (not String.raw) is used here because the content contains backtick code spans
+// and fenced code blocks. String.raw does NOT protect backticks from acting as
+// template-literal delimiters.
 const ARABIC_TECHNICAL_GUIDE_MD = `
 # Technical Guide — Arabic Writing Assessment System
 
@@ -5283,7 +5285,7 @@ Composite of three sub-metrics:
 - **Common Error Detection** — deterministic comparison against four curated lists of high-frequency learner errors: Taa Marbuta (ة/ه), Alif Form (ا/ى/أ/إ), Common Hamza, and General Spelling. Confidence-tiered (\`always_wrong\` / \`usually_wrong\`), with a proper-noun gate to protect personal names.
 - **LLM Orthographic Accuracy** — scope-locked judgement on orthographic correctness beyond curated patterns. Letter-form distribution counts and deterministic flags are passed as prompt context so the LLM focuses on what the lists missed.
 
-**Deterministic ceiling.** Clean-but-unremarkable writing cannot drift into elite/near-native territory:
+**Deterministic ceiling.** The deterministic ceiling exists to prevent structurally clean but unremarkable typed responses from saturating near-native score ranges without evidence of broader orthographic control. Specifically:
 - Without advanced orthographic evidence → deterministic combined capped at 88.
 - With advanced evidence (≥3 distinct of ئ / ؤ / ء / آ AND ≥3 per 100 words) → cap rises to 96.
 
@@ -5359,6 +5361,8 @@ For native-speaker writing, the Coherence & Flow score should be treated as supp
 
 ## 4. The CEFR and Arabic
 
+While CEFR was not originally designed for native-speaker Arabic assessment, it remains the dominant interpretive framework across many regional educational systems. The system therefore uses CEFR as a reporting layer while retaining the dimensional sub-scores as the primary diagnostic evidence.
+
 CEFR — the Common European Framework of Reference — is a **communicative framework**. It describes what a learner can *do* with language at each level. It is deliberately not a grammar syllabus and it is not language-specific. There is no official CEFR grammar map for Arabic, no CEFR list of Arabic structures by level, no CEFR specification for Arabic orthography.
 
 This sometimes leads to a misconception that CEFR "does not cover" Arabic grammar accuracy or Arabic spelling. That is half right — and it is the half that matters.
@@ -5416,7 +5420,7 @@ Reconfiguration involves adjusting the dialect-detection severity bands, the Sty
 
 ## 7. Calibration methodology
 
-The system is currently in an iterative calibration and validation phase.
+The system is intentionally designed for iterative per-deployment calibration rather than assuming a single globally fixed Arabic-writing standard. The current phase is calibration and validation against expert Arabic marker judgements.
 
 ### Intended calibration process
 
@@ -5452,6 +5456,8 @@ These are targets, not achievements. The system is in the calibration-as-process
 ---
 
 ## 8. Reproducibility and determinism
+
+Several dimensions use LLM-mediated judgement, but these are not unconstrained holistic scores. Each operates within scope-locked prompts, explicit band anchors, deterministic preprocessing, and calibration constraints designed to narrow scoring variance and reduce construct drift. The LLM is used as an inference engine within a constrained instrument, not asked to produce a free-form verdict.
 
 All LLM calls use \`temperature: 0\` for the most repeatable scoring behaviour available from current LLM providers. In combination with deterministic code paths and versioned curated lists, this produces **highly reproducible** scoring — the same response, scored on the same day with the same calibration configuration and the same provider, should produce the same result.
 
