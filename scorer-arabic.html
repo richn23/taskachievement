@@ -619,6 +619,72 @@
     color: var(--muted);
   }
 
+  /* ============= TECHNICAL GUIDE CONTENT ============= */
+  #tg-content {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    max-width: 880px;       /* slightly wider than FAQ — TG has wider tables */
+  }
+  #tg-content h1 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
+  #tg-content h2 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; color: var(--primary); }
+  #tg-content h3 { font-size: 14px; font-weight: 700; margin: 18px 0 6px; }
+  #tg-content h4 { font-size: 13px; font-weight: 600; margin: 14px 0 4px; }
+  #tg-content p  { margin: 0 0 10px; color: var(--text); }
+  #tg-content ul, #tg-content ol { margin: 0 0 12px 22px; }
+  #tg-content li { margin: 0 0 6px; }
+  #tg-content strong { font-weight: 700; }
+  #tg-content em { font-style: italic; }
+  #tg-content hr {
+    border: 0;
+    border-top: 1px solid #e5e7eb;
+    margin: 22px 0;
+  }
+  #tg-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 14px;
+    font-size: 13px;
+  }
+  #tg-content th, #tg-content td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+  #tg-content th {
+    background: #f9fafb;
+    font-weight: 600;
+  }
+  #tg-content code {
+    background: #f3f4f6;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.92em;
+  }
+  #tg-content pre {
+    background: #f3f4f6;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin: 0 0 14px;
+    overflow-x: auto;
+    font-size: 0.92em;
+    line-height: 1.4;
+  }
+  #tg-content pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1em;
+  }
+  #tg-content blockquote {
+    border-left: 3px solid #e5e7eb;
+    padding: 0 12px;
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/14.1.2/marked.min.js"></script>
 </head>
@@ -665,6 +731,7 @@
 <div class="container">
   <div class="tabs">
     <button class="tab active" data-tab="faq">Arabic Writing FAQ</button>
+    <button class="tab" data-tab="technical-guide">Technical Guide</button>
     <button class="tab" data-tab="step0">Scoring System</button>
     <button class="tab" data-tab="calibration">Calibration</button>
     <button class="tab" data-tab="step1">1. Create Question</button>
@@ -676,6 +743,13 @@
   <div class="view active" id="view-faq">
     <div class="card">
       <div id="faq-content"></div>
+    </div>
+  </div>
+
+  <!-- ========== TECHNICAL GUIDE ========== -->
+  <div class="view" id="view-technical-guide">
+    <div class="card">
+      <div id="tg-content"></div>
     </div>
   </div>
 
@@ -1481,6 +1555,7 @@ document.querySelectorAll(".tab").forEach(btn => {
     if (btn.dataset.tab === "step3") renderResults();
     if (btn.dataset.tab === "calibration") renderCalibrationUI();
     if (btn.dataset.tab === "faq") renderFaqIfNeeded();
+    if (btn.dataset.tab === "technical-guide") renderTechnicalGuideIfNeeded();
   });
 });
 
@@ -4969,76 +5044,39 @@ document.getElementById("btn-calib-reset").addEventListener("click", () => {
 
 // ============= ARABIC WRITING FAQ =============
 // Source of truth: Final info/user_guide_faq.md
-// Synced on: 2026-05-21
+// Synced on: 2026-05-21 (lean version after FAQ / Technical Guide split)
 // When the .md file changes, re-sync this constant.
 const ARABIC_WRITING_FAQ_MD = String.raw`
-# User Guide — Arabic Writing Assessment System
+# Arabic Writing FAQ
 
-A plain-English guide for schools, teachers, markers, parents, and students.
+A short plain-English guide for schools, teachers, parents, and decision-makers.
 
----
-
-## About this guide
-
-This guide answers the most common questions about how the Arabic writing assessment system works. It is deliberately non-technical. The detailed methodology, formulas, and calibration plans live in separate technical documents.
-
-If you have a question not answered here, please get in touch.
+For a deeper methodology document — Arabic linguistic treatment, CEFR detail, calibration, validation, known limitations — see the companion **Technical Guide**.
 
 ---
 
-## The basics
+## What is this system designed to do?
 
-### What is this system designed to do?
+It is a scoring system for student writing in Arabic. A student writes a response to a question; the system reads the response and produces a score across seven different qualities of writing, each from 0 to 100. The seven scores combine into a single Overall Score and a CEFR band for easier interpretation.
 
-It is a scoring system for student writing in Arabic. A student writes a response to a question; the system reads the response and produces a score for the writing across several different qualities — for example, how well the student answered the question, how varied their vocabulary is, how accurate their grammar is, and how correctly they used Arabic spelling.
+The system focuses specifically on **formal educational writing in Modern Standard Arabic (MSA)** — the structured written register used in school, assessment, and academic contexts. It does not assess literary criticism, poetry, creative authorship, or dialect fluency.
 
-The goal is to provide a consistent, fast, and fair second opinion on Arabic writing that supports — not replaces — human marker judgement.
+This is a *writing* assessment system, not an *academic* grading system. It measures how a student writes, not what they know. Subject knowledge, factual accuracy, and broader judgement about the student remain with the teacher.
 
-**Important framing:** this is a *writing* assessment system, not an *academic* grading system. It measures how a student writes, not what they know. Subject knowledge, factual accuracy, and the broader judgement of "is this a good student?" remain with the teacher.
+---
 
-### Who is it for?
+## Who is it for?
 
 The system is part of a wider AI-assisted language assessment platform that already covers other languages. This Arabic version is the natural extension — built around the specifics of Arabic writing while remaining compatible with the same assessment workflow.
 
 It is designed for two broad audiences:
 
-- **Non-native learners of Arabic** at A1 through C2 levels. The CEFR mapping and the construct-based dimensions work the same way they do in the platform's English and other-language scorers, with Arabic-specific dimensions where Arabic demands it (script, register, orthography).
-- **Native Arabic-speaking students** in school assessment contexts — for example, secondary-level L1 Arabic curricula. The system is calibrated for the proficiency range typical of native-speaker school students, including the orthographic and morphological demands of formal MSA.
+- **Non-native learners of Arabic** at A1 through C2 levels. The CEFR mapping and construct-based dimensions work the same way they do in the platform's other-language scorers, with Arabic-specific dimensions where Arabic demands it (script, register, orthography).
+- **Arabic-speaking students developing formal MSA writing** — for example, secondary-level Arabic curricula where MSA is the target academic register, distinct from the dialect students typically speak at home. The system evaluates control of formal written Arabic in school contexts — not dialect fluency, native identity, or literary talent.
 
-Direct users include:
+**A common learner profile — Gulf Arabic speakers learning MSA.** Many Gulf-Arabic-speaking students — Emirati students being one prominent example — speak dialect at home but are expected to write in formal MSA at school. The system is designed with this learner profile in mind: dialect features are treated as register shifts from MSA expectations, not as evidence of poor Arabic. The same applies to other Arabic learners (Saudi, Qatari, Egyptian, Levantine, Maghrebi) whose home dialect differs from formal MSA.
 
-- Schools, language institutions, and assessment programmes that want consistent, reproducible writing scores at scale.
-- Teachers and markers who want a structured second opinion on a student's writing.
-- Curriculum designers and assessment authorities who want to understand how Arabic writing can be measured systematically.
-
-### Does it replace human teachers or markers?
-
-Honestly — for the *scoring task itself*, yes. The system reads a piece of writing, judges it against a defined methodology, and produces a defensible score with written justification across each dimension. It does this faster and more consistently than human-only marking at scale, and on the marking dimensions themselves it is competitive with — and in some cases more reliable than — manual marking, because it does not drift between markers or across long marking sessions.
-
-What the system does **not** replace:
-
-- The **teaching relationship** — the day-to-day work of explaining, modelling, and guiding a learner.
-- **Pedagogical judgement** about how to help a specific student improve from their current point.
-- **Edge cases** where the marker knows context about the student or the test conditions that no system can see.
-- **Final accountability** for high-stakes decisions. Where assessments carry consequences — certification, progression, university entry — the principle of human accountability in marking should be preserved.
-
-The practical deployment we recommend is **"AI-graded with human review"**: the system produces the score across all seven dimensions, surfaces borderline or flagged cases for closer attention, and a teacher or marker signs off on the final result with the ability to override any score. This preserves human accountability and pedagogical insight while giving schools the speed, scale, and cross-marker consistency that human-only marking cannot match.
-
----
-
-## What it measures
-
-### What does the system measure?
-
-The system measures seven different qualities of a piece of writing. We call these **dimensions**. Each dimension produces a score from 0 to 100. The seven dimension scores are then combined into a single Overall Score, which is also mapped to a CEFR band (A1, A2, B1, B2, C1, C2) for easier interpretation.
-
-### Why seven dimensions and not one big "writing score"?
-
-Because writing is not one skill — it is several skills working together. A student can have strong ideas but weak spelling. Strong vocabulary but poor organisation. Confident grammar but inappropriate register. A single overall score hides that detail; seven dimension scores show it. Teachers, parents, and students can see exactly where a learner is doing well and exactly where to focus.
-
-### Why is spelling its own dimension?
-
-Arabic orthography — spelling, hamza placement, taa marbuta and alif forms — is a partially independent skill from grammar. A student may have acceptable grammatical control while still making recurring orthographic errors, or the other way round. Separating the two gives a more accurate picture and lets teachers target feedback more precisely.
+Direct users include schools and language institutions wanting consistent writing scores at scale, teachers and markers wanting a structured second opinion, and curriculum designers wanting to understand how Arabic writing can be measured systematically.
 
 ---
 
@@ -5049,9 +5087,9 @@ Arabic orthography — spelling, hamza placement, taa marbuta and alif forms —
 | **1. Task Achievement** | Did the student fully answer the question, meet length expectations, and communicate the message? |
 | **2. Content Quality** | Are the ideas developed and supported with reasons, examples, or explanation — or just listed? |
 | **3. Style & Register** | Is the writing in proper formal Modern Standard Arabic (MSA), or does it drift into spoken-dialect patterns? |
-| **4. Language Range** | How varied and sophisticated are the vocabulary, sentence structures, and word forms? |
+| **4. Language Range** | How varied and sophisticated are the vocabulary, sentence structures, and Arabic morphological patterns (derived verb forms, broken plurals, masdar, participles)? |
 | **5. Organisation & Coherence** | Does the writing flow logically, with ideas linked and progression clear? |
-| **6. Language Accuracy** | Is the grammar accurate enough for clear communication? (We focus on whether errors block understanding — not on perfect native-speaker control.) |
+| **6. Language Accuracy** | Is the grammar accurate enough for clear communication? (Includes agreement, verb forms, sentence construction. We focus on whether errors block understanding — not on perfect native-speaker control.) |
 | **7. Orthographic Control** | Is the spelling correct? Are hamza, taa marbuta, and alif forms used properly? Is the script clean and consistent? |
 
 Each dimension is reported separately with a short written justification, so a teacher can see the reasoning behind each score.
@@ -5060,70 +5098,327 @@ Each dimension is reported separately with a short written justification, so a t
 
 ## What does the system NOT measure?
 
-This is the most important boundary in the system. The assessment is focused on writing quality — not on the student as a whole, and not on whether the content of their writing is academically correct.
+This is a writing assessment system. It does not measure:
 
-The system **does not** measure:
+- **Subject knowledge or factual accuracy.** Factual rightness is the teacher's domain.
+- **Argument quality at a deep philosophical level.**
+- **Originality, creativity, or literary merit.**
+- **Plagiarism or authorship.**
+- **Cultural, religious, or topical appropriateness.**
+- **Speaking, listening, or reading.** This is a writing-only system.
+- **Handwriting.** The system reads typed text.
+- **Diacritics (harakat) or case endings (إعراب).** These rarely affect communication in modern Arabic writing.
+- **Effort, motivation, or personal context.** The system reads only the writing in front of it.
 
-- **Subject knowledge or factual accuracy.** If a student writes about science, history, geography, or religion, the system does not check whether their facts are right. A factually wrong response with good Arabic writing will still score on the writing. A factually correct response with poor Arabic writing will still be marked down on the writing. Subject accuracy is the teacher's domain.
-- **Depth or quality of argument.** The system can tell whether ideas are developed and supported with reasons or examples. It does not judge whether an argument is philosophically sound, ethically defensible, or persuasive at a deep level.
-- **Originality, creativity, or literary merit.** Whether a piece of writing is original, beautiful, or imaginative is left to human readers. The system rewards clear, well-organised, accurate Arabic — not creative spark.
-- **Plagiarism or authorship.** The system does not check whether the writing is the student's own. That requires a separate plagiarism-detection process and is outside scope.
-- **Cultural, religious, or topical appropriateness.** Topic suitability, cultural sensitivity, and conformity to school or community norms are matters for the school and the teacher.
-- **Speaking, listening, or reading.** This is a writing-only system. The other language skills require different instruments.
-- **Handwriting.** The system reads typed text. Handwriting recognition is a separate problem and is not in scope.
-- **Diacritics (harakat).** Optional vowel marks are not scored. A student is not penalised for omitting them.
-- **Effort, motivation, or personal context.** The system reads only the writing in front of it. It does not know whether the student was tired, ill, distracted, or sat the test under difficult conditions. Teachers do — and that context belongs in the human side of the marking process.
-
-In short: this system answers the question *"how well did the student write this piece of Arabic?"* It does not — and should not — try to answer the much bigger question *"is this a good student?"* That belongs to the teacher.
+In short: this system answers *"how well did the student write this piece of Arabic?"* It does not try to answer *"is this a good student?"* That belongs to the teacher.
 
 ---
 
-## A note on CEFR and Arabic
+## Does it replace human teachers or markers?
 
-CEFR — the Common European Framework of Reference — is a **communicative framework**. It describes what a learner can *do* with language at each level: comprehend, produce, interact. It is deliberately not a grammar syllabus, and it is not language-specific. There is no official CEFR grammar map for Arabic, no CEFR list of Arabic structures by level, no CEFR specification for Arabic orthography.
+No. The system is designed as **AI-supported expert assessment**, not replacement — and its core value sits in *diagnostic depth*, not speed alone.
 
-This sometimes leads to a misconception that CEFR "does not cover" things like Arabic grammar accuracy or Arabic spelling. That is half right — and it is the half that matters.
+Where some assessment systems give a single overall judgement ("writing is weak"), this system tells you *why* across seven distinct dimensions, with written justifications, so a teacher has something actionable to work with. A single grade tells you nothing about what to do next. A breakdown showing weak orthography but strong organisation — or strong vocabulary but weak coherence — does.
+
+What stays firmly with the human marker:
+
+- The **teaching relationship** — explaining, modelling, guiding a learner from where they are.
+- **Pedagogical judgement** about how a specific student should improve.
+- **Deep rhetorical, literary, and stylistic judgement**, especially for advanced native-speaker writing.
+- **Edge cases** where the marker knows context the system cannot see.
+- **Final accountability** for high-stakes decisions.
+
+The practical deployment we recommend is **expert assessment with AI support**: the system produces the structured breakdown; the teacher brings judgement, context, and final accountability.
+
+---
+
+## What can teachers and markers adjust?
+
+The system has a **Calibration** page where markers can enable or disable any dimension, adjust the weight each dimension carries in the Overall Score, and adjust the weight each metric carries within its dimension. Changes save automatically and apply to the next round of scoring.
+
+What markers cannot adjust are the internal formula constants — those are part of the construct definition and change only through versioned methodology updates, which protects comparability over time.
+
+---
+
+## How is dialect handled?
+
+Dialect features are not treated as "incorrect Arabic" in themselves. They are reflected in the **Style & Register** dimension as register shifts from formal MSA expectations — they are **not** double-penalised across the other six dimensions. A student writing predominantly in dialect will see this in their Style & Register score; the other six dimensions assess the writing on its own terms.
+
+The default configuration is MSA-focused, matching the formal-writing expectations of most school curricula. For contexts where dialect is appropriate or expected — dialect-aware creative writing, regional-variety curricula, transcribed-speech assessment — the system can be reconfigured. See the Technical Guide for detail.
+
+---
+
+## Privacy and data
+
+Student writing is processed in line with the data-handling agreements in place with the school or assessment authority. The LLM provider API keys are held server-side; the browser used by teachers never sees them. Each score includes a written justification that quotes evidence from the writing, providing a full audit trail from input to output.
+
+---
+
+## How is it different from other writing tests?
+
+Three things:
+
+- **Granularity.** Other tests often produce a single grade or band. This system produces a score for each of seven distinct writing qualities, plus an Overall Score, plus a CEFR mapping. Teachers see exactly where a student is strong and where to focus.
+- **Speed and consistency.** Large volumes can be scored quickly with the same methodology applied to every response. No marker fatigue, no drift between markers.
+- **Auditability.** Every score is paired with a justification. Every justification quotes specific evidence from the writing. A school, parent, or auditor can trace any score back to the writing it came from.
+
+---
+
+## How accurate is it?
+
+The system is built around several design principles intended to improve consistency, transparency, and fairness — construct-based scoring, construct separation, controlled scoring bands, and human review for borderline or high-stakes decisions. It is currently in an iterative calibration and validation phase against expert Arabic marker judgements.
+
+For the detail behind these claims — the calibration methodology, the marker panel composition, known limitations, validation status — see the **Technical Guide**.
+
+---
+
+## For more depth
+
+This FAQ is the short version. The companion documents in the same folder cover:
+
+- **Technical Guide** — Arabic linguistic treatment, CEFR detail, calibration methodology, native-vs-L2 differentiation, rhetorical-organisation considerations, reproducibility, known limitations, formula reference.
+- **Orthographic Control specification (V1.1)** — the formal methodology document for the orthographic dimension.
+- **Improvement roadmap** — the tiered backlog of upcoming calibration and methodology improvements.
+
+For questions about implementation, calibration, or use in a specific assessment context, please contact us.
+
+---
+
+*This guide reflects the system as of May 2026. The most recent version is always available alongside the methodology documents.*
+`;
+// ============= END ARABIC WRITING FAQ =============
+// ============= ARABIC WRITING TECHNICAL GUIDE =============
+// Source of truth: Final info/technical_guide.md
+// Synced on: 2026-05-21
+// When the .md file changes, re-sync this constant.
+// Note: backticks in the source are escaped as \` — a regular template literal
+// (not String.raw) is used here because the content contains code spans.
+const ARABIC_TECHNICAL_GUIDE_MD = `
+# Technical Guide — Arabic Writing Assessment System
+
+A methodology guide for assessment leads, curriculum specialists, and procurement teams.
+
+---
+
+## About this guide
+
+This document complements the user-facing **Arabic Writing FAQ**. The FAQ explains what the system does for schools, teachers, parents, and decision-makers. This guide goes deeper — into the construct, the Arabic linguistic treatment, the CEFR mapping, the calibration methodology, and the honest limitations of the current build. It is the document an assessment specialist or methodology reviewer should read before evaluating the system for high-stakes deployment.
+
+---
+
+## 1. Scope and construct
+
+The system is designed to assess **formal educational writing in Modern Standard Arabic (MSA)** — the structured written register used in school, assessment, and academic contexts. It evaluates a learner's ability to communicate effectively in MSA through controlled written expression.
+
+The construct is **not**: literary criticism, poetry, creative authorship, dialect fluency, subject knowledge, plagiarism, or originality. Those are either outside the system's scope or belong with the human marker.
+
+This narrow construct is deliberate. It is what the system can measure defensibly. Wider claims — about Arabic mastery generally, about identity, about advanced rhetorical sophistication — are out of scope.
+
+---
+
+## 2. The seven dimensions
+
+The system produces a 0-100 score on each of seven dimensions, plus a calibration-weighted Overall Score that maps onto CEFR for interpretability. Default weights are equal (≈14.3% per dimension) and adjustable via the in-app Calibration tab.
+
+### 2.1 Task Achievement
+
+Did the response complete the task, meet length expectations, and communicate the message?
+
+Composite of three sub-metrics:
+- **Word Count Compliance (WCC)** — code-based, deterministic.
+- **Task Requirements (TA)** — LLM judgement on whether each requirement is met with on-topic content.
+- **Intelligibility & Effect (IE)** — LLM judgement of clarity and communicative impact on a banded scale.
+
+Formula (default): \`TA dimension = WCC × 0.40 + TA × 0.48 + IE × 0.12\`. All three sub-weights are user-adjustable in the Calibration tab.
+
+### 2.2 Content Quality
+
+How well are the ideas developed, supported, and extended? Each task requirement is scored on a 0-3 ladder (absent / mentioned / developed / extended). Evidence is consumed once: a sentence used for requirement N cannot count again for requirement N+1.
+
+### 2.3 Style & Register (Arabic-specific)
+
+Composite of:
+- **MSA Consistency** — LLM holistic 0-100 judgement.
+- **Dialect Detection** — LLM severity classification across Gulf, Egyptian, Levantine, and Maghrebi markers, mapped: none → 100, isolated → 90, moderate → 70, pervasive → 40.
+
+Formula (default): \`Style & Register = MSA × 0.70 + Dialect × 0.30\`.
+
+**A note on weighting across proficiency.** Style & Register is structurally more important at higher proficiency than at lower. An A1/A2 learner whose basic communication is intact is doing well even with imperfect register; a C1/C2 learner is expected to handle register precisely as part of advanced control. The default equal-weight calibration (~14.3% of Overall) applies the dimension uniformly across levels. For deployments where the cohort is concentrated at lower proficiency, S&R weight can — and arguably should — be reduced in the Calibration tab. Proficiency-conditional default weighting is a future methodology consideration; for now it is exposed as a calibration choice rather than a default behaviour.
+
+### 2.4 Language Range
+
+Composite of:
+- **Vocabulary Diversity**
+- **Morphological Variety** — Arabic morphology is foregrounded here: broken plurals, derived verb patterns, masdar, active/passive participles, root-pattern productivity.
+- **Arabic Sentence Complexity** — relative clauses, conditionals, nominal vs verbal sentence variety.
+
+Formula (default): equal-weight mean of the three.
+
+### 2.5 Organisation & Coherence (Arabic-specific, hybrid code + LLM)
+
+Composite of:
+- **Arabic Cohesive Devices** — deterministic scan of ~40 Arabic connectives across six categories (sequencing, addition, contrast, cause/effect, example, conclusion). Recognises the و / ف clitic prefixes (وأيضاً، فلذلك) which English-only systems miss.
+- **Coherence & Flow** — LLM holistic judgement on logical progression, paragraph flow, idea linking.
+
+Formula (default): \`Org & Coh = Cohesive Devices × 0.30 + Coherence & Flow × 0.70\`.
+
+### 2.6 Language Accuracy
+
+Holistic LLM judgement of grammatical control. Focus is on **communicative control**, not native-speaker perfection. The metric covers agreement, verb forms, sentence construction, and grammatical consistency.
+
+The prompt explicitly anchors on two Arabic-specific agreement rules that are common error patterns for both L2 learners and L1 dialect-speakers writing MSA. These are the most common and most teachable MSA errors for school-age Gulf learners:
+
+- **Human vs non-human plural agreement.** Non-human plurals take feminine singular agreement (\`الكتبُ جميلةٌ\` — *the books are beautiful*), not plural agreement. The prompt provides worked correct/incorrect pairs (\`الكتب جميلة\` vs \`الكتب جميلون\`; \`الأشجار كبيرة\` vs \`الأشجار كبار\`) so the LLM attends to this pattern reliably. Recurring errors of this type reduce the score and are tagged in the structured output as \`non_human_agreement\`.
+- **Dual form accuracy (مثنى).** The dual ending — ـان in the nominative, ـين in the accusative/genitive — with its associated verb and adjective agreement. The prompt provides worked examples (\`الطالبان يدرسان\` correct vs \`الطالبان يدرسون\` incorrect; \`رأيتُ الطالبَين\` correct vs \`رأيتُ الطالبان\` incorrect). Common errors — dropping the dual, replacing with plural, mishandling case — are tagged in the structured output as \`dual_form\`.
+- **Standard agreement.** Number, gender, definiteness, and case-marking where it affects meaning.
+
+The dimension does **not** penalise missing case endings (إعراب) outside the cases above where they affect agreement, or minor spelling variation — orthographic control is its own dimension.
+
+### 2.7 Orthographic Control (Arabic-specific, hybrid code + LLM)
+
+Added in V1.1 as a separate construct because Arabic orthography is partially independent from grammatical control. A learner may have acceptable grammatical control while still making recurring orthographic errors, or the other way round.
+
+Composite of three sub-metrics:
+- **Technical Quality** — deterministic hygiene checks (punctuation, whitespace, tatweel abuse, non-Arabic intrusion).
+- **Common Error Detection** — deterministic comparison against four curated lists of high-frequency learner errors: Taa Marbuta (ة/ه), Alif Form (ا/ى/أ/إ), Common Hamza, and General Spelling. Confidence-tiered (\`always_wrong\` / \`usually_wrong\`), with a proper-noun gate to protect personal names.
+- **LLM Orthographic Accuracy** — scope-locked judgement on orthographic correctness beyond curated patterns. Letter-form distribution counts and deterministic flags are passed as prompt context so the LLM focuses on what the lists missed.
+
+**Deterministic ceiling.** Clean-but-unremarkable writing cannot drift into elite/near-native territory:
+- Without advanced orthographic evidence → deterministic combined capped at 88.
+- With advanced evidence (≥3 distinct of ئ / ؤ / ء / آ AND ≥3 per 100 words) → cap rises to 96.
+
+This forces stability alone to settle around 85-88 in the deterministic branch. Mastery (LLM-judged + deterministic advanced-form evidence) is required to break above that. Default formula: \`Orthographic Control = Technical Quality × 0.10 + Common Error Detection × 0.40 + LLM × 0.50\`. All three sub-weights are user-adjustable.
+
+**10-word floor.** Below 10 words, the dimension returns N/A* (lower than the system-wide 30-word floor used for other LLM metrics).
+
+#### A note on the two formulas in the code
+
+Readers digging into the implementation will encounter two distinct formulas, and it is worth being explicit about how they relate:
+
+1. **The spec's deterministic-branch internal formula** (Orthographic Control spec §3.1):
+   \`\`\`
+   Deterministic Orthography Score = Technical Quality × 0.40 + Common Error Detection × 0.60
+   \`\`\`
+   This is computed inside \`computeArabicOrthography\` and returned as the \`deterministic_orthography_score\` field. It is the number shown in the Results panel breakdown as "Deterministic Orthography: NN".
+
+2. **The flattened calibration formula** (spec §3.2):
+   \`\`\`
+   Orthographic Control = Technical Quality × tqW
+                        + Common Error Detection × cedW
+                        + LLM Orthographic Accuracy × llmW
+   \`\`\`
+   This is computed in \`scoreSample\` using the calibration weights from the Calibration tab. With defaults (\`tqW=0.10, cedW=0.40, llmW=0.50\`), it produces the headline Orthographic Control score.
+
+The two formulas describe **different lines in the same scoring pipeline**, not contradictory definitions. The nested formula is the construct definition; the flattened formula is the user-tunable expression of that combine, applied with the deterministic ceiling (§5.5 of the v1.2 spec) before final output. At default weights, the two are algebraically related: flattened defaults of 24 / 36 / 40 would reproduce the spec's nested formula exactly. The current defaults of 10 / 40 / 50 reflect the post-calibration weight settle.
+
+---
+
+## 3. Arabic linguistic treatment
+
+Three dimensions are explicitly Arabic-specific: Style & Register, Organisation & Coherence, and Orthographic Control. The others (Task Achievement, Content Quality, Language Range, Language Accuracy) reuse the platform's existing construct definitions but feed them Arabic content and Arabic-aware prompts.
+
+### 3.1 Dialect detection
+
+Severity-based classification across Gulf, Egyptian, Levantine, and Maghrebi markers. The output severity (none / isolated / moderate / pervasive) maps to a 0-100 score and contributes to the Style & Register composite.
+
+**Important:** dialect features are not treated as "incorrect Arabic" in themselves. They are flagged in Style & Register only — never double-penalised across the other six dimensions. A student writing predominantly in Gulf, Egyptian, Levantine, or Maghrebi dialect will see this reflected specifically in their Style & Register score; the other six dimensions assess the writing on its own terms.
+
+### 3.2 Arabic cohesive devices
+
+The deterministic scan recognises ~40 Arabic connectives across six functional categories. It explicitly handles و / ف as clitic prefixes (وأيضاً، فلذلك) — these are routinely missed by English-trained systems that look for whitespace-separated tokens.
+
+The score rewards **variety and category spread**, not raw frequency. This prevents mechanical connective-stuffing from inflating the score: a response with twenty repeated \`و\` connectives scores lower than one with five distinct connectives across multiple categories.
+
+### 3.3 Arabic morphology
+
+Morphology is captured within Language Range. Arabic morphological richness — broken plurals, derived verb patterns (Forms I-X), masdar formation, active and passive participles, root-pattern productivity, weak-verb handling, and complex agreement — is a strong proficiency discriminator that English-based rubrics typically under-weight. The Morphological Variety sub-metric evaluates breadth and accuracy of these features.
+
+For native-speaker school assessment, morphological control is often a sharper discriminator than vocabulary count alone.
+
+### 3.4 Orthographic curated lists
+
+Each of the four orthographic categories (taa marbuta, alif, hamza, general spelling) is backed by a versioned JSON list of high-frequency learner errors. Entries are tagged with a confidence tier:
+- \`always_wrong\` — the form is never correct in MSA writing (e.g. \`مدرسه\` for \`مدرسة\`). Full-weight penalty.
+- \`usually_wrong\` — the form is usually an error but has legitimate uses (e.g. \`علي\` is a male name as well as a misspelling of \`على\`). Half-weight penalty.
+
+A **proper-noun gate** suppresses \`usually_wrong\` flagging when the candidate is preceded by a recognised title (\`السيد\`، \`الأستاذ\`، \`الدكتور\`، \`الشيخ\`، \`سيدي\`) or appears between quotation marks.
+
+A **dedup rule** counts repeated misspellings of the same form as a single unique error for scoring, while preserving all occurrences in the per-response output for teacher feedback.
+
+List versions are recorded on every score so a result can be reproduced exactly against the list state at the time of scoring.
+
+### 3.5 A note on Arabic rhetorical organisation
+
+Arabic writing traditions differ from European norms in how coherence is achieved. Parataxis (coordinated rather than embedded clauses) is more common, and cohesion is often built through lexical chains, repetition, and parallelism rather than purely through connective hierarchy. Arabic rhetorical organisation can be recursive, additive, parallel, or stylistically repetitive in ways English coherence models often misinterpret as redundancy or weak structure.
+
+The deterministic connective scan reflects part of this by being Arabic-aware. But connective counting alone is not sufficient to assess Arabic coherence properly, especially for advanced native writers. The **LLM Coherence & Flow prompt is an explicit calibration target**: Arabic rhetorical norms are easy to misjudge if a prompt is written from European writing assumptions. Refining this prompt against expert Arabic-marker feedback is a priority for the next calibration cycle.
+
+For native-speaker writing, the Coherence & Flow score should be treated as supporting evidence for a human marker's judgement rather than as a standalone verdict.
+
+---
+
+## 4. The CEFR and Arabic
+
+CEFR — the Common European Framework of Reference — is a **communicative framework**. It describes what a learner can *do* with language at each level. It is deliberately not a grammar syllabus and it is not language-specific. There is no official CEFR grammar map for Arabic, no CEFR list of Arabic structures by level, no CEFR specification for Arabic orthography.
+
+This sometimes leads to a misconception that CEFR "does not cover" Arabic grammar accuracy or Arabic spelling. That is half right — and it is the half that matters.
 
 - **CEFR does not explicitly map Arabic grammar or orthography.** Those are language-specific competences and have to be specified by Arabic specialists. Where the framework is silent on Arabic specifics, the system draws on Arabic linguistic specifications rather than inventing CEFR rules that do not exist.
 - **CEFR does, however, care about whether the writing communicates clearly.** Recurring spelling errors that confuse the reader, grammatical breakdowns that obscure meaning, register drift that undermines the message — these all reduce *communicative effectiveness*, which is squarely a CEFR concern.
 
 The seven dimensions sit at this intersection. Each is defined as a construct in its own right, but each is also calibrated by how much it affects communicative quality.
 
-A worked illustration:
+**A worked illustration:**
 
 - A learner is **not penalised** for missing case endings (إعراب), because case endings rarely affect communication in modern Arabic writing.
 - A learner **is penalised** for recurring taa marbuta errors, because those errors signal unstable script control that affects reader confidence in the writing — even though "taa marbuta correctness" is not a CEFR descriptor in the framework itself.
 
 In other words: the CEFR badge on the Overall Score is meaningful — it expresses "how well does this writer communicate in Arabic at the moment". The seven dimensions are the engine that produces that judgement: each calibrated to Arabic, each anchored in CEFR-compatible communicative outcomes.
 
+### A specific caveat for native-speaker assessment
+
+CEFR was designed to describe foreign-language acquisition, from absolute beginner to near-native control. When applied to *native* writers, the CEFR badge is inherently less discriminating — native speakers are at or near the top of the framework's communicative-competence scale by definition, so the meaningful variation in their writing tends to lie *within* the C-bands rather than across A1-C2.
+
+For native-speaker school assessment, the seven dimensional sub-scores and the band-pressure rules carry more diagnostic weight than the CEFR badge itself. We retain the badge as a familiar interpretation layer, but readers should treat it as supplementary to the dimensional breakdown when assessing native writers.
+
 ---
 
-## How fair and accurate is it?
+## 5. Native vs L2 differentiation
 
-The system is designed around several safeguards intended to improve consistency, transparency, and fairness in writing assessment.
+These are genuinely different writer populations with different error profiles. A calibration that works for one does not automatically work for the other.
 
-### How does the system avoid being unfair?
+- **Non-native learners** typically show errors that reflect L2 acquisition stages — overgeneralised verb patterns, transfer errors from the L1, gaps in vocabulary range, formulaic sentence structures.
+- **Native speakers** writing formal MSA show errors that reflect *diglossia* — the natural tension between spoken Arabic dialect and written MSA. These errors cluster around register, orthography, and dialect-to-MSA conversion more than around underlying linguistic knowledge.
 
-Several design principles are built into the scoring process.
+The system uses the same core engine for both populations, but the calibration layer (band thresholds, LLM prompt anchors, weight defaults, curated lists) is intended to be tuned separately for native-speaker and non-native deployments. Separate calibration profiles can be selected for the relevant deployment context as data from each population becomes available.
 
-- **Construct-based scoring, not simple pattern matching.** Each dimension is designed around a clearly defined writing construct rather than surface feature counting alone.
-- **Multiple evidence sources.** Where appropriate, the system combines deterministic code (fully repeatable checks) with AI judgement (context-sensitive interpretation).
-- **Construct separation.** Grammar, spelling, organisation, vocabulary, and register are treated as separate dimensions to reduce double-penalisation and improve diagnostic clarity.
-- **Controlled scoring bands.** The system uses explicit scoring anchors and ceiling rules to reduce score inflation and ensure that higher bands require positive evidence of stronger control — not simply the absence of mistakes.
+**This native-vs-L2 differentiation is an active area of methodology development, not a solved problem.** A school deploying the system for native-speaker assessment should expect ongoing refinement of the native-speaker calibration profile through their first cycles of use.
 
-### What if the AI makes a mistake?
+---
 
-The system is designed to support human review rather than remove it.
+## 6. Cross-regional and cross-curriculum adaptation
 
-Each score is accompanied by a written justification explaining the evidence behind the decision. Teachers and markers can review, override, or adjust scores where appropriate.
+The construct-based dimensions are anchored in general Arabic linguistic competence and CEFR communicative outcomes, not in any single national syllabus. The same engine can be calibrated for different regional expectations — Gulf, Levantine, North African, or pan-Arab assessment contexts — by tuning the calibration layer (curated lists, dialect severity bands, Style & Register thresholds). The core methodology stays constant; what gets tuned is the calibration.
 
-The long-term deployment model is AI-assisted marking with human oversight, particularly for borderline or high-stakes decisions.
+### Configurability for non-MSA contexts
 
-### How is the system being calibrated?
+The current defaults are MSA-focused: dialect drift is treated as a register issue and reflected in the Style & Register dimension. This matches the formal-writing expectations of most school curricula and standardised assessment contexts.
+
+For contexts where dialect is appropriate or expected, the system can be reconfigured:
+
+- A curriculum that explicitly preserves and assesses regional varieties (e.g. Gulf Arabic writing programmes).
+- Dialect-aware creative writing or literary assessment, where switching registers is part of the craft.
+- Assessment of spoken-Arabic transcribed responses, where dialect markers are evidence, not error.
+
+Reconfiguration involves adjusting the dialect-detection severity bands, the Style & Register weighting, and (if needed) the orthographic conventions assumed in the spelling lists. This is a methodology adjustment rather than a single-toggle setting — but the system architecture supports it.
+
+---
+
+## 7. Calibration methodology
 
 The system is currently in an iterative calibration and validation phase.
 
-The intended calibration process includes:
+### Intended calibration process
 
 - Comparing system scores against expert Arabic marker judgements.
 - Reviewing disagreements between human and AI scoring.
@@ -5132,83 +5427,110 @@ The intended calibration process includes:
 
 As more authentic student writing data becomes available, the system will continue to be recalibrated and benchmarked against human scoring performance.
 
-### How does it handle Arabic specifically?
+### Intended marker panel composition
 
-Three of the seven dimensions are Arabic-specific (Style & Register, Organisation & Coherence, Orthographic Control). Specifically:
+The marker panel for calibration is intended to comprise:
 
-- **Style & Register** uses dialect-detection across Gulf, Egyptian, Levantine, and Maghrebi markers so that drift away from MSA is caught accurately.
-- **Organisation & Coherence** uses an Arabic-aware scan of ~40 Arabic connectives and recognises the و / ف clitic prefixes (وأيضاً، فلذلك) which English-only systems miss.
-- **Orthographic Control** uses curated lists of common Arabic learner-error patterns (taa marbuta, alif, hamza, general spelling), confidence-tiered to avoid false positives on personal names and proper nouns.
+- Native Arabic speakers with formal training in writing assessment.
+- A mix of secondary-level school teachers (where native-speaker calibration is the target).
+- Applied linguists and TAFL (Teaching Arabic as a Foreign Language) practitioners (where non-native calibration is the target).
+- Assessors with formal CEFR training where possible.
 
-The system does **not** penalise students for missing case endings (إعراب) or minor stylistic preference — it focuses on communicative control and orthographic correctness that matter for written Arabic at the school level.
+Panel composition for each calibration cycle is documented in the corresponding calibration report.
 
-### What about dialect and non-MSA writing?
+### Target agreement metrics
 
-The current default configuration is **MSA-focused**: dialect drift is treated as a register issue and penalised in the Style & Register dimension. This matches the formal-writing expectations of most school curricula and standardised assessment contexts.
+Once marker data is available, agreement is reported at three levels:
 
-For contexts where dialect is appropriate or expected, the system can be **reconfigured**:
+- **Exact-band agreement** between system and human consensus (target ≥65%).
+- **Within-1-band agreement** (target ≥85%).
+- **Cohen's kappa** (target ≥0.6).
+- **Per-category false-positive rate** on curated lists (target <15%).
 
-- A curriculum that explicitly preserves and assesses regional varieties (e.g. Gulf Arabic writing programmes).
-- Dialect-aware creative writing or literary assessment, where switching registers is part of the craft.
-- Assessment of spoken-Arabic transcribed responses, where dialect markers are evidence, not error.
-
-Reconfiguration involves adjusting the dialect-detection severity bands, the Style & Register weighting, and (if needed) the orthographic conventions assumed in the spelling lists. This is a methodology adjustment rather than a single-toggle setting — but the system architecture supports it. Talk to us if your context requires it.
-
-### Does it work outside specific national curricula?
-
-Yes. The construct-based dimensions are anchored in general Arabic linguistic competence and CEFR communicative outcomes, not in any one national syllabus. The same engine can be calibrated for different regional expectations — Gulf, Levantine, North African, or pan-Arab assessment contexts — by tuning the curated lists, dialect severity bands, and Style & Register thresholds. The core methodology (the seven dimensions, the formulas, the band pressure rules) stays the same; what gets tuned is the calibration layer.
+These are targets, not achievements. The system is in the calibration-as-process phase.
 
 ---
 
-## What can teachers and markers adjust?
+## 8. Reproducibility and determinism
 
-The system has a **Calibration** page where markers can:
+All LLM calls use \`temperature: 0\` for the most repeatable scoring behaviour available from current LLM providers. In combination with deterministic code paths and versioned curated lists, this produces **highly reproducible** scoring — the same response, scored on the same day with the same calibration configuration and the same provider, should produce the same result.
 
-- Enable or disable any dimension (turn off, for example, Organisation if it does not apply to a short-answer task).
-- Adjust the weight each dimension carries in the Overall Score.
-- Adjust the weight each metric carries within its dimension.
+**A note on the limits of determinism.** Temperature 0 is *near*-deterministic, not perfectly deterministic — providers occasionally produce small variations even at this setting. We accept this as the current ceiling of LLM reproducibility. For high-stakes scoring, the appropriate response is not to claim perfect reproducibility but to combine deterministic code (which is genuinely reproducible) with LLM judgement (which is near-reproducible), and to expose both branches in the output so that any score can be traced to its components.
 
-Changes are saved automatically and apply to the next round of scoring. This means schools or programmes can tune the system to their assessment context without re-engineering anything.
+Arabic writing also contains genuine **acceptable variation** — stylistic flexibility, optional structures, competing orthographic conventions, rhetorical ambiguity. Over-deterministic systems risk false certainty, rigidity, and rewarding formulaic writing. The system addresses this by:
 
-What markers cannot adjust are the internal formula constants (density multipliers, threshold values, band cut-points). Those are part of the construct definition and only change through versioned methodology updates — protecting comparability over time.
-
----
-
-## Privacy, security, and reproducibility
-
-### What about student data?
-
-Student writing is processed in line with the data-handling agreements in place with the school or assessment authority. API keys for the underlying AI models are held server-side; the browser used by teachers never sees them. The system itself does not store student writing beyond the immediate scoring run unless explicitly configured to retain results.
-
-### Is the scoring reproducible?
-
-Yes. The AI model is run at temperature zero (the most deterministic setting), so the same response scored on the same day with the same calibration configuration will produce the same score. Curated lists and methodology versions are tagged on every score, so a result can be reproduced exactly against the system state at the time of scoring.
+- Treating curated-list entries as confidence-tiered rather than binary.
+- Allowing the LLM judgement to override or modify deterministic flags through justified prose.
+- Capping deterministic combined scores in the Orthographic Control dimension so clean-but-unremarkable writing cannot reach elite scores without LLM-judged evidence.
+- Keeping all calibration weights user-adjustable so the balance between code and judgement can be tuned per deployment context.
 
 ---
 
-## Comparison with existing assessments
+## 9. Privacy, security, and audit trail
 
-### Why is this different from a traditional Arabic writing test?
+Student writing is processed in line with the data-handling agreements in place with the school or assessment authority. API keys for the underlying LLM providers are held server-side via a serverless function; the browser never sees them.
 
-Three main differences.
-
-- **Granularity.** Traditional tests often produce a single grade or band. This system produces a score for each of seven distinct writing qualities, plus an Overall, plus a CEFR mapping. Teachers see exactly where a student is strong and where to focus.
-- **Speed and consistency.** Hundreds of responses can be scored in minutes with the same methodology applied to every one. No marker fatigue, no drift between markers.
-- **Auditability.** Every score is paired with a justification. Every justification quotes specific evidence from the student's writing. There is a full trail from input to score that a school, parent, or auditor can examine.
-
-### What about the CEFR mapping?
-
-CEFR is an interpretation layer applied to the Overall Score. The seven dimensions themselves are not CEFR-anchored — they are construct-based and would work in any framework, but each dimension is calibrated against the communicative outcomes CEFR cares about. See **A note on CEFR and Arabic** earlier in this guide for the fuller picture.
+Every score is paired with a written justification that quotes evidence from the student's writing. Curated-list versions are recorded on every score, allowing a result to be reproduced exactly against the system state at the time of scoring. This provides a full audit trail from input through scoring methodology to output, examinable by schools, parents, or external auditors.
 
 ---
 
-## Getting in touch
+## 10. Known limitations and ongoing development
 
-For questions about implementation, calibration, or use in a specific assessment context, please contact us.
+### Topic-restriction false-cap
 
-This guide reflects the system as of May 2026. As the system evolves, the guide will be updated. The most recent version is always available alongside the methodology documents.
+The Orthographic Control ceiling logic uses presence of advanced hamza forms (ئ / ؤ / ء / آ) as evidence of orthographic mastery. A learner writing on a topic that does not naturally use these forms (a simple personal letter, a short daily-life narrative) may be capped at 88 deterministically even if their writing is excellent for the topic. The LLM at 50% weight absorbs some of this, but the structural risk remains. This is logged as a calibration limitation for review with marker data.
+
+### Coherence prompt risk
+
+The LLM Coherence & Flow prompt is currently a general-purpose prompt and may not be sufficiently Arabic-rhetoric-aware. Arabic parataxis and lexical-chain cohesion patterns can be misread as redundancy or weak structure by a prompt written from European writing assumptions. Prompt revision against expert Arabic-marker feedback is queued for the next calibration cycle.
+
+### Language Accuracy anchor validation
+
+The Language Accuracy prompt now explicitly anchors on non-human plural agreement and dual form accuracy (see section 2.6). Reliability of these anchors — false-positive rate, false-negative rate, consistency across model providers — has not yet been validated against expert marker data. Validation of these specific anchor patterns is part of the next calibration cycle. Until then, the structured \`non_human_agreement\` and \`dual_form\` error tags in the output should be treated as the LLM's best-effort detection rather than verified flags.
+
+### Style & Register equal-weight default at all levels
+
+The default calibration weights Style & Register equally across all proficiency levels (~14.3% of Overall). In practice register precision matters more at C1-C2 than at A1-B1, where communicative success is the dominant concern. A proficiency-conditional default weighting (lower S&R weight at lower proficiency, higher at upper proficiency) is a future methodology consideration. Until then, deployments concentrated at one end of the proficiency range should adjust S&R weight in the Calibration tab to reflect their cohort.
+
+### Heritage-speaker and dialect-dominant calibration
+
+The default calibration profile assumes formal MSA targets and learners with reasonable MSA exposure. Heritage speakers (Arabic-speaking diaspora populations with limited formal MSA schooling) and dialect-dominant writers may need a tuned calibration profile that calibrates orthographic and register expectations to the population. This is open methodology work.
+
+### Empirical validation
+
+Most agreement claims in this document and the FAQ are framed as *intended* or *target*. They become *evidenced* only once expert marker panels score samples and we publish a calibration report. Until that work is completed, schools should treat the system as a methodology under iterative validation, not a finished assessment instrument.
+
+### Operational risks worth naming
+
+- **LLM provider drift.** Provider behaviour at temperature 0 can shift across model versions. Cross-provider consistency checks are part of the calibration process.
+- **Curated-list false positives.** Each list entry is a potential FP source. The confidence-tier system and per-entry FP tracking are designed to surface this, but require ongoing review.
+- **Calibration-tab misuse.** The Calibration tab exposes weights to non-methodology users. A school could set unusual weight configurations that produce non-comparable scores. Calibration documentation per deployment is recommended.
+
+---
+
+## 11. Appendix — formula reference
+
+| Dimension | Default combination |
+|-----------|---------------------|
+| Task Achievement | \`WCC × 0.40 + TA × 0.48 + IE × 0.12\` |
+| Content Quality | Single LLM score 0-100 |
+| Style & Register | \`MSA × 0.70 + Dialect × 0.30\` |
+| Language Range | \`Vocab × 0.334 + Morph × 0.333 + Sentence × 0.333\` |
+| Organisation & Coherence | \`Cohesive Devices × 0.30 + Coherence & Flow × 0.70\` |
+| Language Accuracy | Single LLM score 0-100 |
+| Orthographic Control | \`TQ × 0.10 + CED × 0.40 + LLM × 0.50\` (with deterministic ceiling 88 / 96) |
+| Overall | Calibration-weighted average of enabled dimensions (default: equal ≈14.3% each) |
+
+Each formula is editable via the in-app Calibration tab. The internal formula constants (density multipliers, threshold bands, tier penalties) are not exposed in the tab — they change only via versioned spec revisions.
+
+**Note on the Orthographic Control row.** The flattened formula shown in the table is what \`scoreSample\` actually computes for the headline score. The spec's deterministic-branch internal formula (\`Deterministic Orthography Score = TQ × 0.40 + CED × 0.60\`) lives separately inside \`computeArabicOrthography\` and surfaces in the Results panel as a sub-score. See section 2.7 for the relationship between the two.
+
+---
+
+*This guide reflects the system as of May 2026. Companion documents in the same folder include the V1.1 Orthographic Control spec, the improvement roadmap, the user-facing FAQ, and the per-step implementation briefs. The most recent version of this guide is always available alongside those documents.*
 `;
-// ============= END ARABIC WRITING FAQ =============
+// ============= END ARABIC WRITING TECHNICAL GUIDE =============
+
 
 // ============= ORTHOGRAPHIC CONTROL =============
 
@@ -5568,6 +5890,17 @@ function renderFaqIfNeeded() {
     return;
   }
   el.innerHTML = marked.parse(ARABIC_WRITING_FAQ_MD);
+  el.dataset.rendered = "true";
+}
+
+function renderTechnicalGuideIfNeeded() {
+  const el = document.getElementById("tg-content");
+  if (!el || el.dataset.rendered === "true") return;
+  if (typeof marked === "undefined") {
+    el.innerHTML = "<p>Loading Technical Guide…</p>";
+    return;
+  }
+  el.innerHTML = marked.parse(ARABIC_TECHNICAL_GUIDE_MD);
   el.dataset.rendered = "true";
 }
 
