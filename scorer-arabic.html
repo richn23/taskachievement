@@ -3179,6 +3179,101 @@ function computeArabicCohesiveDevices(response) {
   };
 }
 
+// ============= EVIDENCE VERIFIER =============
+// Post-hoc check that every LLM-quoted Arabic phrase appears verbatim in the response.
+// Catches normalisation, paraphrase, and hallucination regardless of whether the
+// prompts are obeyed. The audit-trail backstop.
+// ============= END EVIDENCE VERIFIER =============
+function _normalizeForEvidenceMatch(text) {
+  if (typeof text !== "string") return "";
+  return text
+    // Strip Arabic diacritics (harakat): fatha, damma, kasra, sukun, shadda, tanween, dagger alif
+    .replace(/[ً-ٰٟ]/g, "")
+    // Normalize Arabic punctuation to ASCII equivalents for comparison
+    .replace(/،/g, ",")   // Arabic comma
+    .replace(/؛/g, ";")   // Arabic semicolon
+    .replace(/؟/g, "?")   // Arabic question mark
+    // Collapse whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function _verifyEvidence(result) {
+  // result is the object returned by scoreSample.
+  // Returns { has_unverified, unverified_count, unverified[] }
+  // and mutates result to add evidence_verification.
+  const response = result.response || "";
+  const normResponse = _normalizeForEvidenceMatch(response);
+  const unverified = [];
+
+  const check = (label, quote) => {
+    if (typeof quote !== "string" || !quote.trim()) return null;
+    const normQuote = _normalizeForEvidenceMatch(quote);
+    if (normQuote.length === 0) return null;
+    const ok = normResponse.includes(normQuote);
+    if (!ok) unverified.push({ source: label, quote });
+    return ok;
+  };
+
+  // CQ scores — each requirement has an evidence array
+  if (Array.isArray(result.cq_scores)) {
+    result.cq_scores.forEach((cq, i) => {
+      const evList = Array.isArray(cq.evidence) ? cq.evidence
+                   : (typeof cq.evidence === "string" ? [cq.evidence] : []);
+      evList.forEach((ev, j) => {
+        const ok = check(`CQ[${i}].evidence[${j}]`, ev);
+        if (ok === false) {
+          cq._evidence_unverified = cq._evidence_unverified || [];
+          cq._evidence_unverified.push(ev);
+        }
+      });
+    });
+  }
+
+  // TA task_checks and task_type_checks
+  ["task_checks", "task_type_checks"].forEach(arrName => {
+    const arr = result[arrName];
+    if (Array.isArray(arr)) {
+      arr.forEach((tc, i) => {
+        if (typeof tc.evidence === "string") {
+          check(`${arrName}[${i}].evidence`, tc.evidence);
+        }
+      });
+    }
+  });
+
+  // Justifications — extract quoted Arabic-script spans and verify
+  const justifications = [
+    ["intelligibility_effect_reason",       result.intelligibility_effect_reason],
+    ["msa_consistency_reason",              result.msa_consistency_reason],
+    ["coherence_flow_reason",               result.coherence_flow_reason],
+    ["grammar_language_control_reason",     result.grammar_language_control_reason],
+    ["llm_orthographic_justification",      result.orthographic_control_breakdown?.llm_justification]
+  ];
+  const quotedSpanRegex = /['"«»“”‹›‘’]([^'"«»“”‹›‘’]{2,80})['"«»“”‹›‘’]/g;
+  justifications.forEach(([label, text]) => {
+    if (typeof text !== "string") return;
+    let m;
+    quotedSpanRegex.lastIndex = 0;
+    while ((m = quotedSpanRegex.exec(text)) !== null) {
+      const inner = m[1];
+      if (/[؀-ۿ]/.test(inner)) check(`${label} quoted span`, inner);
+    }
+  });
+
+  result.evidence_verification = {
+    has_unverified: unverified.length > 0,
+    unverified_count: unverified.length,
+    unverified: unverified
+  };
+
+  if (unverified.length > 0) {
+    console.warn(`[Evidence verifier] ${unverified.length} unverified quote(s) for sample ${result.sample_num}:`, unverified);
+  }
+
+  return result.evidence_verification;
+}
+
 async function scoreSample(qRaw, response, sampleNum) {
   const q = applyMarkersOverride(qRaw);
   const wc = wordCount(response);
@@ -3187,7 +3282,7 @@ async function scoreSample(qRaw, response, sampleNum) {
 
   const augmentedTaskRequirements = [
     ...q.task_requirements,
-    "Additional on-topic development — an extra on-topic point not covered by the listed task requirements (must itself be a complete sentence with a specific detail)"
+    "Additional on-topic development: check whether the response contains an additional semantically distinct developed point not already covered by the listed task requirements. This must be a complete sentence with a specific detail. PASS only if a verbatim sentence exists in the response that satisfies this. FAIL otherwise — including when the response does not contain extra material."
   ];
 
   const taPrompt = `You are a writing assessment engine. Score the student response for task achievement. Return JSON only.
@@ -3260,10 +3355,41 @@ total = number of requirements
 task_achievement = clamp(round(passes / total × 100), 0, 100)
 </calculation>
 
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
+
+<zero_permission>
+If a task requirement is not addressed, mark it FAIL and leave the evidence field empty or null. Do not infer.
+The "Additional on-topic development" check: if no genuine additional content exists beyond the listed requirements, mark it FAIL with no evidence. Do not invent or infer extra events, places, or details.
+</zero_permission>
+
+<anti_inference_examples>
+A travel-narrative response may legitimately omit common travel-essay components. Do NOT infer:
+- castle visits (قلعة) if the response does not mention one
+- museum visits (متحف) if not mentioned
+- markets (سوق) if not mentioned
+- tour guides (مرشد سياحي) if not mentioned
+- last-day reflections, farewells, or returns if not mentioned
+- weather descriptions if not mentioned
+- food details beyond what the student wrote
+- companion activities beyond what the student wrote
+
+Score what is on the page. The genre conventions of a "complete" travel essay are irrelevant — only the actual student text matters.
+</anti_inference_examples>
+
 <output_format>
 Return exactly:
 {
-  "checks": [{ "requirement": "...", "result": "PASS" or "FAIL" }],
+  "checks": [{ "requirement": "...", "result": "PASS" or "FAIL", "evidence": "verbatim sentence from response if PASS, empty string if FAIL" }],
   "task_achievement": NUMBER
 }
 
@@ -3338,7 +3464,8 @@ Grammar, spelling, vocabulary, register, and structure do not affect the content
 </rule:ignore_writing_quality>
 
 <rule:fourth_marker_guard>
-The 4th marker ("Additional on-topic development") credits only content that is SEMANTICALLY DISTINCT from ideas already credited under requirements 1-3. If the extra content restates or paraphrases any previously credited idea → score = 0 for requirement 4.
+The 4th marker ("Additional on-topic development") credits ONLY a semantically distinct developed point not already credited to the listed requirements. The point must be supported by a verbatim sentence quoted from the response. If no such additional point exists, score 0 and leave evidence empty.
+If the extra content restates or paraphrases any previously credited idea → score = 0 for requirement 4.
 </rule:fourth_marker_guard>
 
 <calculation>
@@ -3346,6 +3473,40 @@ total_score = sum of all requirement scores  (range: 0 - n×3)
 max_score = number_of_requirements × 3
 content_quality = clamp(round(total_score / max_score × 100), 0, 100)
 </calculation>
+
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
+
+<zero_permission>
+If a requirement is not addressed in the response, score 0 and leave the evidence array empty.
+If no additional development beyond the listed requirements is present, score the Additional row 0 and leave evidence empty.
+Do not invent content to fill a requirement. Do not infer events that "should" be in a complete essay based on the genre. An absent point is a 0, not a fabricated 1.
+
+A response that legitimately scores 0 on one or more requirements is a correctly-scored response. Under-crediting is the safer error than fabricated credit.
+</zero_permission>
+
+<anti_inference_examples>
+A travel-narrative response may legitimately omit common travel-essay components. Do NOT infer:
+- castle visits (قلعة) if the response does not mention one
+- museum visits (متحف) if not mentioned
+- markets (سوق) if not mentioned
+- tour guides (مرشد سياحي) if not mentioned
+- last-day reflections, farewells, or returns if not mentioned
+- weather descriptions if not mentioned
+- food details beyond what the student wrote
+- companion activities beyond what the student wrote
+
+Score what is on the page. The genre conventions of a "complete" travel essay are irrelevant — only the actual student text matters.
+</anti_inference_examples>
 
 <output_format>
 Return exactly:
@@ -3473,6 +3634,18 @@ NOT MSA-consistent when:
 <rule:scale_usage>
 Use the full 0\u2013100 range. A response mostly in MSA with one or two colloquial phrases should score 66\u201380, not below 50.
 </rule:scale_usage>
+
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
 
 <output_format>
 Return exactly:
@@ -3748,6 +3921,36 @@ A score of 85+ requires organisation that feels natural and mature — ideas dev
 → Ideas in random order with no detectable progression: cap at 25.
 </rule:hard_caps>
 
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
+
+<zero_permission>
+If you cannot find specific evidence of progression, state that plainly and score accordingly. Do not infer connective relationships that are not present in the text. Quote only words and phrases that appear verbatim in the response.
+</zero_permission>
+
+<anti_inference_examples>
+A travel-narrative response may legitimately omit common travel-essay components. Do NOT infer:
+- castle visits (قلعة) if the response does not mention one
+- museum visits (متحف) if not mentioned
+- markets (سوق) if not mentioned
+- tour guides (مرشد سياحي) if not mentioned
+- last-day reflections, farewells, or returns if not mentioned
+- weather descriptions if not mentioned
+- food details beyond what the student wrote
+- companion activities beyond what the student wrote
+
+Score what is on the page. The genre conventions of a "complete" travel essay are irrelevant — only the actual student text matters.
+</anti_inference_examples>
+
 <output_format>
 Return exactly:
 {
@@ -3809,12 +4012,35 @@ Two MSA-specific agreement rules deserve explicit attention. These are among the
 When evaluating the response, attend explicitly to these patterns. Flag recurring non-human agreement errors or dual mishandling in the justification.
 </arabic_specific_anchors>
 
-<do_not_heavily_penalise>
-- Missing case endings (\u0625\u0639\u0631\u0627\u0628)
-- Minor spelling variation
-- Stylistic preference
-- Occasional informal influence is acceptable at lower CEFR levels, but repeated spoken-style grammar or agreement issues should reduce the score
-</do_not_heavily_penalise>
+<protected_forms>
+Modern Standard Arabic in school and academic writing routinely omits formal markings that older prescriptive grammars require. These omissions are NOT errors and must NOT reduce the score.
+
+DO NOT penalise:
+- Missing tanween / nunation (e.g. متعب instead of متعبًا, جميل instead of جميلًا)
+- Missing case endings (إعراب) (e.g. الطالب ذهب instead of الطالبُ ذهبَ)
+- Absent final short vowels
+- Modern simplifications common in school writing
+- Missing diacritics (harakat) of any kind
+
+Worked examples — these are CORRECT modern MSA, not errors:
+- كنت متعب → correct (treat as equivalent to كنت متعبًا)
+- المنظر كان جميل → correct (do not require كان جميلًا)
+- زرنا متحف → correct (do not require زرنا متحفًا)
+- في اليوم الأخير → correct (do not require في اليومِ الأخيرِ)
+
+These are NOT grammar errors. They are not orthographic errors either. They are register choices within the range of acceptable modern MSA practice in school assessment contexts.
+</protected_forms>
+
+<grammar_categorisation>
+When evaluating grammatical control, distinguish four categories:
+
+1. Fully formal MSA — every case ending, tanween, and inflection present. ADVANCED.
+2. Acceptable modern MSA — case endings, tanween, and final vowels omitted but agreement, verb form, and sentence structure intact. CORRECT for this dimension. Score in mid-to-upper bands depending on complexity.
+3. Dialect intrusion — Gulf/Egyptian/Levantine/Maghrebi verb forms, vocabulary, or constructions present. NOT a grammar error here. Register issue. Reflected in Style & Register, not in this score.
+4. Genuine breakdown — agreement errors, verb-form errors, sentence-formation errors that affect understanding. ERROR. Reduce score accordingly.
+
+Only category 4 reduces the score. Categories 1–3 do not.
+</grammar_categorisation>
 
 <out_of_scope>
 Handled by other metrics, do NOT let these influence the score:
@@ -3827,6 +4053,14 @@ Handled by other metrics, do NOT let these influence the score:
 - Idea quality and task completion
 - Punctuation
 </out_of_scope>
+
+<dialect_anti_leakage>
+Dialect lexical and verb forms — including but not limited to رحنا, اشوف, شوي, وايد, يخليه, استانست, شفت, ابغى, مالي خاطر, ودي — are register issues, NOT grammar errors. They reduce the Style & Register score, not this score. If a sentence contains dialect vocabulary but its internal grammar (agreement, conjugation, sentence formation) is coherent within that dialect register, do NOT penalise it here.
+
+Example: "كنت سعيد واستانست وايد في الرحلة" — the sentence is internally coherent. سعيد agrees with the speaker, the verb tense is consistent, the sentence formation is correct. The dialect words استانست and وايد are register issues, not grammar errors. Do NOT count them against this score.
+
+A response written predominantly in Gulf/Egyptian/Levantine/Maghrebi dialect with internally consistent grammar should score in the mid-bands on Language Accuracy, not low. Dialect detection belongs to Style & Register, not here.
+</dialect_anti_leakage>
 
 <scoring_guidance>
 - High scores (81+) should indicate consistently controlled grammar across the response, not simply understandable meaning.
@@ -3875,6 +4109,18 @@ Concrete signals of "mostly simple" \u2014 if 2 OR MORE of these are true, cap a
 Do NOT solve this by demanding more errors or making scoring harsher generally. Upper-band entry requires COMPLEXITY to be present AND CONTROLLED \u2014 not the response being error-free in safe structures.
 </complexity_conditioned_accuracy>
 </ceiling_principle>
+
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
 
 <output_format>
 Return exactly:
@@ -3960,6 +4206,32 @@ ${_orthoDetFlagsText}
 <word_count>${wc}</word_count>
 <response dir="rtl">${response}</response>
 </inputs>
+
+<protected_forms>
+DO NOT flag as orthographic errors:
+- Missing diacritics (harakat) of any kind
+- Modern simplifications of formal Arabic that do not affect script identity
+
+DO flag as orthographic errors:
+- Missing hamza on initial alif where required by MSA spelling
+- Confused alif forms (ى vs ا vs أ vs إ where MSA convention is unambiguous)
+- Taa marbuta vs haa final confusion
+- General spelling errors beyond curated patterns
+
+The dividing line: diacritics and case markings are optional in modern MSA writing. Hamza, alif form, and taa marbuta correctness are not — they are part of the script's standard.
+</protected_forms>
+
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
 
 Return exactly:
 {
@@ -4207,7 +4479,7 @@ No extra keys. No markdown fences.`;
 
   const cefrEstimate = (typeof overallScore === "number") ? estimateCEFR(overallScore) : null;
 
-  return {
+  const result = {
     sample_num: sampleNum,
     response,
     word_count: wc,
@@ -4272,6 +4544,101 @@ No extra keys. No markdown fences.`;
       final_score: orthographicControlScore
     } : null
   };
+
+  // ─── Evidence verifier + single auto-retry ───────────────────────────
+  _verifyEvidence(result);
+
+  if (result.evidence_verification.has_unverified) {
+    const RETRY_STRICTNESS = `
+<retry_strictness>
+The previous attempt to score this response contained one or more quotes that did not appear verbatim in the <response> tags. Re-evaluate carefully.
+
+You must only quote text that appears EXACTLY as written in the response — character for character. Do NOT normalise hamza forms. Do NOT correct alif forms. Do NOT change taa marbuta to haa final or vice versa. Do NOT replace dialect spellings with formal MSA. Do NOT invent sentences.
+
+If you cannot find a verbatim quote to support a point, OMIT that point and score accordingly. An omitted point with a 0 score is correct. A fabricated quote is not.
+
+This is the second and final attempt. Output that contains unverified quotes after this retry is flagged downstream and the original judgement is preserved with a visible warning.
+</retry_strictness>`;
+
+    const _affectedLLMs = new Set();
+    result.evidence_verification.unverified.forEach(u => {
+      if      (u.source.startsWith("CQ"))                                          _affectedLLMs.add("CQ");
+      else if (u.source.startsWith("task_checks") || u.source.startsWith("task_type_checks")) _affectedLLMs.add("TA");
+      else if (u.source.startsWith("intelligibility_effect"))                      _affectedLLMs.add("IE");
+      else if (u.source.startsWith("msa_consistency"))                             _affectedLLMs.add("MSA");
+      else if (u.source.startsWith("coherence_flow"))                              _affectedLLMs.add("COHFLOW");
+      else if (u.source.startsWith("grammar_language_control"))                    _affectedLLMs.add("GRAMMAR");
+      else if (u.source.startsWith("llm_orthographic"))                            _affectedLLMs.add("ORTHO");
+    });
+
+    if (_affectedLLMs.size > 0) {
+      console.warn(`[Evidence retry] Re-running ${_affectedLLMs.size} LLM(s) with strictness appendix for sample ${sampleNum}: ${[..._affectedLLMs].join(", ")}`);
+      result.evidence_retry_attempted = true;
+      result.evidence_retry_affected = [..._affectedLLMs];
+
+      // Snapshot originals for rollback if retry still fails
+      const _origCqScores  = result.cq_scores;
+      const _origTaskChecks = result.task_checks;
+      const _origIEReason  = result.intelligibility_effect_reason;
+      const _origIEScore   = result.intelligibility_effect_score;
+      const _origMSAReason = result.msa_consistency_reason;
+      const _origMSAScore  = result.msa_consistency_score;
+      const _origCFReason  = result.coherence_flow_reason;
+      const _origCFScore   = result.coherence_flow_score;
+      const _origGrReason  = result.grammar_language_control_reason;
+      const _origGrScore   = result.grammar_language_control_score;
+      const _origOrthoJust = result.orthographic_control_breakdown?.llm_justification;
+
+      const _retryPromises = [];
+      const _retryData = {};
+      if (_affectedLLMs.has("CQ"))      _retryPromises.push(callOpenAI(cqPrompt + RETRY_STRICTNESS, null, "CQ-RETRY", { max_tokens: 16384 }).then(d => { _retryData.CQ = d; }));
+      if (_affectedLLMs.has("TA"))      _retryPromises.push(callOpenAI(taPrompt + RETRY_STRICTNESS, null, "TA-RETRY", { max_tokens: 8192 }).then(d => { _retryData.TA = d; }));
+      if (_affectedLLMs.has("IE"))      _retryPromises.push(callOpenAI(iePrompt + RETRY_STRICTNESS, null, "IE-RETRY", { max_tokens: 2048 }).then(d => { _retryData.IE = d; }));
+      if (_affectedLLMs.has("MSA"))     _retryPromises.push(callOpenAI(msaPrompt + RETRY_STRICTNESS, null, "MSA-RETRY", { max_tokens: 1024 }).then(d => { _retryData.MSA = d; }));
+      if (_affectedLLMs.has("COHFLOW")) _retryPromises.push(callOpenAI(coherenceFlowPrompt + RETRY_STRICTNESS, null, "COHFLOW-RETRY", { max_tokens: 1024 }).then(d => { _retryData.COHFLOW = d; }));
+      if (_affectedLLMs.has("GRAMMAR")) _retryPromises.push(callOpenAI(grammarPrompt + RETRY_STRICTNESS, null, "GRAMMAR-RETRY", { max_tokens: 1024 }).then(d => { _retryData.GRAMMAR = d; }));
+      if (_affectedLLMs.has("ORTHO"))   _retryPromises.push(callOpenAI(orthoPrompt + RETRY_STRICTNESS, null, "ORTHO-RETRY", { max_tokens: 1024 }).then(d => { _retryData.ORTHO = d; }));
+
+      try { await Promise.all(_retryPromises); } catch(e) { console.warn("[Evidence retry] Retry call error:", e); }
+
+      // Apply retry outputs
+      if (_retryData.CQ?.scores)                                              result.cq_scores = _retryData.CQ.scores;
+      if (_retryData.TA?.checks)                                              result.task_checks = _retryData.TA.checks;
+      if (typeof _retryData.IE?.intelligibility_effect_score === "number")  { result.intelligibility_effect_score = _retryData.IE.intelligibility_effect_score; result.intelligibility_effect_reason = _retryData.IE.reason ?? _origIEReason; }
+      if (typeof _retryData.MSA?.msa_consistency_score === "number")        { result.msa_consistency_score = _retryData.MSA.msa_consistency_score; result.msa_consistency_reason = _retryData.MSA.reason ?? _origMSAReason; }
+      if (typeof _retryData.COHFLOW?.coherence_flow_score === "number")     { result.coherence_flow_score = _retryData.COHFLOW.coherence_flow_score; result.coherence_flow_reason = _retryData.COHFLOW.justification ?? _origCFReason; }
+      if (typeof _retryData.GRAMMAR?.grammar_language_control_score === "number") { result.grammar_language_control_score = _retryData.GRAMMAR.grammar_language_control_score; result.grammar_language_control_reason = _retryData.GRAMMAR.justification ?? _origGrReason; }
+      if (typeof _retryData.ORTHO?.llm_orthographic_accuracy_score === "number" && result.orthographic_control_breakdown) {
+        result.orthographic_control_breakdown.llm_justification = _retryData.ORTHO.justification ?? _origOrthoJust;
+      }
+
+      // Re-verify
+      _verifyEvidence(result);
+      result.evidence_retry_resolved = !result.evidence_verification.has_unverified;
+
+      if (result.evidence_retry_resolved) {
+        console.log(`[Evidence retry] All quotes verified — updated output accepted for sample ${sampleNum}.`);
+      } else {
+        // Retry still unverified — roll back to originals, preserve ⚠ marking
+        console.warn(`[Evidence retry] ${result.evidence_verification.unverified_count} unverified quote(s) remain — keeping original output with ⚠ marking for sample ${sampleNum}.`);
+        result.cq_scores  = _origCqScores;
+        result.task_checks = _origTaskChecks;
+        result.intelligibility_effect_reason = _origIEReason;
+        result.intelligibility_effect_score  = _origIEScore;
+        result.msa_consistency_reason = _origMSAReason;
+        result.msa_consistency_score  = _origMSAScore;
+        result.coherence_flow_reason  = _origCFReason;
+        result.coherence_flow_score   = _origCFScore;
+        result.grammar_language_control_reason = _origGrReason;
+        result.grammar_language_control_score  = _origGrScore;
+        if (result.orthographic_control_breakdown) result.orthographic_control_breakdown.llm_justification = _origOrthoJust;
+        // Re-verify originals so the unverified list is accurate for display
+        _verifyEvidence(result);
+      }
+    }
+  }
+
+  return result;
 }
 
 function estimateCEFR(score) {
@@ -4543,6 +4910,7 @@ function renderResults() {
             <td style="background: #f5f3ff; color: #5b21b6; padding: 8px 6px;">
               <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? `<span title="Sample too short — below 30-word minimum on key metrics" style="font-size: 13px; color: #9ca3af;">N/A*</span>`}</div>
               ${s.cefr_estimate ? `<div style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #7c3aed; margin-top: 3px; text-transform: uppercase;">≈ ${escapeHtml(s.cefr_estimate)}</div>` : ""}
+              ${s.evidence_verification?.has_unverified ? `<div title="One or more LLM-quoted phrases were not found verbatim in the student response" style="font-size:10px;margin-top:3px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280;display:inline-block;">⚠ Evidence: ${s.evidence_verification.unverified_count} unverified</div>` : (s.evidence_retry_resolved ? `<div style="font-size:10px;margin-top:3px;color:#059669;display:inline-block;">✓ verified (retry: ${(s.evidence_retry_affected||[]).join(",")})</div>` : "")}
             </td>
             ${_rDimOn("task_achievement") ? `<td><strong>${s.task_achievement ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             ${_rDimOn("content_quality") ? `<td><strong>${s.content_quality ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>` : ""}
