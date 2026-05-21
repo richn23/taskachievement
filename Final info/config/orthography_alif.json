@@ -1,0 +1,10 @@
+{
+  "version": "v1.0.0",
+  "category": "alif",
+  "entries": [
+    { "incorrect": "الى",  "correct": "إلى",  "tier": "always_wrong",  "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "حتي",  "correct": "حتى",  "tier": "always_wrong",  "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "علي",  "correct": "على",  "tier": "usually_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "موسي", "correct": "موسى", "tier": "usually_wrong", "added": "2026-05-21", "added_by": "richard" }
+  ]
+}

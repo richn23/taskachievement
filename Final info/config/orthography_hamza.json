@@ -1,0 +1,12 @@
+{
+  "version": "v1.0.0",
+  "category": "hamza",
+  "_note": "الاشجار is intentionally excluded from the seed list. Including it would raise the unique hamza error count to 3 in the spec §9 worked example (response has انت + ان + الاشجار) and drive the hamza score to 0 instead of the expected 33. The spec explicitly says to assume الاشجار is 'not in the curated list' for that worked example. Add الاشجار once the regression test is confirmed passing against a larger calibration set.",
+  "entries": [
+    { "incorrect": "انت",   "correct": "أنت",   "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "اخذ",   "correct": "أخذ",   "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "مسئلة", "correct": "مسألة", "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "اولاد", "correct": "أولاد", "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "ان",    "correct": "أن",    "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" }
+  ]
+}

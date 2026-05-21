@@ -3678,9 +3678,55 @@ No extra keys. No markdown fences.
   };
   const _maybeCall = (enabled, ...args) => enabled ? callOpenAI(...args) : Promise.resolve(null);
 
-  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData;
+  // ---- Orthographic Control — deterministic branch (synchronous, before Promise.all) ----
+  // Computed here so letter_form_counts can be injected into the LLM prompt below.
+  const _ocListVersions = { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version };
+  const orthoDet = _dimEnabled("orthographic_control") && wc >= 10
+    ? computeArabicOrthography(response, { allow_loanword_list: [], titles: ARABIC_TITLES, list_versions: _ocListVersions })
+    : null;
+  console.log("[Orthographic Control det]", orthoDet);
+
+  // ---- LLM Orthographic Accuracy prompt (spec §6, §8.3) ----
+  const orthoPrompt = `You are an expert Arabic writing scorer. Evaluate the ORTHOGRAPHIC CONTROL of the Arabic response below.
+
+STRICT SCOPE: Evaluate ONLY spelling accuracy, hamza placement, taa marbuta correctness, alif form correctness, and overall orthographic consistency.
+DO NOT evaluate: grammar, verb conjugation, sentence structure, vocabulary, coherence, register, task achievement, or content quality.
+
+ANTI-LEAKAGE EXAMPLES (these determine scope — follow exactly):
+• A response with bad verb conjugation but perfect hamza placement should score HIGH on this metric.
+• A response that goes off-topic but spells everything correctly should score HIGH on this metric.
+• A response written in dialect but with consistent orthographic conventions should score HIGH on this metric. Dialect detection belongs to Style & Register, not here.
+
+SCORING BANDS:
+81–100  Strong:               Strong orthographic control with minimal errors
+61–80   Generally accurate:   Accurate with noticeable recurring issues
+41–60   Unstable:             Frequent orthographic instability
+21–40   Persistent problems:  Persistent spelling and script control problems
+0–20    Severe:               Severe orthographic breakdown
+
+BAND ENTRY REQUIREMENTS (score > 80):
+Must have ALL of: consistent hamza accuracy across initial and medial positions, minimal taa marbuta errors (0–1 per 100 words), strong spelling stability, no recurring script inconsistency.
+
+LETTER-FORM DISTRIBUTION (descriptive context — use to spot anomalies such as zero ة in 200 words):
+<letter_form_counts>
+${JSON.stringify(orthoDet ? orthoDet.letter_form_counts : {})}
+</letter_form_counts>
+
+<inputs>
+<word_count>${wc}</word_count>
+<response dir="rtl">${response}</response>
+</inputs>
+
+Return exactly:
+{
+  "llm_orthographic_accuracy_score": NUMBER,
+  "justification": "2-3 sentences. Quote 1-2 Arabic phrases from the response as evidence — of either accuracy or error. Stay strictly within orthography."
+}
+No extra keys. No markdown fences.`;
+
+  let taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData, orthoData;
   try {
-    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData] = await Promise.all([
+    [taData, cqData, ieData, msaData, dialectData, vocabData, morphData, sentenceData, coherenceFlowData, grammarData, orthoData] = await Promise.all([
       _maybeCall(_dimEnabled("task_achievement"), taPrompt, null, "TA", { max_tokens: 8192 }),
       _maybeCall(_dimEnabled("content_quality"), cqPrompt, null, "CQ", { max_tokens: 16384 }),
       _maybeCall(_dimEnabled("task_achievement"), iePrompt, null, "IE", { max_tokens: 2048 }),
@@ -3690,7 +3736,8 @@ No extra keys. No markdown fences.
       _maybeCall(_dimEnabled("language_range"), morphPrompt, null, "MORPH", { max_tokens: 1024 }),
       _maybeCall(_dimEnabled("language_range"), sentencePrompt, null, "SENT", { max_tokens: 1024 }),
       _maybeCall(_dimEnabled("organisation_coherence"), coherenceFlowPrompt, null, "COHFLOW", { max_tokens: 1024 }),
-      _maybeCall(_dimEnabled("language_accuracy"), grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 })
+      _maybeCall(_dimEnabled("language_accuracy"), grammarPrompt, null, "GRAMMAR", { max_tokens: 1024 }),
+      _maybeCall(_dimEnabled("orthographic_control"), orthoPrompt, null, "ORTHO", { max_tokens: 1024 })
     ]);
   } catch (err) {
     console.error("[scoreSample] API call threw:", err);
@@ -3803,6 +3850,30 @@ No extra keys. No markdown fences.
   const grammarErrorTypes = Array.isArray(grammarData?.error_types_detected) ? grammarData.error_types_detected : [];
   console.log("[Grammar]", { grammarScore, grammarReason, grammarErrorTypes });
 
+  // ---- Orthographic Control — LLM branch extraction (spec §9.3) ----
+  const orthoLLMScoreRaw = orthoData?.llm_orthographic_accuracy_score ?? orthoData?.score ?? null;
+  let orthoLLMScore = (typeof orthoLLMScoreRaw === "number") ? orthoLLMScoreRaw
+                    : (typeof orthoLLMScoreRaw === "string" && !isNaN(+orthoLLMScoreRaw)) ? +orthoLLMScoreRaw
+                    : null;
+  const orthoLLMJustification = orthoData?.justification ?? "";
+  // Short-response cap (spec §6.4 / brief §8.4)
+  if (orthoLLMScore !== null) {
+    if      (wc < 15) orthoLLMScore = Math.min(orthoLLMScore, 60);
+    else if (wc < 30) orthoLLMScore = Math.min(orthoLLMScore, 75);
+  }
+  console.log("[Orthographic Control LLM]", { orthoLLMScoreRaw, orthoLLMScore, orthoLLMJustification });
+
+  // ---- Combined Orthographic Control score (spec §9.4, calibrated weights) ----
+  let orthographicControlScore = null;
+  if (_dimEnabled("orthographic_control") && orthoDet && typeof orthoLLMScore === "number") {
+    orthographicControlScore = Math.round(
+      orthoDet.technical_quality      * _metricPct("orthographic_control", "technical_quality") +
+      orthoDet.common_error_detection * _metricPct("orthographic_control", "common_error_detection") +
+      orthoLLMScore                   * _metricPct("orthographic_control", "llm_orthographic_accuracy")
+    );
+  }
+  console.log("[Orthographic Control final]", { orthographicControlScore, det: orthoDet?.deterministic_orthography_score });
+
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = _dimEnabled("task_achievement")
     ? (taScore * 0.80) + (ieForFormula * 0.20)
@@ -3820,7 +3891,8 @@ No extra keys. No markdown fences.
   const _dimScoreMap = {
     task_achievement: taFinal, content_quality: cqFinal,
     style_register: styleRegisterScore, language_range: languageRangeScore,
-    organisation_coherence: orgCohScore, language_accuracy: grammarScore
+    organisation_coherence: orgCohScore, language_accuracy: grammarScore,
+    orthographic_control: orthographicControlScore  // 7th dimension
   };
   const _enabledValidDims = _cal.dimensions.filter(d => d.enabled && typeof _dimScoreMap[d.id] === "number");
   const _enabledDims = _cal.dimensions.filter(d => d.enabled);
@@ -3906,7 +3978,23 @@ No extra keys. No markdown fences.
     task_checks: taChecks,
     task_type_checks: Array.isArray(taData?.task_type_checks) ? taData.task_type_checks : [],
     cq_scores: cqData?.scores || [],
-    cq_evidence_duplicates: cqEvidenceDuplicates
+    cq_evidence_duplicates: cqEvidenceDuplicates,
+    // Orthographic Control (7th dimension)
+    orthographic_control: orthographicControlScore,
+    orthographic_control_breakdown: orthoDet ? {
+      deterministic_orthography_score: orthoDet.deterministic_orthography_score,
+      technical_quality: orthoDet.technical_quality,
+      technical_quality_breakdown: orthoDet.technical_quality_breakdown,
+      common_error_detection: orthoDet.common_error_detection,
+      common_error_detection_breakdown: orthoDet.common_error_detection_breakdown,
+      llm_orthographic_accuracy: orthoLLMScore,
+      llm_justification: orthoLLMJustification,
+      flags: orthoDet.flags,
+      flags_summary: orthoDet.flags_summary,
+      list_versions: orthoDet.list_versions,
+      letter_form_counts: orthoDet.letter_form_counts,
+      final_score: orthographicControlScore
+    } : null
   };
 }
 
@@ -4121,32 +4209,34 @@ function renderResults() {
         <table class="summary-table">
           ${isBulk
             ? `<colgroup>
-                <col style="width: 7%;">
-                <col style="width: 13%;">
-                <col style="width: 7%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
-                <col style="width: 10%;">
+                <col style="width: 6%;">
+                <col style="width: 11%;">
+                <col style="width: 6%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
+                <col style="width: 9%;">
                 <col style="width: 3%;">
               </colgroup>`
             : `<colgroup>
+                <col style="width: 7%;">
+                <col style="width: 7%;">
                 <col style="width: 9%;">
-                <col style="width: 8%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 11%;">
-                <col style="width: 6%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 10%;">
+                <col style="width: 5%;">
               </colgroup>`}
           <thead><tr>
-            <th>Sample</th>${isBulk ? "<th class=\"q-col\">Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700; color: #5b21b6;">OVERALL</th>${_rDimOn("task_achievement") ? "<th>TA</th>" : ""}${_rDimOn("content_quality") ? "<th>CQ</th>" : ""}${_rDimOn("style_register") ? "<th>S&amp;R</th>" : ""}${_rDimOn("language_range") ? "<th>Lang Range</th>" : ""}${_rDimOn("organisation_coherence") ? "<th>Org &amp; Coh</th>" : ""}${_rDimOn("language_accuracy") ? "<th>Lang Acc</th>" : ""}<th class="expand-col"></th>
+            <th>Sample</th>${isBulk ? "<th class=\"q-col\">Question</th>" : ""}<th>Words</th><th style="background: #f5f3ff; font-weight: 700; color: #5b21b6;">OVERALL</th>${_rDimOn("task_achievement") ? "<th>TA</th>" : ""}${_rDimOn("content_quality") ? "<th>CQ</th>" : ""}${_rDimOn("style_register") ? "<th>S&amp;R</th>" : ""}${_rDimOn("language_range") ? "<th>Lang Range</th>" : ""}${_rDimOn("organisation_coherence") ? "<th>Org &amp; Coh</th>" : ""}${_rDimOn("language_accuracy") ? "<th>Lang Acc</th>" : ""}${_rDimOn("orthographic_control") ? "<th>Orth Ctrl</th>" : ""}<th class="expand-col"></th>
           </tr></thead>
           <tbody>`;
       samples.forEach((s, sIdx) => {
@@ -4184,6 +4274,7 @@ function renderResults() {
             ${_rDimOn("language_range") ? `<td><strong>${s.language_range_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             ${_rDimOn("organisation_coherence") ? `<td><strong>${s.organisation_coherence_score ?? s.cohesive_devices_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             ${_rDimOn("language_accuracy") ? `<td><strong>${s.grammar_language_control_score ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
+            ${_rDimOn("orthographic_control") ? `<td><strong>${s.orthographic_control ?? `<span title="Response below 10-word floor for orthography scoring" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             <td class="expand-col">▼</td>
           </tr>
           <tr class="detail-row" id="${id}" style="display: none;"><td colspan="${colspan}">
@@ -4254,6 +4345,37 @@ function renderResults() {
               <div style="font-size: 13px; color: var(--text); line-height: 1.55; margin-top: 4px;">${escapeHtml(s.grammar_language_control_reason || "")}</div>
               ${Array.isArray(s.grammar_error_types) && s.grammar_error_types.length ? `<div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Error types detected: ${s.grammar_error_types.map(e => escapeHtml(e)).join(", ")}</div>` : ""}
             </div>
+            ${(() => {
+              const ocb = s.orthographic_control_breakdown;
+              if (!ocb) {
+                return s.orthographic_control == null
+                  ? `<div class="detail-section"><h4>Orthographic Control — score: <span style="color:#9ca3af;">N/A*</span></h4><div style="font-size:12px;color:var(--muted);margin-top:4px;">Not scored — response below 10-word minimum floor.</div></div>`
+                  : "";
+              }
+              const flagsHtml = Array.isArray(ocb.flags) && ocb.flags.length
+                ? `<ul style="margin:6px 0 0;padding-left:20px;">${ocb.flags.map(f => `<li style="margin-bottom:3px;"><span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--danger);">${escapeHtml(f.text)}</span> → <span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--success);">${escapeHtml(f.suggested)}</span> <span style="font-size:11px;padding:1px 6px;border-radius:3px;margin-left:4px;${f.tier==='always_wrong'?'background:#fee2e2;color:#991b1b':'background:#fef3c7;color:#92400e'}">${escapeHtml(f.tier)}</span> <span style="font-size:11px;color:var(--muted);">${f.occurrences}×</span></li>`).join("")}</ul>`
+                : `<div style="font-size:12px;color:var(--muted);margin-top:4px;">No curated-list flags detected.</div>`;
+              const lv = ocb.list_versions || {};
+              return `
+            <div class="detail-section">
+              <h4>Orthographic Control (combined) — score: ${s.orthographic_control ?? "—"}</h4>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px;">Deterministic Orthography: ${ocb.deterministic_orthography_score ?? "—"} · LLM Orthographic Accuracy: ${ocb.llm_orthographic_accuracy ?? "—"}</div>
+            </div>
+            <div class="detail-section">
+              <h4>Technical Quality — score: ${ocb.technical_quality ?? "—"}</h4>
+              ${ocb.technical_quality_breakdown ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Punctuation: ${ocb.technical_quality_breakdown.punctuation} · Whitespace: ${ocb.technical_quality_breakdown.whitespace} · Tatweel: ${ocb.technical_quality_breakdown.tatweel} · Non-Arabic: ${ocb.technical_quality_breakdown.non_arabic_intrusion}</div>` : ""}
+            </div>
+            <div class="detail-section">
+              <h4>Common Error Detection — score: ${ocb.common_error_detection ?? "—"}</h4>
+              ${ocb.common_error_detection_breakdown ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Taa Marbuta: ${ocb.common_error_detection_breakdown.taa_marbuta} · Alif Forms: ${ocb.common_error_detection_breakdown.alif_forms} · Hamza: ${ocb.common_error_detection_breakdown.hamza}</div>` : ""}
+              <div style="margin-top:6px;"><strong style="font-size:12px;color:var(--muted);">Flags (incorrect → suggested)</strong>${flagsHtml}</div>
+            </div>
+            <div class="detail-section">
+              <h4>LLM Orthographic Accuracy — score: ${ocb.llm_orthographic_accuracy ?? "—"}</h4>
+              <div style="font-size:13px;color:var(--text);line-height:1.55;margin-top:4px;">${escapeHtml(ocb.llm_justification || "")}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:8px;">List versions — taa_marbuta: ${escapeHtml(lv.taa_marbuta||"—")} · alif: ${escapeHtml(lv.alif||"—")} · hamza: ${escapeHtml(lv.hamza||"—")}</div>
+            </div>`;
+            })()}
             <div class="detail-section">
               <h4>Content Quality Scores</h4>
               ${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? `
@@ -4367,7 +4489,7 @@ function parseCSV(text) {
 
 // ============= CALIBRATION =============
 const CALIB_KEY = "azescorer.arabic.calibration";
-const _EW = 100 / 6; // equal weight per dimension at defaults
+const _EW = 100 / 7; // equal weight per dimension at defaults (7 dimensions)
 
 const CALIB_DEFAULTS = {
   version: "1.0",
@@ -4403,7 +4525,15 @@ const CALIB_DEFAULTS = {
         { id: "coherence_flow",   label: "Coherence & Flow (LLM)",  weight_pct: 70.0 }
       ]
     },
-    { id: "language_accuracy",      label: "Language Accuracy",        enabled: true, weight_pct: 100 - 5 * _EW, metrics: [] }
+    { id: "language_accuracy",      label: "Language Accuracy",        enabled: true, weight_pct: 100 - 6 * _EW, metrics: [] },
+    {
+      id: "orthographic_control",   label: "Orthographic Control",     enabled: true, weight_pct: _EW,
+      metrics: [
+        { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 24.0 },
+        { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 36.0 },
+        { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 40.0 }
+      ]
+    }
   ]
 };
 
@@ -4417,7 +4547,38 @@ function cloneCalibDefaults() {
 }
 
 function _isValidCalibSchema(c) {
+  // Accept both 6-dim (Step 1 saved) and 7-dim (Step 2 fresh) configs — migration handles promotion
   return c && c.version === "1.0" && Array.isArray(c.dimensions) && c.dimensions.length >= 6;
+}
+
+/**
+ * One-time migration: if stored config has 6 dims (no orthographic_control),
+ * append the 7th and rescale existing weights proportionally (§7.3).
+ * User-tuned weights are preserved; only scaled to make room for the new dim.
+ */
+function _migrateCalibIfNeeded(config) {
+  if (config.dimensions.some(d => d.id === "orthographic_control")) return; // already 7-dim
+  const newWeight = 100 / 7;
+  const scale = (100 - newWeight) / 100; // ≈ 6/7  — shrink existing dims proportionally
+  config.dimensions.forEach(d => { d.weight_pct = d.weight_pct * scale; });
+  config.dimensions.push({
+    id: "orthographic_control",
+    label: "Orthographic Control",
+    enabled: true,
+    weight_pct: newWeight,
+    metrics: [
+      { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 24.0 },
+      { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 36.0 },
+      { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 40.0 }
+    ]
+  });
+  // Absorb floating-point residue into the last enabled dimension
+  const enabled = config.dimensions.filter(d => d.enabled);
+  if (enabled.length > 0) {
+    const sum = enabled.reduce((s, d) => s + d.weight_pct, 0);
+    enabled[enabled.length - 1].weight_pct += (100 - sum);
+  }
+  _saveCalibNow(config);
 }
 
 function getCalibration() {
@@ -4426,7 +4587,11 @@ function getCalibration() {
     const raw = localStorage.getItem(CALIB_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (_isValidCalibSchema(parsed)) { _calibLive = parsed; return _calibLive; }
+      if (_isValidCalibSchema(parsed)) {
+        _migrateCalibIfNeeded(parsed); // no-op if already 7-dim
+        _calibLive = parsed;
+        return _calibLive;
+      }
     }
   } catch (e) {}
   _calibLive = cloneCalibDefaults();
@@ -4596,6 +4761,257 @@ document.getElementById("btn-calib-reset").addEventListener("click", () => {
 });
 
 // ============= END CALIBRATION =============
+
+// ============= ORTHOGRAPHIC CONTROL =============
+
+// Curated lists — synced from Final info/config/orthography_taa_marbuta.json (v1.0.0) on 2026-05-21
+const ORTHOGRAPHY_TAA_MARBUTA = {
+  version: "v1.0.0",
+  category: "taa_marbuta",
+  entries: [
+    { incorrect: "مدرسه", correct: "مدرسة", tier: "always_wrong" },
+    { incorrect: "حياه",  correct: "حياة",  tier: "always_wrong" },
+    { incorrect: "شجره",  correct: "شجرة",  tier: "always_wrong" },
+    { incorrect: "فكره",  correct: "فكرة",  tier: "always_wrong" },
+    { incorrect: "مكتبه", correct: "مكتبة", tier: "always_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_alif.json (v1.0.0) on 2026-05-21
+// علي / موسي are tagged usually_wrong (valid male names); proper-noun gate handles suppression.
+const ORTHOGRAPHY_ALIF = {
+  version: "v1.0.0",
+  category: "alif",
+  entries: [
+    { incorrect: "الى",  correct: "إلى",  tier: "always_wrong"  },
+    { incorrect: "حتي",  correct: "حتى",  tier: "always_wrong"  },
+    { incorrect: "علي",  correct: "على",  tier: "usually_wrong" },
+    { incorrect: "موسي", correct: "موسى", tier: "usually_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_hamza.json (v1.0.0) on 2026-05-21
+// Note: الاشجار is intentionally excluded from the seed list — including it raises hamza unique
+// errors to 3 in the spec §9 regression response and drives hamza score to 0 (expected: 33).
+// The spec §9 notes "assume الاشجار is not in the curated list". Add when calibration data warrants.
+const ORTHOGRAPHY_HAMZA = {
+  version: "v1.0.0",
+  category: "hamza",
+  entries: [
+    { incorrect: "انت",   correct: "أنت",   tier: "always_wrong" },
+    { incorrect: "اخذ",   correct: "أخذ",   tier: "always_wrong" },
+    { incorrect: "مسئلة", correct: "مسألة", tier: "always_wrong" },
+    { incorrect: "اولاد", correct: "أولاد", tier: "always_wrong" },
+    { incorrect: "ان",    correct: "أن",    tier: "always_wrong" }
+  ]
+};
+
+// Title tokens for proper-noun gate (spec §5.3)
+const ARABIC_TITLES = new Set(["السيد", "الأستاذ", "الدكتور", "الشيخ", "سيدي"]);
+
+/**
+ * Compute the deterministic branch of the Orthographic Control dimension.
+ * Returns the full orthography result object per spec §8 output schema.
+ *
+ * @param {string} response - Raw Arabic response text
+ * @param {Object} options  - { allow_loanword_list: string[], titles: Set, list_versions: {} }
+ */
+function computeArabicOrthography(response, options) {
+  const { allow_loanword_list = [], titles = ARABIC_TITLES, list_versions } = options || {};
+
+  // --- Tokenisation (same /\S+/ approach as global wordCount) ---
+  const rawTokens = response.match(/\S+/g) || [];
+  const words = rawTokens.length; // consistent with wordCount(response)
+
+  // Strip punctuation from a token for curated-list comparison
+  const normalize = t => t.replace(/[،.؟:؛!,?;«»"']/g, "");
+  // Strip definite article ال prefix (used to match e.g. المدرسه → مدرسه)
+  const stripAl = t => (t.startsWith("ال") && t.length > 2) ? t.slice(2) : t;
+
+  // ================================================================
+  // 1. TECHNICAL QUALITY  (spec §5.1)
+  // ================================================================
+
+  // §5.1.1 Arabic Punctuation Usage
+  // Arabic punctuation: ، . ؟ : ؛ !
+  const arabicPunctCount = (response.match(/[،.؟:؛!]/g) || []).length;
+  // Western substitutions detected: , for ،  ? for ؟  ; for ؛
+  const westernSubstitutions = (response.match(/[,?;]/g) || []).length;
+  const density = words > 0 ? (arabicPunctCount / words) * 100 : 0;
+  let punctBase;
+  if      (density >= 5 && density <= 20) { punctBase = 100; }
+  else if (density < 5)                   { punctBase = 50 + (density / 5) * 50; }   // ramp 50→100
+  else if (density <= 40)                 { punctBase = 100 - ((density - 20) / 20) * 50; } // ramp 100→50
+  else                                    { punctBase = 30; }
+  const substitutionPenalty = Math.min(40, westernSubstitutions * 5);
+  const punctScore = Math.round(Math.max(0, punctBase - substitutionPenalty));
+
+  // §5.1.2 Whitespace & Formatting Quality
+  let wsIssues = 0;
+  wsIssues += (response.match(/  +/g) || []).length;                         // double spaces
+  wsIssues += (response.match(/[،؟؛!](?!\s|$)/g) || []).length;            // missing space after punct
+  if (/^\s/.test(response) || /\s$/.test(response)) wsIssues += 1;          // leading/trailing whitespace
+  wsIssues += (response.match(/\n{3,}/g) || []).length;                      // 3+ consecutive newlines
+  const whitespaceScore = Math.round(Math.max(0, 100 - 5 * wsIssues));
+
+  // §5.1.3 Tatweel Abuse  (U+0640 ـ)
+  const tatweelCount = (response.match(/ـ/g) || []).length;
+  let tatweelScore;
+  if      (tatweelCount === 0) { tatweelScore = 100; }
+  else if (tatweelCount === 1) { tatweelScore = 70; }
+  else                         { tatweelScore = Math.round(Math.max(0, 70 - 10 * (tatweelCount - 1))); }
+
+  // §5.1.4 Non-Arabic Character Intrusion
+  const isArabicToken = t => {
+    if (allow_loanword_list.includes(t)) return true;
+    const hasLatin        = /[A-Za-z]/.test(t);
+    const hasWesternDigit = /[0-9]/.test(t);
+    const hasEmoji        = /[\u{1F000}-\u{1FFFF}]/u.test(t);
+    return !hasLatin && !hasWesternDigit && !hasEmoji;
+  };
+  const nonArabicTokens = rawTokens.filter(t => !isArabicToken(t)).length;
+  const intrusionRate  = rawTokens.length > 0 ? (nonArabicTokens / rawTokens.length) * 100 : 0;
+  const intrusionScore = Math.round(Math.max(0, 100 - intrusionRate * 8));
+
+  // §5.1.5 Technical Quality composite = equal-weight mean of four
+  const technicalQuality = Math.round((punctScore + whitespaceScore + tatweelScore + intrusionScore) / 4);
+
+  // ================================================================
+  // 2. COMMON ERROR DETECTION  (spec §5.2)
+  // ================================================================
+
+  // Build quoted-span positions for proper-noun gate (spec §5.3)
+  const quotedSpans = [];
+  const quoteRe = /[«"']([^»"']+)[»"']/g;
+  let qm;
+  while ((qm = quoteRe.exec(response)) !== null) {
+    quotedSpans.push([qm.index, qm.index + qm[0].length]);
+  }
+  const isInQuotes = pos => quotedSpans.some(([s, e]) => pos >= s && pos < e);
+
+  // Build token-position map from raw response (positions needed for proper-noun gate)
+  const tokenPosMap = [];
+  const tRe = /\S+/g;
+  let tm;
+  while ((tm = tRe.exec(response)) !== null) {
+    tokenPosMap.push({ raw: tm[0], pos: tm.index });
+  }
+
+  /**
+   * Scan response tokens against a curated error list.
+   * Returns { flags, uniqueErrorWeight } per spec §5.2.4 / §5.2.5.
+   */
+  function _scanForErrors(list, category) {
+    const seenForms = new Map(); // base form → { occurrences, tier, correct }
+    tokenPosMap.forEach((tok, idx) => {
+      const norm = normalize(tok.raw);
+      // Try exact match, then ال-stripped match (handles المدرسه → مدرسه)
+      let entry = list.find(e => e.incorrect === norm);
+      let matchedForm = norm;
+      if (!entry) {
+        const stripped = stripAl(norm);
+        if (stripped !== norm) {
+          entry = list.find(e => e.incorrect === stripped);
+          if (entry) matchedForm = stripped;
+        }
+      }
+      if (!entry) return;
+      // Proper-noun gate: suppress usually_wrong when preceded by a title or inside quotes
+      if (entry.tier === "usually_wrong") {
+        if (isInQuotes(tok.pos)) return;
+        const prevNorm = idx > 0 ? normalize(tokenPosMap[idx - 1].raw) : null;
+        if (prevNorm && titles.has(prevNorm)) return;
+      }
+      if (!seenForms.has(matchedForm)) {
+        seenForms.set(matchedForm, { occurrences: 0, tier: entry.tier, correct: entry.correct });
+      }
+      seenForms.get(matchedForm).occurrences += 1;
+    });
+
+    const flags = [];
+    let uniqueErrorWeight = 0;
+    for (const [form, info] of seenForms.entries()) {
+      flags.push({ type: category, text: form, suggested: info.correct, tier: info.tier, occurrences: info.occurrences });
+      uniqueErrorWeight += (info.tier === "usually_wrong") ? 0.5 : 1.0; // spec §5.3
+    }
+    return { flags, uniqueErrorWeight };
+  }
+
+  // §5.2.4 Per-category density → score formula
+  const _errorScore = uniqueWeight => {
+    const errRate = words > 0 ? (uniqueWeight / words) * 100 : 0;
+    return Math.round(Math.max(0, 100 - errRate * 8));
+  };
+
+  const tmResult    = _scanForErrors(ORTHOGRAPHY_TAA_MARBUTA.entries, "taa_marbuta");
+  const alifResult  = _scanForErrors(ORTHOGRAPHY_ALIF.entries,        "alif");
+  const hamzaResult = _scanForErrors(ORTHOGRAPHY_HAMZA.entries,       "hamza");
+
+  const taaMarbuta          = _errorScore(tmResult.uniqueErrorWeight);
+  const alifForms           = _errorScore(alifResult.uniqueErrorWeight);
+  const hamzaScore          = _errorScore(hamzaResult.uniqueErrorWeight);
+  // §5.2.6 Common Error Detection = mean of three
+  const commonErrorDetection = Math.round((taaMarbuta + alifForms + hamzaScore) / 3);
+
+  // ================================================================
+  // 3. DETERMINISTIC ORTHOGRAPHY SCORE  (spec §3)
+  // ================================================================
+  const deterministicOrthographyScore = Math.round(technicalQuality * 0.40 + commonErrorDetection * 0.60);
+
+  // ================================================================
+  // 4. FLAGS & SUMMARIES
+  // ================================================================
+  const flags = [...tmResult.flags, ...alifResult.flags, ...hamzaResult.flags];
+  const flags_summary = {
+    taa_marbuta: { unique: tmResult.flags.length,    occurrences: tmResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    alif:        { unique: alifResult.flags.length,  occurrences: alifResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    hamza:       { unique: hamzaResult.flags.length, occurrences: hamzaResult.flags.reduce((s, f) => s + f.occurrences, 0) }
+  };
+
+  // ================================================================
+  // 5. LETTER-FORM COUNTS  (spec §6.2 — descriptive context for LLM prompt)
+  // ================================================================
+  let alifCount = 0, alifHamzaAbove = 0, alifHamzaBelow = 0, alifMadda = 0;
+  let alifMaqsura = 0, taaMarbuta_lf = 0, haaFinal = 0;
+  let hamzaIsolated = 0, hamzaYaa = 0, hamzaWaw = 0;
+  for (const t of rawTokens) {
+    const clean = normalize(t);
+    for (let ci = 0; ci < clean.length; ci++) {
+      const cp = clean.charCodeAt(ci);
+      if      (cp === 0x0627) alifCount++;        // ا
+      else if (cp === 0x0623) alifHamzaAbove++;   // أ
+      else if (cp === 0x0625) alifHamzaBelow++;   // إ
+      else if (cp === 0x0622) alifMadda++;         // آ
+      else if (cp === 0x0649) alifMaqsura++;       // ى
+      else if (cp === 0x0629) taaMarbuta_lf++;     // ة
+      else if (cp === 0x0621) hamzaIsolated++;     // ء
+      else if (cp === 0x0626) hamzaYaa++;          // ئ
+      else if (cp === 0x0624) hamzaWaw++;          // ؤ
+    }
+    // haa_final: ه (U+0647) as last character of word
+    if (clean.length > 0 && clean.charCodeAt(clean.length - 1) === 0x0647) haaFinal++;
+  }
+  const letter_form_counts = {
+    alif: alifCount, alif_hamza_above: alifHamzaAbove, alif_hamza_below: alifHamzaBelow,
+    alif_madda: alifMadda, alif_maqsura: alifMaqsura, taa_marbuta: taaMarbuta_lf,
+    haa_final: haaFinal, hamza_isolated: hamzaIsolated, hamza_yaa: hamzaYaa,
+    hamza_waw: hamzaWaw, words
+  };
+
+  return {
+    technical_quality: technicalQuality,
+    technical_quality_breakdown: { punctuation: punctScore, whitespace: whitespaceScore, tatweel: tatweelScore, non_arabic_intrusion: intrusionScore },
+    common_error_detection: commonErrorDetection,
+    common_error_detection_breakdown: { taa_marbuta: taaMarbuta, alif_forms: alifForms, hamza: hamzaScore },
+    deterministic_orthography_score: deterministicOrthographyScore,
+    flags,
+    flags_summary,
+    list_versions: list_versions || { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version },
+    letter_form_counts
+  };
+}
+
+// ============= END ORTHOGRAPHIC CONTROL =============
 
 function downloadCSV(filename, rows) {
   const csv = rows.map(r => r.map(cell => {

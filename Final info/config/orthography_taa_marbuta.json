@@ -1,0 +1,11 @@
+{
+  "version": "v1.0.0",
+  "category": "taa_marbuta",
+  "entries": [
+    { "incorrect": "مدرسه", "correct": "مدرسة", "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "حياه",  "correct": "حياة",  "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "شجره",  "correct": "شجرة",  "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "فكره",  "correct": "فكرة",  "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" },
+    { "incorrect": "مكتبه", "correct": "مكتبة", "tier": "always_wrong", "added": "2026-05-21", "added_by": "richard" }
+  ]
+}
