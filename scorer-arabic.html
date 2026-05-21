@@ -3705,11 +3705,17 @@ ANTI-LEAKAGE EXAMPLES (these determine scope — follow exactly):
 • A response written in dialect but with consistent orthographic conventions should score HIGH on this metric. Dialect detection belongs to Style & Register, not here.
 
 SCORING BANDS:
-81–100  Strong:               Strong orthographic control with minimal errors
-61–80   Generally accurate:   Accurate with noticeable recurring issues
-41–60   Unstable:             Frequent orthographic instability
-21–40   Persistent problems:  Persistent spelling and script control problems
-0–20    Severe:               Severe orthographic breakdown
+93–100  Near-native / elite control:    Sustained difficult orthographic environments handled correctly across length. Advanced hamza forms (ئ, ؤ, ء, آ) used correctly. Morphological and lexical breadth evident.
+87–92   Strong with advancing mastery:  Correct hamza in some advanced positions, evidence of orthographic variety, clean across the response.
+81–86   Strong stability:               Clean writing, no errors, but limited evidence of advanced orthographic control. The response avoids difficult environments rather than handling them.
+61–80   Generally accurate:             Accurate with noticeable recurring issues.
+41–60   Unstable:                       Frequent orthographic instability.
+21–40   Persistent problems:            Persistent spelling and script control problems.
+0–20    Severe:                         Severe orthographic breakdown.
+
+<scoring_anchor>
+A response without positive evidence of advanced orthographic control should not score above 86, even if it contains no errors. Absence of mistakes is "Strong stability" (81–86), not "advancing mastery" (87+). Mastery requires positive evidence — advanced hamza forms used correctly, sustained complexity across length, or orthographic variety beyond the most common forms.
+</scoring_anchor>
 
 BAND ENTRY REQUIREMENTS (score > 80):
 Must have ALL of: consistent hamza accuracy across initial and medial positions, minimal taa marbuta errors (0–1 per 100 words), strong spelling stability, no recurring script inconsistency.
@@ -3878,15 +3884,45 @@ No extra keys. No markdown fences.`;
   console.log("[Orthographic Control LLM]", { orthoLLMScoreRaw, orthoLLMScore, orthoLLMJustification });
 
   // ---- Combined Orthographic Control score (spec §9.4, calibrated weights) ----
+  // Step 4: deterministic ceiling applied before combining with LLM score (brief §4).
   let orthographicControlScore = null;
+  let _orthoCapApplied = null;  // for results-panel transparency (brief §7)
+
   if (_dimEnabled("orthographic_control") && orthoDet && typeof orthoLLMScore === "number") {
-    orthographicControlScore = Math.round(
-      orthoDet.technical_quality      * _metricPct("orthographic_control", "technical_quality") +
-      orthoDet.common_error_detection * _metricPct("orthographic_control", "common_error_detection") +
-      orthoLLMScore                   * _metricPct("orthographic_control", "llm_orthographic_accuracy")
-    );
+    const tqW  = _metricPct("orthographic_control", "technical_quality");
+    const cedW = _metricPct("orthographic_control", "common_error_detection");
+    const llmW = _metricPct("orthographic_control", "llm_orthographic_accuracy");
+    const detW = tqW + cedW;
+
+    // Deterministic combined — weighted average within the deterministic branch
+    const detCombinedRaw = detW > 0
+      ? (orthoDet.technical_quality * tqW + orthoDet.common_error_detection * cedW) / detW
+      : 0;
+
+    // Advanced-evidence check — ceiling rises to 96 when mastery signals present
+    const advanced = hasAdvancedOrthographicEvidence(orthoDet.letter_form_counts);
+    const detCap = advanced ? 96 : 88;
+
+    // Apply cap
+    // Known limitation: daily-life prompts may not naturally elicit advanced hamza-form
+    // evidence, so some clean responses on safe topics may be capped at 88 despite being
+    // appropriate for the task. This will be reviewed during marker calibration. See
+    // Final info/orthographic_control_improvement_roadmap.md for context.
+    const detCombined = Math.min(detCombinedRaw, detCap);
+    if (detCombined < detCombinedRaw) {
+      _orthoCapApplied = {
+        raw: Math.round(detCombinedRaw),
+        cap: detCap,
+        reason: advanced
+          ? "Capped at 96 (advanced evidence ceiling)"
+          : "Capped at 88 (no advanced orthographic evidence)"
+      };
+    }
+
+    // Final combine: deterministic combined × det weight  +  LLM × llm weight
+    orthographicControlScore = Math.round(detCombined * detW + orthoLLMScore * llmW);
   }
-  console.log("[Orthographic Control final]", { orthographicControlScore, det: orthoDet?.deterministic_orthography_score });
+  console.log("[Orthographic Control final]", { orthographicControlScore, det: orthoDet?.deterministic_orthography_score, _orthoCapApplied });
 
   const ieForFormula = (typeof ieScore === "number") ? ieScore : 0;
   const taRequirementsMet = _dimEnabled("task_achievement")
@@ -4007,6 +4043,8 @@ No extra keys. No markdown fences.`;
       flags_summary: orthoDet.flags_summary,
       list_versions: orthoDet.list_versions,
       letter_form_counts: orthoDet.letter_form_counts,
+      cap_applied: _orthoCapApplied,
+      advanced_evidence: hasAdvancedOrthographicEvidence(orthoDet.letter_form_counts),
       final_score: orthographicControlScore
     } : null
   };
@@ -4371,10 +4409,13 @@ function renderResults() {
                 ? `<ul style="margin:6px 0 0;padding-left:20px;">${ocb.flags.map(f => `<li style="margin-bottom:3px;"><span style="font-size:10px;padding:1px 5px;border-radius:3px;margin-right:4px;background:#e0e7ff;color:#3730a3;">${escapeHtml(_flagTypeLabel(f.type))}</span><span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--danger);">${escapeHtml(f.text)}</span> → <span dir="rtl" style="font-family:'Noto Naskh Arabic',serif;font-size:15px;color:var(--success);">${escapeHtml(f.suggested)}</span> <span style="font-size:11px;padding:1px 6px;border-radius:3px;margin-left:4px;${f.tier==='always_wrong'?'background:#fee2e2;color:#991b1b':'background:#fef3c7;color:#92400e'}">${escapeHtml(f.tier)}</span> <span style="font-size:11px;color:var(--muted);">${f.occurrences}×</span></li>`).join("")}</ul>`
                 : `<div style="font-size:12px;color:var(--muted);margin-top:4px;">No curated-list flags detected.</div>`;
               const lv = ocb.list_versions || {};
+              const capBadge = ocb.cap_applied
+                ? `<span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#f3f4f6;color:#6b7280;margin-left:6px;">Capped from ${ocb.cap_applied.raw} — ${ocb.advanced_evidence ? "advanced-evidence ceiling" : "no advanced orthographic evidence"}</span>`
+                : "";
               return `
             <div class="detail-section">
               <h4>Orthographic Control (combined) — score: ${s.orthographic_control ?? "—"}</h4>
-              <div style="font-size:12px;color:var(--muted);margin-top:4px;">Deterministic Orthography: ${ocb.deterministic_orthography_score ?? "—"} · LLM Orthographic Accuracy: ${ocb.llm_orthographic_accuracy ?? "—"}</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px;">Deterministic Orthography: ${ocb.deterministic_orthography_score ?? "—"}${capBadge} · LLM Orthographic Accuracy: ${ocb.llm_orthographic_accuracy ?? "—"}</div>
             </div>
             <div class="detail-section">
               <h4>Technical Quality — score: ${ocb.technical_quality ?? "—"}</h4>
@@ -4544,9 +4585,9 @@ const CALIB_DEFAULTS = {
     {
       id: "orthographic_control",   label: "Orthographic Control",     enabled: true, weight_pct: _EW,
       metrics: [
-        { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 24.0 },
-        { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 36.0 },
-        { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 40.0 }
+        { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 10.0 },
+        { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 40.0 },
+        { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 50.0 }
       ]
     }
   ]
@@ -4582,9 +4623,9 @@ function _migrateCalibIfNeeded(config) {
     enabled: true,
     weight_pct: newWeight,
     metrics: [
-      { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 24.0 },
-      { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 36.0 },
-      { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 40.0 }
+      { id: "technical_quality",         label: "Technical Quality (code)",       weight_pct: 10.0 },
+      { id: "common_error_detection",    label: "Common Error Detection (code)",  weight_pct: 40.0 },
+      { id: "llm_orthographic_accuracy", label: "LLM Orthographic Accuracy",      weight_pct: 50.0 }
     ]
   });
   // Absorb floating-point residue into the last enabled dimension
@@ -4897,6 +4938,26 @@ const ORTHOGRAPHY_GENERAL = {
 
 // Title tokens for proper-noun gate (spec §5.3)
 const ARABIC_TITLES = new Set(["السيد", "الأستاذ", "الدكتور", "الشيخ", "سيدي"]);
+
+/**
+ * Detect whether a response shows advanced orthographic evidence:
+ *   (a) ≥2 distinct forms from {ئ, ؤ, ء, آ} are present, OR
+ *   (b) combined density of those four forms ≥ 2 per 100 words.
+ * Used by the ceiling logic in scoreSample to allow a higher cap (96) when
+ * mastery signals are present (brief §3 / Step 4).
+ *
+ * @param {Object} counts - letter_form_counts from computeArabicOrthography
+ * @returns {boolean}
+ */
+function hasAdvancedOrthographicEvidence(counts) {
+  const c = counts || {};
+  const forms = [c.hamza_yaa, c.hamza_waw, c.hamza_isolated, c.alif_madda];
+  const distinctUsed = forms.filter(n => (n || 0) > 0).length;
+  const total = forms.reduce((s, n) => s + (n || 0), 0);
+  const words = Math.max(1, c.words || 0);
+  const densityPer100 = (total / words) * 100;
+  return distinctUsed >= 2 || densityPer100 >= 2;
+}
 
 /**
  * Compute the deterministic branch of the Orthographic Control dimension.
