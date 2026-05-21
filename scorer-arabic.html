@@ -5671,7 +5671,7 @@ document.getElementById("btn-calib-reset").addEventListener("click", () => {
 
 // ============= ARABIC WRITING FAQ =============
 // Source of truth: Final info/user_guide_faq.md
-// Synced on: 2026-05-21 (lean version after FAQ / Technical Guide split)
+// Synced on: 2026-05-21 (re-sync to add guardrails / evidence verifier entries)
 // When the .md file changes, re-sync this constant.
 const ARABIC_WRITING_FAQ_MD = String.raw`
 # Arabic Writing FAQ
@@ -5716,7 +5716,7 @@ Direct users include schools and language institutions wanting consistent writin
 | **3. Style & Register** | Is the writing in proper formal Modern Standard Arabic (MSA), or does it drift into spoken-dialect patterns? |
 | **4. Language Range** | How varied and sophisticated are the vocabulary, sentence structures, and Arabic morphological patterns (derived verb forms, broken plurals, masdar, participles)? |
 | **5. Organisation & Coherence** | Does the writing flow logically, with ideas linked and progression clear? |
-| **6. Language Accuracy** | Is the grammar accurate enough for clear communication? (Includes agreement, verb forms, sentence construction. We focus on whether errors block understanding — not on perfect native-speaker control.) |
+| **6. Language Accuracy** | Is the grammar accurate enough for clear communication? (Includes agreement, verb forms, sentence construction. We focus on whether errors block understanding — not on perfect native-speaker control. Modern simplifications like missing case endings or omitted final vowels are not treated as errors.) |
 | **7. Orthographic Control** | Is the spelling correct? Are hamza, taa marbuta, and alif forms used properly? Is the script clean and consistent? |
 
 Each dimension is reported separately with a short written justification, so a teacher can see the reasoning behind each score.
@@ -5787,7 +5787,7 @@ Three things:
 
 - **Granularity.** Other tests often produce a single grade or band. This system produces a score for each of seven distinct writing qualities, plus an Overall Score, plus a CEFR mapping. Teachers see exactly where a student is strong and where to focus.
 - **Speed and consistency.** Large volumes can be scored quickly with the same methodology applied to every response. No marker fatigue, no drift between markers.
-- **Auditability.** Every score is paired with a justification. Every justification quotes specific evidence from the writing. A school, parent, or auditor can trace any score back to the writing it came from.
+- **Auditability.** Every score is paired with a justification. Every justification quotes specific evidence from the writing. The system also runs a deterministic check that verifies each quote actually appears in the student's response, plus a suite of automatic quality-control checks that surface uncertainty and flag inconsistencies for moderator review — so the audit trail can be trusted, not just claimed. A school, parent, or auditor can trace any score back to the writing it came from.
 
 ---
 
@@ -5795,7 +5795,9 @@ Three things:
 
 The system is built around several design principles intended to improve consistency, transparency, and fairness — construct-based scoring, construct separation, controlled scoring bands, and human review for borderline or high-stakes decisions. It is currently in an iterative calibration and validation phase against expert Arabic marker judgements.
 
-For the detail behind these claims — the calibration methodology, the marker panel composition, known limitations, validation status — see the **Technical Guide**.
+Every score is also accompanied by **quality-control signals**: a confidence label (LOW / MEDIUM / HIGH), moderation flags when scores are extreme, and contradiction warnings when dimensions disagree internally with each other or with their own observed errors. These don't change the score — they make the system's uncertainty visible so a teacher or moderator can decide where to focus.
+
+For the detail behind these claims — the calibration methodology, the marker panel composition, the guardrails suite, known limitations, validation status — see the **Technical Guide**.
 
 ---
 
@@ -5812,16 +5814,16 @@ For questions about implementation, calibration, or use in a specific assessment
 ---
 
 *This guide reflects the system as of May 2026. The most recent version is always available alongside the methodology documents.*
+
 `;
 // ============= END ARABIC WRITING FAQ =============
 // ============= ARABIC WRITING TECHNICAL GUIDE =============
 // Source of truth: Final info/technical_guide.md
-// Synced on: 2026-05-21 (re-sync to pick up section 2.7 / 4 / 7 / 8 clarifications)
+// Synced on: 2026-05-21 (re-sync to add §10 guardrails suite)
 // When the .md file changes, re-sync this constant.
-// Note: backticks in the source are escaped as \` -- a regular template literal
-// (not String.raw) is used here because the content contains backtick code spans
-// and fenced code blocks. String.raw does NOT protect backticks from acting as
-// template-literal delimiters.
+// Note: backticks escaped as \` -- regular template literal (not String.raw)
+// because the content contains backtick code spans and fenced code blocks.
+// String.raw does NOT protect backticks from acting as template-literal delimiters.
 const ARABIC_TECHNICAL_GUIDE_MD = `
 # Technical Guide — Arabic Writing Assessment System
 
@@ -5903,6 +5905,17 @@ The prompt explicitly anchors on two Arabic-specific agreement rules that are co
 
 The dimension does **not** penalise missing case endings (إعراب) outside the cases above where they affect agreement, or minor spelling variation — orthographic control is its own dimension.
 
+**Protected forms and the four-category framing.** Modern MSA in school and academic writing routinely omits formal markings that older prescriptive grammars require. The Grammar prompt explicitly protects these forms from being scored as errors: missing tanween (\`متعب\` instead of \`متعباً\`), missing case endings (\`الطالب ذهب\` instead of \`الطالبُ ذهبَ\`), absent final short vowels, and missing diacritics of any kind. These are register choices, not errors.
+
+To prevent the LLM from defaulting to formal-Arabic prescriptivism inherited from training data, the Grammar prompt classifies any grammatical observation into one of four categories:
+
+1. **Fully formal MSA** — all case endings, tanween, and inflections present. Advanced; rewarded.
+2. **Acceptable modern MSA** — formal markings omitted but agreement, verb form, and sentence structure intact. Correct for this dimension; mid-to-upper bands depending on complexity.
+3. **Dialect intrusion** — regional verb forms or vocabulary present. Not a grammar error here — reflected in Style & Register, not in this score.
+4. **Genuine breakdown** — agreement errors, verb-form errors, or sentence-formation errors that affect understanding. Error; reduces score.
+
+Only category 4 reduces the Language Accuracy score. Categories 1-3 do not. The dialect-anti-leakage block in the prompt names specific Gulf/Egyptian/Levantine/Maghrebi forms (\`رحنا، اشوف، شوي، وايد، يخليه، استانست\`) as register issues that must not be counted here.
+
 ### 2.7 Orthographic Control (Arabic-specific, hybrid code + LLM)
 
 Added in V1.1 as a separate construct because Arabic orthography is partially independent from grammatical control. A learner may have acceptable grammatical control while still making recurring orthographic errors, or the other way round.
@@ -5919,6 +5932,8 @@ Composite of three sub-metrics:
 This forces stability alone to settle around 85-88 in the deterministic branch. Mastery (LLM-judged + deterministic advanced-form evidence) is required to break above that. Default formula: \`Orthographic Control = Technical Quality × 0.10 + Common Error Detection × 0.40 + LLM × 0.50\`. All three sub-weights are user-adjustable.
 
 **10-word floor.** Below 10 words, the dimension returns N/A* (lower than the system-wide 30-word floor used for other LLM metrics).
+
+**Protected forms in the LLM Orthographic Accuracy prompt.** The orthographic LLM is explicitly forbidden from penalising missing diacritics (harakat) or modern simplifications of formal Arabic that do not affect script identity. What it *does* flag: missing hamza on initial alif where MSA spelling requires it, confused alif forms (ى vs ا vs أ vs إ), taa marbuta vs haa final confusion, and general spelling errors beyond curated patterns. The dividing line is deliberate — diacritics and case markings are optional in modern MSA writing; hamza, alif form, and taa marbuta correctness are not, because they are part of the script's standard.
 
 #### A note on the two formulas in the code
 
@@ -6105,9 +6120,100 @@ Student writing is processed in line with the data-handling agreements in place 
 
 Every score is paired with a written justification that quotes evidence from the student's writing. Curated-list versions are recorded on every score, allowing a result to be reproduced exactly against the system state at the time of scoring. This provides a full audit trail from input through scoring methodology to output, examinable by schools, parents, or external auditors.
 
+### Evidence verification
+
+The audit trail has a deterministic backstop. After every scoring run, a code-based verifier checks every Arabic phrase quoted in any LLM justification or evidence field against the actual response text. The check is a substring match after light normalisation (whitespace, Arabic punctuation, and diacritics) but **not** of hamza, alif, or taa marbuta forms — those orthographic distinctions are precisely what the verifier is designed to catch. If the Grammar LLM "corrects" a student's \`الى\` to \`إلى\` in its quote, the verifier flags it.
+
+When an unverified quote is detected, the affected LLM is automatically re-run once with a strictness appendix instructing it to quote only verbatim text. The retry's output replaces the original *if* it passes verification; if the retry still produces unverified quotes, the original judgement is preserved with a visible warning chip in the Results panel rather than substituting an unreliable retry attempt.
+
+This two-layer approach — verification + bounded retry — closes the audit-trail loop. The system can no longer silently fabricate or normalise evidence: every quote either appears verbatim in the response, or it is flagged in the output. Schools, parents, and auditors can rely on the \`evidence_verification\` field in every result as a self-attesting record of which justifications survived the check.
+
+The verifier does **not** alter scores beyond the retry mechanism — a score with unresolved unverified evidence is still recorded with its original value, alongside the warning. This preserves transparency: the system shows both what it judged and where the audit trail had gaps, rather than hiding either.
+
 ---
 
-## 10. Known limitations and ongoing development
+## 10. Quality controls and guardrails
+
+After every scoring run, a suite of post-scoring checks operates on the result object before it is committed to the results store. They share the same pipeline stage as the Evidence Verifier (section 9) and exist to communicate uncertainty, flag edge cases that warrant moderator review, and catch internal inconsistencies between dimensions. None of these checks alter dimension scores in the default path — they surface signals alongside the scores so that markers can decide where to focus.
+
+### 10.1 Confidence bands
+
+Every result receives a LOW / MEDIUM / HIGH overall confidence label plus per-dimension labels, calculated deterministically from objective signals:
+
+- Word count near the floor (<50 words → LOW).
+- Unverified evidence after the verifier's retry → LOW for the affected dimension.
+- Deterministic-vs-LLM disagreement on Orthographic Control (>25 points → MEDIUM).
+- Cohesive-Devices-vs-Coherence-Flow disagreement on Organisation & Coherence (>30 points → MEDIUM).
+- Orthographic deterministic ceiling applied → MEDIUM (the cap may be conservative for topic-restricted writing).
+
+Per-dimension confidence is calculated separately. The overall confidence is the lowest of the per-dimension labels — a single LOW dimension propagates to overall LOW.
+
+The confidence label communicates *the system's uncertainty about its own output*. A precise-looking number like 86 is meaningfully different when accompanied by HIGH confidence versus LOW confidence; the chip surfaces that difference without requiring the reader to interpret the full breakdown.
+
+### 10.2 Extreme-score moderation
+
+Results with Overall ≥90 or ≤25, or any single dimension at ≥95 or ≤15, trigger a moderation flag. This is a UI signal for moderator review, not a score change. The principle: very high and very low scores carry higher stakes for either the student or the system's reputation, and a second pair of eyes is worth requesting before recording them.
+
+### 10.3 Cross-dimension contradiction checking
+
+Nine rules flag internally inconsistent score profiles. The first five compare dimension scores against each other; the last four are *annotation-style* cross-checks that compare a dimension's score against its own observation data (errors detected, flags raised, markers found).
+
+**Inter-dimension consistency (5 rules):**
+
+- Style & Register low but Language Accuracy high — possible construct leakage; the dialect should not be inflating both at once.
+- Language Accuracy low but Organisation & Coherence high — atypical; review whether coherence is reading through grammar problems.
+- Content Quality high but Task Achievement low — student wrote rich content that does not address the question.
+- All task requirements PASS but Organisation & Coherence very low — requirements present but the response does not flow.
+- Orthographic Control deterministic vs LLM strongly disagree (>30 points).
+
+**Annotation-style cross-checks (4 rules):**
+
+- Language Accuracy high but \`error_types_detected\` lists ≥4 distinct error categories — the LLM's score and its own error annotations disagree.
+- Orthographic Control high but ≥6 deterministic curated-list flags caught — score-vs-observation contradiction.
+- Style & Register high but ≥5 dialect markers detected — same pattern, register dimension.
+- Content Quality high but evidence was re-used across multiple requirements — score may be inflated by double-counting.
+
+The annotation-style checks use existing per-LLM observation data (error types, flag lists, dialect markers, evidence-reuse logs) to detect score-vs-self-observation disagreements without requiring a full annotation layer. They are the V1 precursor to the more comprehensive annotation-first architecture under design.
+
+### 10.4 Dialect saturation percentage
+
+Alongside the LLM severity classification (\`none\` / \`isolated\` / \`moderate\` / \`pervasive\`), the system computes the percentage of sentences in the response that contain at least one detected dialect marker. This makes "pervasive" concrete — e.g. *"pervasive · ~75% of sentences contain dialect markers"*.
+
+Showing both the LLM classification and the observed saturation lets a moderator spot disagreements between the two — for example, an LLM that classifies a response as "isolated" while 35% of sentences carry markers should be reviewed.
+
+### 10.5 Evidence density caps
+
+CQ scores carry a verified-evidence threshold per band:
+
+- 3/3 (extended) requires at least one verified evidence quote of ≥12 words, or ≥15 words across multiple quotes combined.
+- 2/3 (developed) requires at least one verified evidence quote of ≥6 words.
+- 1/3 (mentioned) and 0/3 (absent) have no minimum.
+
+When verified evidence falls short of the threshold, the score is capped to the highest band the evidence supports. Original LLM-assigned scores are preserved in audit fields (\`_original_score\`). The CQ aggregate (\`content_quality\`) is recomputed from the capped scores.
+
+Caps only fire when (a) the Evidence Verifier has flagged unverified evidence, and (b) the verified remainder is too thin to support the original band. Both conditions must hold. A response with rich, fully-verified evidence is never capped.
+
+### 10.6 No-evidence enforcement
+
+Code-level rule: if the LLM returns a non-zero CQ score for a requirement but the evidence array is empty, the score is forced to 0. Similarly, a PASS on a TA task check with empty evidence is forced to FAIL. Originals preserved in audit fields.
+
+This catches the leftover failure mode that prompt anchoring alone cannot guarantee. It enforces the principle *"no evidence → no judgement"* at the code layer rather than relying on LLM instruction-following.
+
+### 10.7 Display and audit
+
+All guardrail outputs surface in the Results panel:
+
+- Confidence chip (LOW / MEDIUM / HIGH) next to the Overall column.
+- Moderation chip when extreme scores trigger.
+- Contradictions chip when one or more rules fire.
+- Dialect saturation percentage alongside the severity classification.
+- Density-cap and no-evidence notes on affected CQ rows.
+
+The guardrails do not silently change scores beyond the bounded adjustments in §10.5 and §10.6, both of which preserve the original LLM-assigned values in audit fields. Transparency is the operating principle: the system shows both what it judged and where it has reservations.
+
+---
+
+## 11. Known limitations and ongoing development
 
 ### Topic-restriction false-cap
 
@@ -6141,7 +6247,7 @@ Most agreement claims in this document and the FAQ are framed as *intended* or *
 
 ---
 
-## 11. Appendix — formula reference
+## 12. Appendix — formula reference
 
 | Dimension | Default combination |
 |-----------|---------------------|
@@ -6161,6 +6267,7 @@ Each formula is editable via the in-app Calibration tab. The internal formula co
 ---
 
 *This guide reflects the system as of May 2026. Companion documents in the same folder include the V1.1 Orthographic Control spec, the improvement roadmap, the user-facing FAQ, and the per-step implementation briefs. The most recent version of this guide is always available alongside those documents.*
+
 `;
 // ============= END ARABIC WRITING TECHNICAL GUIDE =============
 
