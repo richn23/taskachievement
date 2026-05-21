@@ -3184,6 +3184,242 @@ function computeArabicCohesiveDevices(response) {
 // Catches normalisation, paraphrase, and hallucination regardless of whether the
 // prompts are obeyed. The audit-trail backstop.
 // ============= END EVIDENCE VERIFIER =============
+
+// ============= GUARDRAILS =============
+// Post-scoring checks running after the Evidence Verifier:
+// - No-evidence enforcement
+// - Evidence density caps
+// - Dialect saturation %
+// - Extreme-score moderation
+// - Cross-dimension contradictions
+// - Confidence bands
+// ============= END GUARDRAILS =============
+
+// Helper: map dimension name → score field on result
+function _getDimensionScore(dim, result) {
+  const map = {
+    task_achievement:      result.task_achievement,
+    content_quality:       result.content_quality,
+    style_register:        result.style_register_score,
+    language_range:        result.language_range_score,
+    organisation_coherence: result.organisation_coherence_score,
+    language_accuracy:     result.grammar_language_control_score,
+    orthographic_control:  result.orthographic_control
+  };
+  return map[dim] ?? null;
+}
+
+// Helper: map evidence source prefix → dimension
+function _sourceBelongsToDimension(source, dim) {
+  const mapping = {
+    task_achievement:       ["task_checks", "task_type_checks", "intelligibility_effect"],
+    content_quality:        ["CQ"],
+    style_register:         ["msa_consistency"],
+    organisation_coherence: ["coherence_flow"],
+    language_accuracy:      ["grammar_language_control"],
+    orthographic_control:   ["llm_orthographic"]
+  };
+  const prefixes = mapping[dim] || [];
+  return prefixes.some(p => source.startsWith(p));
+}
+
+// ── Task F: No-evidence → no-justification enforcement ────────────────────
+function _enforceNoEvidenceRule(result) {
+  if (Array.isArray(result.cq_scores)) {
+    result.cq_scores.forEach(cq => {
+      const score = typeof cq.score === "number" ? cq.score : null;
+      if (score === null || score <= 0) return;
+      const evList = Array.isArray(cq.evidence) ? cq.evidence
+                   : (typeof cq.evidence === "string" && cq.evidence.trim() ? [cq.evidence] : []);
+      if (evList.length === 0) {
+        cq._original_score = score;
+        cq.score = 0;
+        cq._forced_zero_no_evidence = true;
+        cq._zero_note = "Score forced to 0: LLM returned a non-zero score with no supporting evidence.";
+      }
+    });
+  }
+  // TA: PASS without evidence → FAIL
+  ["task_checks", "task_type_checks"].forEach(arrName => {
+    const arr = result[arrName];
+    if (!Array.isArray(arr)) return;
+    arr.forEach(tc => {
+      if (tc.result === "PASS" && (!tc.evidence || !String(tc.evidence).trim())) {
+        tc._original_result = "PASS";
+        tc.result = "FAIL";
+        tc._forced_fail_no_evidence = true;
+      }
+    });
+  });
+  const cqChanged = Array.isArray(result.cq_scores) && result.cq_scores.some(cq => cq._forced_zero_no_evidence);
+  const taChanged = [...(result.task_checks || []), ...(result.task_type_checks || [])].some(tc => tc._forced_fail_no_evidence);
+  if (cqChanged || taChanged) {
+    result.no_evidence_enforcement_fired = true;
+    if (cqChanged) {
+      const total = result.cq_scores.reduce((s, cq) => s + (cq.score || 0), 0);
+      result.content_quality = Math.round((total / (result.cq_scores.length * 3)) * 100);
+    }
+  }
+}
+
+// ── Task E: Evidence density caps ─────────────────────────────────────────
+function _applyEvidenceDensityCaps(result) {
+  if (!Array.isArray(result.cq_scores)) return;
+  result.cq_scores.forEach(cq => {
+    const score = typeof cq.score === "number" ? cq.score : null;
+    if (score === null || score <= 0) return;
+    const allEv   = Array.isArray(cq.evidence) ? cq.evidence : (typeof cq.evidence === "string" ? [cq.evidence] : []);
+    const unverf  = Array.isArray(cq._evidence_unverified) ? cq._evidence_unverified : [];
+    const verified = allEv.filter(e => !unverf.includes(e));
+    const wc = s => (typeof s === "string" ? s.trim().split(/\s+/).filter(x => x).length : 0);
+    const longest = verified.reduce((m, e) => Math.max(m, wc(e)), 0);
+    const total   = verified.reduce((s, e) => s + wc(e), 0);
+    let cap = null;
+    if (score === 3 && longest < 12 && total < 15) cap = 2;
+    if (score === 2 && longest < 6)  cap = 1;
+    if (cap !== null && cap < score) {
+      cq._original_score   = cq._original_score ?? score;
+      cq.score             = cap;
+      cq._capped_by_density = true;
+      cq._density_note     = `Score capped from ${score} to ${cap}: verified evidence too thin (longest: ${longest} words, total: ${total} words).`;
+    }
+  });
+  if (result.cq_scores.some(cq => cq._capped_by_density)) {
+    const total = result.cq_scores.reduce((s, cq) => s + (cq.score || 0), 0);
+    result.content_quality = Math.round((total / (result.cq_scores.length * 3)) * 100);
+    result.cq_recomputed_after_density_cap = true;
+  }
+}
+
+// ── Task D: Dialect saturation % ──────────────────────────────────────────
+function _dialectSaturationPercent(result) {
+  const markers = Array.isArray(result.dialect_markers) ? result.dialect_markers : [];
+  if (markers.length === 0) return 0;
+  const response  = result.response || "";
+  const sentences = response.split(/[.!?؟]+/).filter(s => s.trim().length > 0);
+  if (sentences.length === 0) return 0;
+  const affected = sentences.filter(s => markers.some(m => s.includes(m))).length;
+  return Math.round((affected / sentences.length) * 100);
+}
+
+// ── Task B: Extreme-score moderation ──────────────────────────────────────
+function _checkExtremeScore(result) {
+  const overall = result.overall_score;
+  const dims = [
+    ["task_achievement",            result.task_achievement],
+    ["content_quality",             result.content_quality],
+    ["style_register_score",        result.style_register_score],
+    ["language_range_score",        result.language_range_score],
+    ["organisation_coherence_score",result.organisation_coherence_score],
+    ["grammar_language_control_score",result.grammar_language_control_score],
+    ["orthographic_control",        result.orthographic_control]
+  ];
+  const flags = [];
+  if (typeof overall === "number") {
+    if (overall >= 90) flags.push({ type: "overall_high", value: overall, message: `Overall score is very high (${overall} ≥ 90) — moderator review suggested to confirm.` });
+    if (overall <= 25) flags.push({ type: "overall_low",  value: overall, message: `Overall score is very low (${overall} ≤ 25) — moderator review suggested to confirm.` });
+  }
+  dims.forEach(([name, score]) => {
+    if (typeof score !== "number") return;
+    if (score >= 95) flags.push({ type: "dim_high", dimension: name, value: score, message: `${name}: ${score} — extreme high, review suggested.` });
+    if (score <= 15) flags.push({ type: "dim_low",  dimension: name, value: score, message: `${name}: ${score} — extreme low, review suggested.` });
+  });
+  return flags;
+}
+
+// ── Task C: Cross-dimension contradiction checker ─────────────────────────
+function _checkContradictions(result) {
+  const contradictions = [];
+  const sr  = result.style_register_score;
+  const la  = result.grammar_language_control_score;
+  const oc  = result.organisation_coherence_score;
+  const ta  = result.task_achievement;
+  const cq  = result.content_quality;
+  const oth = result.orthographic_control;
+  const taChecks   = Array.isArray(result.task_checks) ? result.task_checks : [];
+  const taPassRate = taChecks.length ? taChecks.filter(c => c.result === "PASS").length / taChecks.length : null;
+
+  // Rule 1: heavy dialect penalty but grammar high
+  if (typeof sr === "number" && typeof la === "number" && sr < 40 && la > 70)
+    contradictions.push({ rule: "dialect_grammar_split", message: "Style & Register is very low (heavy dialect) but Language Accuracy is high. Possible construct leakage — review whether grammar is being assessed independently of dialect." });
+
+  // Rule 2: grammar low but organisation high
+  if (typeof la === "number" && typeof oc === "number" && la < 50 && oc > 70)
+    contradictions.push({ rule: "grammar_organisation_split", message: "Language Accuracy is low but Organisation & Coherence is high. Atypical — review whether coherence is reading through grammar problems." });
+
+  // Rule 3: content rich but task incomplete
+  if (typeof cq === "number" && typeof ta === "number" && cq > 70 && ta < 40)
+    contradictions.push({ rule: "content_task_split", message: "Content Quality is high but Task Achievement is low. Student may have written rich content that does not address the actual question — review." });
+
+  // Rule 4: all task requirements PASS but organisation broken
+  if (taPassRate === 1 && typeof oc === "number" && oc < 30)
+    contradictions.push({ rule: "task_organisation_split", message: "All task requirements PASS but Organisation & Coherence is very low. Requirements are present but the response does not flow — review." });
+
+  // Rule 5: Orth det vs LLM strong disagreement
+  if (result.orthographic_control_breakdown) {
+    const det = result.orthographic_control_breakdown.deterministic_orthography_score;
+    const llm = result.orthographic_control_breakdown.llm_orthographic_accuracy;
+    if (typeof det === "number" && typeof llm === "number" && Math.abs(det - llm) > 30)
+      contradictions.push({ rule: "orth_det_llm_split", message: `Orthographic Control det/LLM disagree by ${Math.abs(det - llm)} pts (det: ${det}, LLM: ${llm}). Review which view is correct.` });
+  }
+
+  // Rule 6: Grammar score high but many error categories annotated
+  const errTypes = Array.isArray(result.grammar_error_types) ? result.grammar_error_types
+                 : Array.isArray(result.grammar_error_types_detected) ? result.grammar_error_types_detected
+                 : Array.isArray(result.error_types_detected) ? result.error_types_detected : [];
+  if (typeof la === "number" && la > 70 && errTypes.length >= 4)
+    contradictions.push({ rule: "grammar_score_vs_errors", message: `Language Accuracy is ${la} (high) but the LLM annotated ${errTypes.length} distinct error categories: ${errTypes.join(", ")}. Score and observations disagree — review.` });
+
+  // Rule 7: Orth score high but many deterministic flags
+  const orthFlags = Array.isArray(result.orthographic_control_breakdown?.flags) ? result.orthographic_control_breakdown.flags : [];
+  if (typeof oth === "number" && oth > 70 && orthFlags.length >= 6)
+    contradictions.push({ rule: "orth_score_vs_flags", message: `Orthographic Control is ${oth} (high) but ${orthFlags.length} curated-list errors were flagged. Score and observations disagree — review.` });
+
+  // Rule 8: S&R high but many dialect markers
+  const dMarkers = Array.isArray(result.dialect_markers) ? result.dialect_markers : [];
+  if (typeof sr === "number" && sr > 70 && dMarkers.length >= 5)
+    contradictions.push({ rule: "sr_score_vs_dialect_markers", message: `Style & Register is ${sr} (high) but ${dMarkers.length} dialect markers were detected: ${dMarkers.slice(0, 5).join(", ")}. Score and observations disagree — review.` });
+
+  // Rule 9: CQ high but evidence reuse detected
+  const cqDupes = Array.isArray(result.cq_evidence_duplicates) ? result.cq_evidence_duplicates : [];
+  if (typeof cq === "number" && cq > 70 && cqDupes.length > 0)
+    contradictions.push({ rule: "cq_score_vs_evidence_reuse", message: `Content Quality is ${cq} (high) but evidence was re-used across ${cqDupes.length} requirement(s). Score may be inflated by double-counted evidence — review.` });
+
+  return contradictions;
+}
+
+// ── Task A: Confidence bands ───────────────────────────────────────────────
+function _dimensionConfidence(dim, result) {
+  const wc = result.word_count || 0;
+  if (wc > 0 && wc < 50) return "LOW";
+  // Check if this dimension had unverified evidence
+  if (result.evidence_verification?.has_unverified) {
+    const affected = (result.evidence_verification.unverified || [])
+      .some(u => _sourceBelongsToDimension(u.source, dim));
+    if (affected) return "LOW";
+  }
+  if (dim === "orthographic_control") {
+    const det = result.orthographic_control_breakdown?.deterministic_orthography_score;
+    const llm = result.orthographic_control_breakdown?.llm_orthographic_accuracy;
+    if (typeof det === "number" && typeof llm === "number" && Math.abs(det - llm) > 25) return "MEDIUM";
+    if (result.orthographic_control_breakdown?.cap_applied) return "MEDIUM";
+  }
+  if (dim === "organisation_coherence") {
+    const cd = result.cohesive_devices_score;
+    const cf = result.coherence_flow_score;
+    if (typeof cd === "number" && typeof cf === "number" && Math.abs(cd - cf) > 30) return "MEDIUM";
+  }
+  return "HIGH";
+}
+
+function _overallConfidence(result) {
+  const dims = ["task_achievement","content_quality","style_register","language_range","organisation_coherence","language_accuracy","orthographic_control"];
+  const labels = dims.map(d => _dimensionConfidence(d, result));
+  if (labels.includes("LOW")) return "LOW";
+  if (labels.includes("MEDIUM")) return "MEDIUM";
+  return "HIGH";
+}
+
 function _normalizeForEvidenceMatch(text) {
   if (typeof text !== "string") return "";
   return text
@@ -4638,6 +4874,26 @@ This is the second and final attempt. Output that contains unverified quotes aft
     }
   }
 
+
+  // ── Guardrails pipeline (runs after verifier + retry) ─────────────────
+  _enforceNoEvidenceRule(result);
+  _applyEvidenceDensityCaps(result);
+  result.dialect_saturation_percent = _dialectSaturationPercent(result);
+  result.moderation_flags  = _checkExtremeScore(result);
+  result.needs_moderation  = result.moderation_flags.length > 0;
+  result.contradictions    = _checkContradictions(result);
+  result.has_contradictions = result.contradictions.length > 0;
+  result.confidence_per_dimension = {
+    task_achievement:       _dimensionConfidence("task_achievement",       result),
+    content_quality:        _dimensionConfidence("content_quality",        result),
+    style_register:         _dimensionConfidence("style_register",         result),
+    language_range:         _dimensionConfidence("language_range",         result),
+    organisation_coherence: _dimensionConfidence("organisation_coherence", result),
+    language_accuracy:      _dimensionConfidence("language_accuracy",      result),
+    orthographic_control:   _dimensionConfidence("orthographic_control",   result)
+  };
+  result.confidence = _overallConfidence(result);
+
   return result;
 }
 
@@ -4911,6 +5167,9 @@ function renderResults() {
               <div style="font-weight: 700; font-size: 16px; line-height: 1.1;">${s.overall_score ?? `<span title="Sample too short — below 30-word minimum on key metrics" style="font-size: 13px; color: #9ca3af;">N/A*</span>`}</div>
               ${s.cefr_estimate ? `<div style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #7c3aed; margin-top: 3px; text-transform: uppercase;">≈ ${escapeHtml(s.cefr_estimate)}</div>` : ""}
               ${s.evidence_verification?.has_unverified ? `<div title="One or more LLM-quoted phrases were not found verbatim in the student response" style="font-size:10px;margin-top:3px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280;display:inline-block;">⚠ Evidence: ${s.evidence_verification.unverified_count} unverified</div>` : (s.evidence_retry_resolved ? `<div style="font-size:10px;margin-top:3px;color:#059669;display:inline-block;">✓ verified (retry: ${(s.evidence_retry_affected||[]).join(",")})</div>` : "")}
+              ${s.confidence ? `<div title="${s.confidence === 'HIGH' ? 'All confidence signals positive — score is well-supported.' : s.confidence === 'MEDIUM' ? 'One or more signals suggest review is advisable.' : 'Significant signals indicate this score should be reviewed before recording.'}" style="font-size:10px;margin-top:3px;padding:1px 5px;border-radius:3px;display:inline-block;${s.confidence==='HIGH'?'background:#d1fae5;color:#065f46':s.confidence==='MEDIUM'?'background:#fef3c7;color:#92400e':'background:#fee2e2;color:#991b1b'}">${s.confidence === 'HIGH' ? '✓' : '⚠'} ${s.confidence}</div>` : ""}
+              ${s.needs_moderation ? `<div title="Score is in an extreme range — moderator review suggested" style="font-size:10px;margin-top:3px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;display:inline-block;">⚠ Moderation</div>` : ""}
+              ${s.has_contradictions ? `<div title="Internal score profile inconsistency detected — review suggested" style="font-size:10px;margin-top:3px;padding:1px 5px;border-radius:3px;background:#fef3c7;color:#92400e;display:inline-block;">⚠ Cross-dim review</div>` : ""}
             </td>
             ${_rDimOn("task_achievement") ? `<td><strong>${s.task_achievement ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong></td>` : ""}
             ${_rDimOn("content_quality") ? `<td><strong>${s.content_quality ?? `<span title="Sample too short to score" style="color: #9ca3af; font-weight: 500;">N/A*</span>`}</strong>${(Array.isArray(s.cq_evidence_duplicates) && s.cq_evidence_duplicates.length) ? ` <span title="Evidence reused across requirements — score may be inflated" style="margin-left: 4px; padding: 2px 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠</span>` : ""}</td>` : ""}
@@ -4937,7 +5196,7 @@ function renderResults() {
               <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.msa_consistency_reason || "")}</div>
             </div>
             <div class="detail-section">
-              <h4>Dialect Influence — severity: ${s.dialect_severity ?? "—"} · score: ${s.dialect_score ?? "—"}</h4>
+              <h4>Dialect Influence — severity: ${s.dialect_severity ?? "—"} · score: ${s.dialect_score ?? "—"}${typeof s.dialect_saturation_percent === "number" ? ` · ~${s.dialect_saturation_percent}% of sentences contain dialect markers` : ""}</h4>
               <div style="font-size: 13px; color: var(--muted);">${escapeHtml(s.dialect_reason || "")}</div>
               ${Array.isArray(s.dialect_markers) && s.dialect_markers.length ? `<div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Markers: ${s.dialect_markers.map(m => escapeHtml(m)).join(", ")}</div>` : ""}
             </div>
