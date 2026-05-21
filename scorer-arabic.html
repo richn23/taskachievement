@@ -623,7 +623,7 @@
   <div class="view active" id="view-step0">
     <div class="card">
       <h2 style="margin-bottom: 8px;">Scoring System</h2>
-      <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px;">Six dimensions, each producing a 0–100 score. Dimensions combine sub-metrics where appropriate. Arabic-specific metrics use Arabic-aware LLM prompts or deterministic code over Arabic lexicons. The six dimension scores feed an equal-weight <strong>Overall Score</strong> with a CEFR band interpretation.</p>
+      <p style="color: var(--muted); font-size: 14px; margin: 0 0 24px;">Seven dimensions, each producing a 0–100 score. Dimensions combine sub-metrics where appropriate. Arabic-specific metrics use Arabic-aware LLM prompts or deterministic code over Arabic lexicons. The seven dimension scores feed a <strong>calibration-weighted Overall Score</strong> — equal-weighted by default, with all dimension and inner-metric weights adjustable via the <strong>Calibration</strong> tab. The Overall Score is then mapped to a CEFR band as an interpretation layer.</p>
 
       <!-- ========== Dimension 1: Task Achievement ========== -->
       <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">1 · Task Achievement</h3>
@@ -709,6 +709,38 @@
         0–20 errors block understanding · 21–40 frequent basic errors · 41–60 noticeable but understandable · 61–80 good control · 81–100 strong consistent control
       </p>
 
+      <!-- ========== Dimension 7: Orthographic Control ========== -->
+      <h3 style="margin: 18px 0 8px; font-size: 15px; font-weight: 700; color: var(--primary);">7 · Orthographic Control <span style="font-size: 11px; font-weight: 500; color: var(--muted);">(Arabic-specific · hybrid code + LLM)</span></h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Does the writing demonstrate correct Arabic spelling, hamza placement, taa marbuta usage, and script consistency? Scored as a distinct construct from grammar — a learner may control grammar while still producing recurring orthographic errors.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Technical Quality <span style="font-size: 11px; font-weight: 500; color: var(--muted);">(code-only)</span></h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Deterministic hygiene checks across four sub-scores, each 0–100, averaged:</p>
+      <p style="margin: 0 0 12px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        Arabic Punctuation Usage · Whitespace &amp; Formatting · Tatweel Abuse · Non-Arabic Character Intrusion
+      </p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Common Error Detection <span style="font-size: 11px; font-weight: 500; color: var(--muted);">(code-only)</span></h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Deterministic lexical comparison against four curated lists of high-frequency Arabic learner errors: Taa Marbuta (ة/ه), Alif Form (ا/ى/أ/إ), Common Hamza, and General Spelling. Confidence-tiered entries (always_wrong / usually_wrong) with a proper-noun gate to protect personal names (e.g. علي as a name vs على as a preposition).</p>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">Per-category score = max(0, 100 − errors-per-100-words × 8) · composite = mean of 4 categories</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">LLM Orthographic Accuracy</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Scope-locked AI judgement on orthographic correctness that cannot be measured reliably by code — in-context hamza placement, taa marbuta in non-listed words, general spelling beyond curated patterns, and overall orthographic consistency. Letter-form distribution and deterministic flags are passed as prompt context so the LLM focuses on what the lists missed. Banded scale:</p>
+      <p style="margin: 0 0 8px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        93–100 near-native / elite control · 87–92 strong with advancing mastery · 81–86 strong stability · 61–80 generally accurate · 41–60 unstable · 21–40 persistent problems · 0–20 severe
+      </p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Deterministic Ceiling</h4>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">The deterministic combined score is capped to prevent clean-but-unremarkable writing from drifting into elite territory:</p>
+      <p style="margin: 0 0 8px; font-size: 12px; color: var(--muted); padding-left: 12px;">
+        Without advanced orthographic evidence → cap at 88 · With advanced evidence (≥3 distinct of ئ / ؤ / ء / آ AND ≥3 per 100 words) → cap at 96
+      </p>
+      <p style="margin: 0 0 4px; font-size: 13px; color: var(--muted);">Absence of errors alone does not earn an upper-band score; positive evidence of advanced control is required. Topics that do not naturally elicit advanced hamza environments may produce capped scores — a known limitation under review for marker calibration.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">10-Word Floor</h4>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">The dimension returns N/A* below 10 words (lower than the system-wide 30-word floor — orthography can be assessed on very short responses where most other dimensions cannot).</p>
+
+      <p style="margin: 0 0 18px; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">Orthographic Control = Technical Quality × 0.10 + Common Error Detection × 0.40 + LLM Orthographic Accuracy × 0.50 <span style="font-size: 11px;">(default — adjustable via Calibration tab)</span></p>
+
       <!-- ========== Band Pressure Rules ========== -->
       <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Band Pressure Rules</h3>
       <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">Each LLM prompt has explicit construct-based rules to prevent compression of the score scale. These are NOT CEFR labels — they're behavioural caps on what each band requires.</p>
@@ -736,8 +768,8 @@
 
       <!-- ========== Overall Score & CEFR Interpretation ========== -->
       <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Overall Score &amp; CEFR Band</h3>
-      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">The six dimension scores combine into a single Overall Score using equal weights. This is then mapped to a CEFR band as an interpretation layer — the metrics themselves remain construct-based and are not CEFR-anchored.</p>
-      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">Overall = mean(TA, CQ, S&amp;R, Lang Range, Org &amp; Coh, Lang Acc)</p>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">The seven dimension scores combine into a single Overall Score using calibration-weighted averaging. Default weights are equal (≈ 14.3 % per dimension); adjustments are made in the Calibration tab and persist across sessions. The Overall is then mapped to a CEFR band as an interpretation layer — the metrics themselves remain construct-based and are not CEFR-anchored. Disabled dimensions are excluded from the Overall and the remaining enabled dimensions' weights are renormalised proportionally.</p>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted); font-family: ui-monospace, monospace; background: #f3f4f6; padding: 6px 10px; border-radius: 4px;">Overall = calibration-weighted sum(TA, CQ, S&amp;R, Lang Range, Org &amp; Coh, Lang Acc, Orth Ctrl) — default: equal weight (≈ 14.3 % each)</p>
 
       <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">CEFR Cut-Scores</h4>
       <table style="width: 100%; margin: 0 0 18px; font-size: 13px;">
@@ -755,6 +787,34 @@
         </tbody>
       </table>
 
+      <!-- ========== Adjustable Weights (Calibration) ========== -->
+      <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Adjustable Weights (Calibration)</h3>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">All dimension and inner-metric weights are user-tunable via the <strong>Calibration</strong> tab. Defaults match the historical hard-coded weighting of the system, so the default configuration produces identical scores to the pre-calibration version (for the original 6 dimensions). Changes save automatically and apply on the next Run Scoring.</p>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Initial defaults — dimension weights</h4>
+      <table style="width: 100%; margin: 0 0 12px; font-size: 13px;">
+        <tbody>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Task Achievement</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Content Quality</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Style &amp; Register</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Language Range</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Organisation &amp; Coherence</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Language Accuracy</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Orthographic Control</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">14.3 %</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin: 0 0 4px; font-size: 13px; font-weight: 600;">Initial defaults — inner metric weights</h4>
+      <table style="width: 100%; margin: 0 0 18px; font-size: 13px;">
+        <tbody>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Task Achievement</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">WCC 40 · TA 48 · IE 12</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Style &amp; Register</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">MSA 70 · Dialect 30</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Language Range</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">Vocab 33.4 · Morphology 33.3 · Sentence 33.3</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Organisation &amp; Coherence</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">Cohesive Devices 30 · Coherence &amp; Flow 70</td></tr>
+          <tr><td style="padding: 4px 8px; color: var(--muted);">Orthographic Control</td><td style="padding: 4px 8px; font-family: ui-monospace, monospace;">Technical Quality 10 · Common Error Detection 40 · LLM 50</td></tr>
+        </tbody>
+      </table>
+
       <!-- ========== Determinism & Providers ========== -->
       <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Determinism &amp; Providers</h3>
       <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All LLM calls use <code style="background: #f3f4f6; padding: 1px 4px; border-radius: 3px;">temperature: 0</code> for repeatable scoring on identical input.</p>
@@ -764,9 +824,9 @@
 
       <!-- ========== Summary ========== -->
       <h3 style="margin: 24px 0 8px; font-size: 15px; font-weight: 700;">Summary</h3>
-      <p style="margin: 0 0 8px; font-size: 13px;">V1 = 6 dimensions, 12 metrics total (10 LLM + 2 code-only: WCC and Arabic Cohesive Devices). Organisation &amp; Coherence is the only <em>dimension</em> that combines code and LLM metrics into one score. Construct-based scoring with band pressure rules; CEFR mapping applied only at the interpretation layer.</p>
-      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All metrics return 0–100. Each dimension is reported separately with justification. The Overall Score is the equal-weight average of all 6 dimensions and is the input to the CEFR badge.</p>
-      <p style="margin: 0; font-size: 12px; color: var(--muted); font-style: italic;">Arabic-specific metrics (MSA, Dialect, Cohesive Devices) use Arabic lexicons and Arabic-aware prompts. Other metrics reuse English scoring patterns with Arabic content as input.</p>
+      <p style="margin: 0 0 8px; font-size: 13px;">V1 = 7 dimensions. Hybrid code + LLM scoring throughout: deterministic code where reliable (word count compliance, cohesive devices, orthographic technical quality and error detection), scope-locked LLM judgement where context matters. Two dimensions — Organisation &amp; Coherence and Orthographic Control — explicitly combine code and LLM sub-scores. Construct-based scoring with band pressure rules and dimension-level ceilings; CEFR mapping applied only at the interpretation layer.</p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: var(--muted);">All metrics return 0–100. Each dimension is reported separately with justification. The Overall Score is the calibration-weighted average of all enabled dimensions (default: equal weight ≈ 14.3 % each across 7) and is the input to the CEFR badge.</p>
+      <p style="margin: 0; font-size: 12px; color: var(--muted); font-style: italic;">Arabic-specific metrics (MSA, Dialect, Cohesive Devices, all four Orthographic Control sub-metrics) use Arabic lexicons and Arabic-aware prompts. Other metrics reuse English scoring patterns with Arabic content as input.</p>
     </div>
   </div>
 
