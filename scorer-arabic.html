@@ -4956,7 +4956,7 @@ function hasAdvancedOrthographicEvidence(counts) {
   const total = forms.reduce((s, n) => s + (n || 0), 0);
   const words = Math.max(1, c.words || 0);
   const densityPer100 = (total / words) * 100;
-  return distinctUsed >= 2 || densityPer100 >= 2;
+  return distinctUsed >= 3 && densityPer100 >= 3;
 }
 
 /**
