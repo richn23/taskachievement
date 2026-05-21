@@ -3701,10 +3701,38 @@ The score should reflect COMMUNICATIVE grammatical control, NOT native-speaker p
 <focus_on>
 - Sentence formation
 - Agreement (subject\u2013verb, gender, number)
+- Non-human plural agreement (non-human plurals take feminine singular: \u0627\u0644\u0643\u062a\u0628 \u062c\u0645\u064a\u0644\u0629, not \u0627\u0644\u0643\u062a\u0628 \u062c\u0645\u064a\u0644\u0648\u0646)
+- Dual form (\u0645\u062b\u0646\u0649) accuracy \u2014 endings \u0640\u0627\u0646 (nominative) / \u0640\u064a\u0646 (accusative, genitive), and verb / adjective agreement with duals
 - Verb forms and tense control
 - Grammatical consistency
 - Whether grammatical errors interfere with understanding
 </focus_on>
+
+<arabic_specific_anchors>
+Two MSA-specific agreement rules deserve explicit attention. These are among the most common and most teachable MSA errors, particularly for L1 dialect speakers (Gulf, Egyptian, Levantine, Maghrebi) writing formal MSA at school.
+
+1. Non-human plural agreement
+   In MSA, plural non-human nouns (books, schools, ideas, trees) take feminine singular agreement on the verb / adjective / pronoun referring to them \u2014 NOT plural agreement.
+
+   - Correct:   \u0627\u0644\u0643\u062a\u0628\u064f \u062c\u0645\u064a\u0644\u0629\u064c        (the books are beautiful \u2014 feminine singular adjective)
+   - Incorrect: \u0627\u0644\u0643\u062a\u0628\u064f \u062c\u0645\u064a\u0644\u0648\u0646\u064e       (using plural adjective with non-human plural noun)
+   - Correct:   \u0627\u0644\u0623\u0634\u062c\u0627\u0631\u064f \u0643\u0628\u064a\u0631\u0629\u064c      (the trees are big \u2014 feminine singular)
+   - Incorrect: \u0627\u0644\u0623\u0634\u062c\u0627\u0631\u064f \u0643\u0628\u0627\u0631\u064c       (plural agreement on non-human plural)
+
+   Dialect speakers often produce plural agreement here by transfer from spoken patterns. Recurring non-human plural agreement errors should reduce the score.
+
+2. Dual form (\u0645\u062b\u0646\u0649)
+   Dual is a distinct grammatical category in MSA. Endings: \u0640\u0627\u0646 in the nominative, \u0640\u064a\u0646 in the accusative and genitive. Verbs and adjectives agree with dual subjects in distinct dual forms.
+
+   - Correct:   \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u0646\u0650 \u064a\u062f\u0631\u0633\u0627\u0646\u0650        (the two students study \u2014 dual verb agrees with dual subject)
+   - Incorrect: \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u0646 \u064a\u062f\u0631\u0633\u0648\u0646          (using plural verb with dual subject)
+   - Correct:   \u0631\u0623\u064a\u062a\u064f \u0627\u0644\u0637\u0627\u0644\u0628\u064e\u064a\u0646\u0650          (accusative dual, correct case)
+   - Incorrect: \u0631\u0623\u064a\u062a\u064f \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u0646           (using nominative dual where accusative is required)
+
+   Common errors: dropping the dual entirely, replacing with plural, or using the wrong case ending on the dual.
+
+When evaluating the response, attend explicitly to these patterns. Flag recurring non-human agreement errors or dual mishandling in the justification.
+</arabic_specific_anchors>
 
 <do_not_heavily_penalise>
 - Missing case endings (\u0625\u0639\u0631\u0627\u0628)
@@ -3778,7 +3806,7 @@ Return exactly:
 {
   "grammar_language_control_score": NUMBER,
   "justification": "2-3 sentences explaining the score. Quote 1-2 specific Arabic phrases from the response as evidence \u2014 of either accuracy or error. Mention error frequency and whether meaning is preserved.",
-  "error_types_detected": ["agreement" | "conjugation" | "gender" | "number" | "sentence_formation" | "..."]
+  "error_types_detected": ["agreement" | "non_human_agreement" | "dual_form" | "conjugation" | "gender" | "number" | "sentence_formation" | "..."]
 }
 No extra keys. No markdown fences.
 </output_format>
