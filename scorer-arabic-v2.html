@@ -5236,25 +5236,40 @@ Return JSON only:
     let allAnnotations = [];
 
     try {
-      // Stage 1: Code annotators
-      setRun9Stage('code_anno', 'running', '');
-      const codeAnns = runCodeAnnotators(response, taskObj, runId);
-      allAnnotations = allAnnotations.concat(codeAnns);
-      setRun9Stage('code_anno', 'done', codeAnns.length + ' annotations');
+      // Check whether Tab 4 already produced verified annotations for this exact
+      // response + task — if so, reuse them and skip stages 1–3 entirely.
+      const _t4 = (typeof lastVerifiedAnnotationObject !== 'undefined') ? lastVerifiedAnnotationObject : null;
+      const reusingTab4 = _t4 && _t4.response === response && _t4.task_id === taskObj.task_id;
 
-      // Stage 2: LLM annotators
-      setRun9Stage('llm_anno', 'running', '');
-      const llmAnns = await runLLMAnnotators(response, taskObj, runId);
-      allAnnotations = allAnnotations.concat(llmAnns);
-      setRun9Stage('llm_anno', 'done', llmAnns.length + ' annotations');
+      if (reusingTab4) {
+        allAnnotations = _t4.annotations.slice();
+        const failedCount   = allAnnotations.filter(a => a.verified === false).length;
+        const verifiedCount = allAnnotations.length - failedCount;
+        setRun9Stage('code_anno', 'done', 'reused from Tab 4');
+        setRun9Stage('llm_anno',  'done', 'reused from Tab 4');
+        setRun9Stage('verify',    'done',
+          verifiedCount + ' verified (Tab 4)' + (failedCount > 0 ? ', ' + failedCount + ' failed' : ''));
+      } else {
+        // Stage 1: Code annotators
+        setRun9Stage('code_anno', 'running', '');
+        const codeAnns = runCodeAnnotators(response, taskObj, runId);
+        allAnnotations = allAnnotations.concat(codeAnns);
+        setRun9Stage('code_anno', 'done', codeAnns.length + ' annotations');
 
-      // Stage 3: Evidence verification
-      setRun9Stage('verify', 'running', '');
-      await verifyAnnotations(allAnnotations, response);
-      const failedCount   = allAnnotations.filter(a => a.verified === false).length;
-      const verifiedCount = allAnnotations.length - failedCount;
-      setRun9Stage('verify', 'done',
-        verifiedCount + ' verified' + (failedCount > 0 ? ', ' + failedCount + ' failed' : ''));
+        // Stage 2: LLM annotators
+        setRun9Stage('llm_anno', 'running', '');
+        const llmAnns = await runLLMAnnotators(response, taskObj, runId);
+        allAnnotations = allAnnotations.concat(llmAnns);
+        setRun9Stage('llm_anno', 'done', llmAnns.length + ' annotations');
+
+        // Stage 3: Evidence verification
+        setRun9Stage('verify', 'running', '');
+        await verifyAnnotations(allAnnotations, response);
+        const failedCount   = allAnnotations.filter(a => a.verified === false).length;
+        const verifiedCount = allAnnotations.length - failedCount;
+        setRun9Stage('verify', 'done',
+          verifiedCount + ' verified' + (failedCount > 0 ? ', ' + failedCount + ' failed' : ''));
+      }
 
       // Stage 4: Score
       setRun9Stage('score', 'running', '');
