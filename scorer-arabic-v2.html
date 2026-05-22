@@ -4560,34 +4560,10 @@ Return JSON only:
     showToast('Reset to factory defaults.');
   });
 
-  // ── Save calibration ───────────────────────────────────────────────────────
-  document.getElementById('btn_cal_save').addEventListener('click', () => {
-    const errEl  = document.getElementById('cal_save_error');
-    const statEl = document.getElementById('cal_save_status');
-    errEl.style.display  = 'none';
-    statEl.style.display = 'none';
-
-    // Validate dimension weights
-    const dimTotal = _readDimWeights().reduce((a, b) => a + b, 0);
-    if (Math.abs(dimTotal - 100) > 0.11) {
-      errEl.textContent = `Dimension weights sum to ${dimTotal.toFixed(2)}% — must be 100% (within 0.1).`;
-      errEl.style.display = 'block';
-      return;
-    }
-
-    // Validate sub-metric groups
-    for (const group of ['ta', 'sr', 'oc', 'ortho']) {
-      const total = _subGroupInputs(group).reduce((s, el) => s + (parseFloat(el.value) || 0), 0);
-      if (Math.abs(total - 100) > 0.11) {
-        errEl.textContent = `Sub-metric weights for "${group}" sum to ${total.toFixed(2)}% — must be 100%.`;
-        errEl.style.display = 'block';
-        return;
-      }
-    }
-
+  // ── Read calibration config from current DOM inputs ───────────────────────
+  function _readCalConfig() {
     const gv = id => parseFloat(document.getElementById(id).value);
-
-    const cfg = {
+    return {
       version: SCHEMA_VERSION,
       dimension_weights: {
         task_achievement:       gv('dw_task_achievement'),
@@ -4624,8 +4600,34 @@ Return JSON only:
         moderate_threshold:  gv('cal_dialect_moderate')
       }
     };
+  }
 
-    state.calibrationConfig = cfg;
+  // ── Save calibration ───────────────────────────────────────────────────────
+  document.getElementById('btn_cal_save').addEventListener('click', () => {
+    const errEl  = document.getElementById('cal_save_error');
+    const statEl = document.getElementById('cal_save_status');
+    errEl.style.display  = 'none';
+    statEl.style.display = 'none';
+
+    // Validate dimension weights
+    const dimTotal = _readDimWeights().reduce((a, b) => a + b, 0);
+    if (Math.abs(dimTotal - 100) > 0.11) {
+      errEl.textContent = `Dimension weights sum to ${dimTotal.toFixed(2)}% — must be 100% (within 0.1).`;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Validate sub-metric groups
+    for (const group of ['ta', 'sr', 'oc', 'ortho']) {
+      const total = _subGroupInputs(group).reduce((s, el) => s + (parseFloat(el.value) || 0), 0);
+      if (Math.abs(total - 100) > 0.11) {
+        errEl.textContent = `Sub-metric weights for "${group}" sum to ${total.toFixed(2)}% — must be 100%.`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
+    state.calibrationConfig = _readCalConfig();
     refreshLockState();
     refreshPipelineStatus();
     statEl.style.display = 'block';
@@ -6127,6 +6129,10 @@ Return JSON only:
   // ===== End Tabs 8 / 9 / 10 =====
 
   // ===== Boot =====
+  // Auto-apply defaults for Tabs 6 and 8 — inputs are pre-filled so
+  // Tab 9 is available immediately without manual Save clicks.
+  state.calibrationConfig = _readCalConfig();
+  state.guardrailConfig   = _readGrConfig();
   refreshLockState();
   refreshPipelineStatus();
 </script>
