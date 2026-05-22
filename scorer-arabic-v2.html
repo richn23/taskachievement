@@ -3077,7 +3077,20 @@ TOPIC: {TOPIC}
   //   ✓ Range prompt: rewritten positive-evidence led; explicitly forbids
   //     treating dialect/colloquial features as range weakness.
   //
-  // Tier 2 / 3 / 4 — still pending. See list below.
+  // Tier 2 + prompt tweaks applied (May 22, 2026):
+  //   ✓ Cross-family suppression: accuracy on a register:dialect_marker span
+  //     is rejected as construct_leakage unless it has a valid grammar
+  //     error_type AND a note that doesn't justify itself via dialect/MSA.
+  //   ✓ rejection_status enum added to every annotation. Values:
+  //     null | invalid_schema | invalid_span | invalid_score_in |
+  //     protected_form_suppressed | excluded_construct_leakage |
+  //     excluded_duplicate | rejected_other.
+  //   ✓ Cohesion prompt: explicit skip-list of code-covered connectives;
+  //     LLM now focuses on judgement-level cohesion devices.
+  //   ✓ Register prompt: tighter register_lapse definition with anti-examples
+  //     (أول شيء، يعني، الحقيقة، طيب are register-neutral, not lapses).
+  //
+  // Tier 3 / 4 — still pending. See list below.
   // ----------------------------------------------------------------
   // UX / surfacing
   //   • Annotation density will get visually noisy once real Arabic
@@ -3183,6 +3196,7 @@ TOPIC: {TOPIC}
       score_in: score_in || (FAMILY_TO_DIMENSIONS[family] || []),
       verified: null,
       verification_failures: [],
+      rejection_status: null,  // null when verified; enum when rejected (set by verifier)
       version: SCHEMA_VERSION,
       run_id: runId
       // FUTURE traceability: created_at, created_by_stage
@@ -3439,10 +3453,22 @@ Return JSON only:
   }
 
   function annotateRegisterLLM(response, runId) {
-    const prompt = `Identify register issues in this Arabic response. Find:
-- dialect markers (colloquial phrasing where MSA is expected)
-- MSA markers (formal phrasing — worth noting positively)
-- register lapses (informal where formal expected)
+    const prompt = `Identify register findings in this Arabic response. Three subtypes:
+
+1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form (e.g. حسيت، شفت، بعدين، رحت، رحنا). This is the most common finding in dialect-influenced writing.
+
+2. msa_marker — formally correct phrasing worth noting positively as evidence of register awareness (e.g. الأسبوع الماضي used as a written time expression).
+
+3. register_lapse — RESERVE FOR CLEAR cases only. Use ONLY when phrasing is so informal that an MSA writer would clearly avoid it in a written task, AND it is not already a dialect marker.
+
+DO NOT flag as register_lapse:
+- Common semi-neutral spoken discourse markers (e.g. أول شيء، يعني، الحقيقة، طيب). These are register-neutral in narrative writing; leave them alone.
+- Anything already covered by dialect_marker. Pick one subtype per finding — never double-tag the same span with both dialect_marker and register_lapse.
+- Borderline-informal phrasing that doesn't break the MSA register noticeably.
+
+Decision rule: if a span fits both dialect_marker and register_lapse, choose dialect_marker. Register_lapse is reserved for register breakdowns that are NOT primarily about colloquial word choice (e.g. unexpectedly slangy address forms, intrusively casual punctuation, jarringly informal interjections — none of which appear in most narrative responses).
+
+If no register lapses (in the strict sense above) are present, simply do not emit any register_lapse findings. Quality > quantity.
 
 RESPONSE:
 ${response}
@@ -3510,15 +3536,27 @@ Return JSON only:
   }
 
   function annotateCohesionLLM(response, runId) {
-    const prompt = `Identify coherence signals in this Arabic response — beyond simple connectives, look at how ideas link and progress.
+    const prompt = `Identify coherence signals in this Arabic response — focus on how IDEAS LINK AND PROGRESS, not on individual function words.
+
+DO NOT annotate these simple connectives — they are detected deterministically by the code annotator and emitting them again is duplicate work:
+و، ثم، لكن، لذلك، لأن، بسبب، بالإضافة إلى، علاوة على ذلك، من ناحية أخرى، في المقابل، أيضاً، أيضًا، كذلك، إذن، فإن، بينما، حيث، عندما، إذا، لو، كما، مثلاً، مثلًا، أولاً، أولًا، ثانياً، ثانيًا، ثالثاً، ثالثًا، أخيراً، أخيرًا، في النهاية، في الختام، باختصار، إجمالاً.
+
+DO annotate (these require judgement, not lookup):
+- Multi-word transitions that move between ideas (e.g. "من ناحية أخرى" used to pivot an argument)
+- Discourse markers that frame or close a passage (e.g. "الأسبوع الماضي" as a narrative frame-setter)
+- Contrastive pairings that create cohesion ACROSS the whole response
+- Temporal sequences expressed through multi-word phrases (e.g. "بعد العصر", "في الليل")
+- Coherence devices that operate at the paragraph or response level, not the word level
+
+If the only cohesion devices in the response are bare connectives from the skip list above, return { "cohesion_findings": [] }.
 
 RESPONSE:
 ${response}
 
 For each finding return:
-- text: the EXACT phrase or transition word (verbatim)
+- text: the EXACT phrase or transition (verbatim)
 - subtype: "connective" | "transition" | "discourse_marker"
-- note: short English explanation
+- note: short English explanation of how this device contributes to cohesion across the response
 
 Return JSON only:
 { "cohesion_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
@@ -3695,6 +3733,38 @@ Return JSON only:
       a.verified = failures.length === 0;
     });
 
+    // Pass 1.5 — Cross-family construct-leakage suppression (Tier 2).
+    // Currently the only rule we enforce: if a span has BOTH
+    //   register:dialect_marker  AND  accuracy:*
+    // the accuracy annotation is rejected as construct leakage UNLESS
+    //   (a) error_type is in {agreement, conjugation, dual, word_order,
+    //       sentence_formation}, AND
+    //   (b) the note does NOT use the failed-because-it-is-dialect
+    //       justification (i.e. doesn't reference "dialect/colloquial/MSA"
+    //       as the cause of the error).
+    // This catches cases like تعبانين where accuracy is dressing register
+    // up as an agreement error.
+    const dialectMarkerSpans = annotations
+      .filter(a => a.verified && a.family === 'register' && a.type === 'register:dialect_marker')
+      .map(a => a.span);
+    const validGrammarTypes = ['agreement', 'conjugation', 'dual', 'word_order', 'sentence_formation'];
+    const dialectMentionRegex = /\b(colloquial|dialect|dialectal|msa|non[-\s]?msa)\b/i;
+    annotations.forEach(a => {
+      if (!a.verified) return;
+      if (a.family !== 'accuracy') return;
+      if (!a.span || a.span.start < 0) return;
+      const overlaps = dialectMarkerSpans.some(ds => a.span.start < ds.end && ds.start < a.span.end);
+      if (!overlaps) return;
+      const errorType = a.metadata?.error_type;
+      const noteText = String(a.metadata?.note || '');
+      const hasValidGrammarType = validGrammarTypes.includes(errorType);
+      const noteReferencesDialect = dialectMentionRegex.test(noteText);
+      if (!hasValidGrammarType || noteReferencesDialect) {
+        a.verified = false;
+        a.verification_failures.push('construct_leakage:accuracy_overlaps_dialect');
+      }
+    });
+
     // Pass 2 — overlap rules. Same span + same dimension = duplicate; keep first verified, reject the rest.
     // We only enforce this for verified-so-far annotations.
     const byKey = new Map();
@@ -3714,6 +3784,24 @@ Return JSON only:
           a.verification_failures.push('overlap:duplicate_span_dimension');
         });
       }
+    });
+
+    // Pass 3 — compute rejection_status enum from verification_failures.
+    // Verified annotations get null. Rejected annotations get a single status
+    // enum based on the first applicable failure prefix (priority order:
+    // schema → span → score_in → protected_form → construct_leakage → overlap).
+    // verification_failures keeps the detail strings; rejection_status is the
+    // category for filtering and rendering.
+    annotations.forEach(a => {
+      if (a.verified) { a.rejection_status = null; return; }
+      const f = a.verification_failures || [];
+      if (f.some(x => x.startsWith('schema:')))             a.rejection_status = 'invalid_schema';
+      else if (f.some(x => x.startsWith('text_span:')))     a.rejection_status = 'invalid_span';
+      else if (f.some(x => x.startsWith('score_in:')))      a.rejection_status = 'invalid_score_in';
+      else if (f.some(x => x.startsWith('protected_form:'))) a.rejection_status = 'protected_form_suppressed';
+      else if (f.some(x => x.startsWith('construct_leakage:'))) a.rejection_status = 'excluded_construct_leakage';
+      else if (f.some(x => x.startsWith('overlap:')))       a.rejection_status = 'excluded_duplicate';
+      else                                                   a.rejection_status = 'rejected_other';
     });
 
     return annotations;
