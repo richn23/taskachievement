@@ -4956,12 +4956,14 @@ Return JSON only:
         : Math.max(0, Math.round(100 - ((wc - max) / max) * 100));
     }
 
-    const taskReqs   = Array.isArray(taskObj.requirements) ? taskObj.requirements : [];
-    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'requirement');
+    // Tier 4A: task object stores requirements under `task_requirements` (with underscore prefix).
+    // Annotation types use the prefixed form `family:subtype` — match that, not the bare suffix.
+    const taskReqs   = Array.isArray(taskObj.task_requirements) ? taskObj.task_requirements : [];
+    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
     const matchedIds = new Set(claimAnns.map(a => a.metadata && a.metadata.requirement_id).filter(x => x != null));
     const ta_score   = taskReqs.length > 0 ? Math.round((matchedIds.size / taskReqs.length) * 100) : 100;
 
-    const ieAnns   = annotations.filter(a => a.family === 'intelligibility' && a.type === 'issue');
+    const ieAnns   = annotations.filter(a => a.family === 'intelligibility' && a.type === 'intelligibility:issue');
     const ie_score = Math.max(0, 100 - ieAnns.length * 20);
 
     const taW    = sw.task_achievement || { wcc: 40, ta: 48, ie: 12 };
@@ -4983,9 +4985,10 @@ Return JSON only:
     }
 
     // ── Style & Register ─────────────────────────────────────
-    const dialectAnns = annotations.filter(a => a.family === 'register' && a.type === 'dialect_marker');
-    const msaAnns     = annotations.filter(a => a.family === 'register' && a.type === 'msa_marker');
-    const lapseAnns   = annotations.filter(a => a.family === 'register' && a.type === 'register_lapse');
+    // Tier 4A: annotation pipeline emits prefixed types — match register:dialect_marker, not bare 'dialect_marker'.
+    const dialectAnns = annotations.filter(a => a.family === 'register' && a.type === 'register:dialect_marker');
+    const msaAnns     = annotations.filter(a => a.family === 'register' && a.type === 'register:msa_marker');
+    const lapseAnns   = annotations.filter(a => a.family === 'register' && a.type === 'register:register_lapse');
     const totalReg    = dialectAnns.length + msaAnns.length;
     const dialectPct  = totalReg > 0 ? (dialectAnns.length / totalReg) * 100 : 0;
 
@@ -5013,15 +5016,19 @@ Return JSON only:
     ));
 
     // ── Language Range ───────────────────────────────────────
+    // Tier 4A: exclude the lexical_density annotation from the strength-sum by matching the
+    // prefixed type — the previous bare-suffix `!== 'lexical_density'` test was always true
+    // (since 'range:lexical_density' !== 'lexical_density'), so the density annotation was
+    // double-counted into range_raw.
     const STRENGTH_MAP = { modest: 10, clear: 25, strong: 40 };
-    const rangeAnns    = annotations.filter(a => a.family === 'range' && a.type !== 'lexical_density');
+    const rangeAnns    = annotations.filter(a => a.family === 'range' && a.type !== 'range:lexical_density');
     let range_raw = 0;
     for (const ann of rangeAnns) {
       range_raw += STRENGTH_MAP[(ann.metadata && ann.metadata.strength)] || 10;
     }
     range_raw = Math.min(100, range_raw);
 
-    const ldAnn = annotations.find(a => a.family === 'range' && a.type === 'lexical_density');
+    const ldAnn = annotations.find(a => a.family === 'range' && a.type === 'range:lexical_density');
     let lr_dim;
     if (rangeAnns.length === 0 && ldAnn) {
       lr_dim = Math.min(100, Math.round(((ldAnn.metadata && ldAnn.metadata.density) || 0) * 100));
@@ -5055,9 +5062,10 @@ Return JSON only:
     const la_dim  = Math.max(0, Math.round(100 - (accAnns.length / Math.max(wordCount, 1)) * 400));
 
     // ── Orthographic Control ─────────────────────────────────
+    // Tier 4A: match the prefixed types orthography:common_error / :hamza / :alif / :taa_marbuta / :general.
     const orthoAll  = annotations.filter(a => a.family === 'orthography');
-    const orthoCode = orthoAll.filter(a => a.source === 'code' || a.type === 'common_error');
-    const orthoLLM  = orthoAll.filter(a => a.source === 'llm'  || ['hamza','alif','taa_marbuta','general'].includes(a.type));
+    const orthoCode = orthoAll.filter(a => a.source === 'code' || a.type === 'orthography:common_error');
+    const orthoLLM  = orthoAll.filter(a => a.source === 'llm'  || ['orthography:hamza','orthography:alif','orthography:taa_marbuta','orthography:general'].includes(a.type));
 
     const TQ_BAND        = [100, 90, 75, 60, 45, 30];
     const tq_score       = TQ_BAND[Math.min(orthoAll.length,  5)] !== undefined ? TQ_BAND[Math.min(orthoAll.length,  5)] : 20;
