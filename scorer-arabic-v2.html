@@ -4937,6 +4937,444 @@ Return JSON only:
     return '<span class="conf-badge ' + cls + '">' + (conf || 'MEDIUM') + '</span>';
   }
 
+  // ===== Interpretation Engine =====
+  // InterpretationObject schema v0.3.1
+  // Pure — does not mutate inputs.
+  // Phase 3 will wire computeScoreObject to consume dimension_profiles + cap_directives.
+  // In Phase 1+2 the object is produced and stored on the run record for inspection
+  // only — computeScoreObject runs unchanged on the raw verified annotations.
+
+  // Dimension routing — how each dimension handles construct-absence.
+  //   measurable-with-ceiling:       dimension still has signal when the target
+  //                                  construct is absent; apply soft cap.
+  //   unmeasurable-pulled-to-centre: dimension cannot be assessed without the target
+  //                                  construct; pull score to 50, confidence UNMEASURABLE.
+  const DIMENSION_ROUTING = {
+    task_achievement:       'measurable-with-ceiling',
+    content_quality:        'measurable-with-ceiling',
+    style_register:         'measurable-with-ceiling',   // register IS the construct
+    language_range:         'unmeasurable-pulled-to-centre',
+    organisation_coherence: 'measurable-with-ceiling',
+    language_accuracy:      'unmeasurable-pulled-to-centre',
+    orthographic_control:   'measurable-with-ceiling'
+  };
+
+  /*
+   * POLARITY_REGISTRY — canonical mapping from annotation family:type to interpretation.
+   *
+   * polarity      : "positive" | "negative" | "neutral"
+   * applies_to    : dimensions this annotation contributes a signal to
+   * excluded_from : dimensions this annotation must NOT contribute to
+   *                 (construct-purity rule — annotation remains verified and exported;
+   *                  interpretation layer marks it as not counting for those dimensions)
+   *
+   * Canonical annotation types consumed:
+   *   word_count:in_range | word_count:under | word_count:over
+   *   claim:requirement | intelligibility:issue
+   *   cq:requirement_N  — dynamic polarity keyed on metadata.score (see engine)
+   *   register:dialect_marker | register:msa_marker | register:register_lapse
+   *   range:vocabulary | range:morphology | range:sentence_complexity |
+   *     range:descriptive_control | range:elaboration | range:lexical_density
+   *   cohesion:connective | cohesion:transition | cohesion:discourse_marker
+   *   accuracy:agreement | accuracy:conjugation | accuracy:dual |
+   *     accuracy:word_order | accuracy:sentence_formation | accuracy:other
+   *   orthography:hamza | orthography:alif | orthography:taa_marbuta |
+   *     orthography:general | orthography:common_error
+   */
+  const POLARITY_REGISTRY = {
+    // ----- task_achievement -----
+    'word_count:in_range':      { applies_to: ['task_achievement'], polarity: 'positive' },
+    'word_count:under':         { applies_to: ['task_achievement'], polarity: 'negative' },
+    'word_count:over':          { applies_to: ['task_achievement'], polarity: 'negative' },
+    'claim:requirement':        { applies_to: ['task_achievement'], polarity: 'positive' },
+    'intelligibility:issue':    { applies_to: ['task_achievement'], polarity: 'negative' },
+    // ----- content_quality (score-keyed, polarity computed dynamically) -----
+    // cq:requirement_N: score >= 2 → positive; score < 2 → negative; score missing → neutral
+    // ----- style_register -----
+    'register:dialect_marker':  { applies_to: ['style_register'], polarity: 'negative',
+                                   excluded_from: ['language_range','organisation_coherence','language_accuracy'] },
+    'register:msa_marker':      { applies_to: ['style_register'], polarity: 'positive' },
+    'register:register_lapse':  { applies_to: ['style_register'], polarity: 'negative' },
+    // ----- language_range -----
+    'range:vocabulary':          { applies_to: ['language_range'], polarity: 'positive' },
+    'range:morphology':          { applies_to: ['language_range'], polarity: 'positive' },
+    'range:sentence_complexity': { applies_to: ['language_range'], polarity: 'positive' },
+    'range:descriptive_control': { applies_to: ['language_range'], polarity: 'positive' },
+    'range:elaboration':         { applies_to: ['language_range'], polarity: 'positive' },
+    'range:lexical_density':     { applies_to: ['language_range'], polarity: 'neutral' },
+    // ----- organisation_coherence -----
+    'cohesion:connective':       { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    'cohesion:transition':       { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    'cohesion:discourse_marker': { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    // ----- language_accuracy -----
+    'accuracy:agreement':          { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:conjugation':        { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:dual':               { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:word_order':         { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:sentence_formation': { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:other':              { applies_to: ['language_accuracy'], polarity: 'negative' },
+    // ----- orthographic_control -----
+    'orthography:hamza':         { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:alif':          { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:taa_marbuta':   { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:general':       { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:common_error':  { applies_to: ['orthographic_control'], polarity: 'negative' }
+  };
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function _buildInterpReason(ann, reg) {
+    const base = reg.polarity.charAt(0).toUpperCase() + reg.polarity.slice(1) +
+                 ' evidence for ' + (reg.applies_to || []).join(', ') + '.';
+    const excl = reg.excluded_from || [];
+    return excl.length > 0
+      ? base + ' Suppressed from: ' + excl.join(', ') + ' (construct-purity rule).'
+      : base;
+  }
+
+  function _netToStrength(net) {
+    if (net <= -10) return 'very_weak';
+    if (net <= -3)  return 'weak';
+    if (net <= 3)   return 'moderate';
+    if (net <= 10)  return 'strong';
+    return 'very_strong';
+  }
+
+  // ── main function ─────────────────────────────────────────────────────────
+
+  function computeInterpretationObject(verifiedAnnotations, taskObject, response) {
+    const activeAnns   = (verifiedAnnotations || []).filter(a => a.verified !== false);
+    const responseText = response || (taskObject && taskObject.response) || '';
+    const runId        = (activeAnns[0] && activeAnns[0].run_id)  || null;
+    const taskId       = (taskObject && taskObject.task_id)        || null;
+
+    // ── 1. global_profile ─────────────────────────────────────────────────
+    const wcAnn      = activeAnns.find(a => a.family === 'word_count');
+    const word_count = wcAnn
+      ? ((wcAnn.metadata && wcAnn.metadata.word_count) || 0)
+      : countWords(responseText);
+
+    const dialectAnns       = activeAnns.filter(a => a.family === 'register' && a.type === 'dialect_marker');
+    const msaAnns           = activeAnns.filter(a => a.family === 'register' && a.type === 'msa_marker');
+    const dialect_marker_count = dialectAnns.length;
+    const msa_marker_count     = msaAnns.length;
+    const dialect_density      = word_count > 0 ? dialect_marker_count / word_count : 0;
+    const msa_evidence_density = word_count > 0 ? msa_marker_count     / word_count : 0;
+
+    const dominant_register =
+      dialect_density >= 0.10 ? 'dialect_dominant' :
+      dialect_density >= 0.03 ? 'mixed' : 'msa_dominant';
+
+    // construct_attempt_score formula
+    // formal_subordinators: الذي (الذي)، التي (التي)،
+    //   إذا (إذا)، لو (لو)، أن (أن)،
+    //   لكي (لكي)، حيث (حيث)
+    const _FORMAL_SUBS = [
+      'الذي', 'التي', 'إذا',
+      'لو', 'أن', 'لكي', 'حيث'
+    ];
+    let formal_subordinator_count = 0;
+    for (const sub of _FORMAL_SUBS) {
+      let pos = 0;
+      while ((pos = responseText.indexOf(sub, pos)) !== -1) {
+        formal_subordinator_count++;
+        pos += sub.length;
+      }
+    }
+
+    /* KNOWN UNDERCOUNT v0.3: the تُ (taa+damma) regex catches first-person-singular
+     * past only. Plural and dual past forms (ذهبنا،
+     * كتبوا، رجعتم،
+     * ذهبا) are not detected.
+     * v0.4 work to add comprehensive verb-form detection. */
+    const _msa_past_re = /[ع-ي]+تُ/gu;
+    const msa_past_tense_count = (responseText.match(_msa_past_re) || []).length;
+
+    // formal_lexis_count: LLM-identified range:vocabulary annotations
+    const formal_lexis_count = activeAnns.filter(
+      a => a.family === 'range' && a.type === 'vocabulary'
+    ).length;
+
+    let construct_attempt_score =
+        (msa_marker_count          * 8)
+      + (formal_subordinator_count * 6)
+      + (msa_past_tense_count      * 4)
+      + (formal_lexis_count        * 3);
+    construct_attempt_score = Math.min(100, construct_attempt_score);
+
+    const construct_avoidance = construct_attempt_score < 20;
+    const register_tainted    = dialect_density >= 0.10;
+
+    const global_profile = {
+      word_count,
+      target_register:        'formal_msa',
+      dominant_register,
+      dialect_marker_count,
+      msa_marker_count,
+      dialect_density:        Math.round(dialect_density       * 10000) / 10000,
+      msa_evidence_density:   Math.round(msa_evidence_density  * 10000) / 10000,
+      construct_attempt_score,
+      construct_avoidance,
+      register_tainted
+    };
+
+    // ── 2. dimension_profiles + interpreted_annotations ───────────────────
+    const DIMS = [
+      'task_achievement', 'content_quality', 'style_register', 'language_range',
+      'organisation_coherence', 'language_accuracy', 'orthographic_control'
+    ];
+
+    const dp = {};
+    for (const dim of DIMS) {
+      dp[dim] = {
+        positive_evidence_count:   0,
+        negative_evidence_count:   0,
+        neutral_evidence_count:    0,
+        usable_evidence_count:     0,
+        suppressed_evidence_count: 0,
+        raw_signal:                0,
+        interpreted_strength:      'moderate',
+        confidence:                'MEDIUM',
+        notes:                     []
+      };
+    }
+
+    const interpreted_annotations = [];
+
+    for (const ann of activeAnns) {
+      const key = ann.family + ':' + ann.type;
+
+      // ── cq: family — dynamic polarity from metadata.score ──
+      if (ann.family === 'cq') {
+        const score   = (ann.metadata && ann.metadata.score != null) ? ann.metadata.score : null;
+        const polarity = score == null ? 'neutral' : score >= 2 ? 'positive' : 'negative';
+        if (polarity === 'positive')  { dp.content_quality.positive_evidence_count++; dp.content_quality.raw_signal++; }
+        else if (polarity === 'negative') { dp.content_quality.negative_evidence_count++; dp.content_quality.raw_signal--; }
+        else                          { dp.content_quality.neutral_evidence_count++; }
+        dp.content_quality.usable_evidence_count++;
+        interpreted_annotations.push({
+          annotation_id:  ann.id || null,
+          family:         'cq',
+          type:           ann.type,
+          text:           ann.text || '',
+          interpreted_as: polarity + '_cq_evidence',
+          polarity,
+          applies_to:     ['content_quality'],
+          excluded_from:  [],
+          reason: 'CQ requirement score ' + score + ': '
+            + (polarity === 'positive' ? 'developed or extended (2-3).'
+               : polarity === 'negative' ? 'absent or mentioned only (0-1).'
+               : 'score missing — treated as neutral.')
+        });
+        continue;
+      }
+
+      // ── word_count family — polarity derived from metadata.in_range ──
+      if (ann.family === 'word_count') {
+        const inRange = ann.metadata && ann.metadata.in_range;
+        const wc      = ann.metadata && ann.metadata.word_count;
+        const min     = ann.metadata && ann.metadata.min || 0;
+        const wKey    = inRange         ? 'word_count:in_range'
+                      : (wc < min)      ? 'word_count:under'
+                      :                   'word_count:over';
+        const reg = POLARITY_REGISTRY[wKey];
+        if (reg) {
+          if (reg.polarity === 'positive') { dp.task_achievement.positive_evidence_count++; dp.task_achievement.raw_signal++; }
+          else                             { dp.task_achievement.negative_evidence_count++; dp.task_achievement.raw_signal--; }
+          dp.task_achievement.usable_evidence_count++;
+          interpreted_annotations.push({
+            annotation_id: ann.id || null, family: 'word_count', type: ann.type, text: ann.text || '',
+            interpreted_as: reg.polarity + '_task_evidence', polarity: reg.polarity,
+            applies_to: ['task_achievement'], excluded_from: [],
+            reason: 'Word count ' + wc + (inRange ? ' is within target range.' : ' is outside target range (' + wKey.replace('word_count:', '') + ').')
+          });
+        }
+        continue;
+      }
+
+      // ── standard registry lookup ──────────────────────────────────────
+      const reg = POLARITY_REGISTRY[key];
+      if (!reg) {
+        interpreted_annotations.push({
+          annotation_id: ann.id || null, family: ann.family, type: ann.type, text: ann.text || '',
+          interpreted_as: 'neutral_diagnostic', polarity: 'neutral',
+          applies_to: [], excluded_from: [],
+          reason: 'Annotation type '' + key + '' not in polarity registry — recorded as neutral diagnostic.'
+        });
+        continue;
+      }
+
+      const applies = reg.applies_to || [];
+      const excl    = reg.excluded_from || [];
+
+      for (const dim of applies) {
+        if (reg.polarity === 'positive')  { dp[dim].positive_evidence_count++; dp[dim].raw_signal++; }
+        else if (reg.polarity === 'negative') { dp[dim].negative_evidence_count++; dp[dim].raw_signal--; }
+        else                              { dp[dim].neutral_evidence_count++; }
+        dp[dim].usable_evidence_count++;
+      }
+      for (const dim of excl) {
+        dp[dim].suppressed_evidence_count++;
+      }
+
+      const interpretedAs = excl.length > 0
+        ? 'suppressed_' + ann.family + '_evidence'
+        : reg.polarity + '_' + ann.family + '_evidence';
+
+      interpreted_annotations.push({
+        annotation_id: ann.id || null, family: ann.family, type: ann.type, text: ann.text || '',
+        interpreted_as: interpretedAs, polarity: reg.polarity,
+        applies_to: applies, excluded_from: excl,
+        reason: _buildInterpReason(ann, reg)
+      });
+    }
+
+    // ── Derive interpreted_strength and default confidence ─────────────────
+    for (const dim of DIMS) {
+      const d     = dp[dim];
+      const route = DIMENSION_ROUTING[dim];
+      if (d.usable_evidence_count === 0) {
+        if (route === 'unmeasurable-pulled-to-centre') {
+          d.interpreted_strength = 'unmeasurable';
+          d.confidence           = 'UNMEASURABLE';
+          d.notes.push('No usable evidence — routed to unmeasurable-pulled-to-centre; score will be pulled to 50.');
+        } else {
+          d.interpreted_strength = 'moderate';
+          d.confidence           = 'MEDIUM';
+          d.notes.push('No negative evidence found. Absence is positive signal (measurable-with-ceiling route).');
+        }
+      } else {
+        d.interpreted_strength = _netToStrength(d.raw_signal);
+        d.confidence           = 'MEDIUM';
+      }
+    }
+
+    // ── 3. cap_directives ─────────────────────────────────────────────────
+    const cap_directives = [];
+
+    if (global_profile.dialect_density >= 0.10) {
+      cap_directives.push({
+        dimension: 'language_range', cap: 50,
+        trigger: 'dialect_density >= 0.10', trigger_value: global_profile.dialect_density,
+        reason_code: 'dialect_dominant',
+        reason: 'Response is dialect-dominant. MSA range cannot be confidently scored above mid-band.',
+        active: true
+      });
+      cap_directives.push({
+        dimension: 'language_accuracy', cap: 60,
+        trigger: 'dialect_density >= 0.10', trigger_value: global_profile.dialect_density,
+        reason_code: 'dialect_dominant',
+        reason: 'Response is dialect-dominant. Formal MSA accuracy cannot be confidently rated above mid-band.',
+        active: true
+      });
+      cap_directives.push({
+        dimension: 'orthographic_control', cap: 85,
+        trigger: 'dialect_density >= 0.10', trigger_value: global_profile.dialect_density,
+        reason_code: 'limited_advanced_orthographic_evidence',
+        reason: 'Dialect-dominant response — basic orthography (taa marbuta, alif, hamza on common words) is assessable and clean, but no advanced MSA-specific orthographic evidence (rare hamza forms, classical morphology spelling) is available. Soft cap applied.',
+        active: true
+      });
+    }
+
+    if (global_profile.construct_attempt_score < 20) {
+      cap_directives.push({
+        dimension: 'language_range', cap: 30,
+        trigger: 'construct_attempt_score < 20', trigger_value: global_profile.construct_attempt_score,
+        reason_code: 'construct_avoidance',
+        reason: 'Near-zero MSA construct attempts detected. Range score floored to lower band.',
+        active: true
+      });
+      cap_directives.push({
+        dimension: 'language_accuracy', cap: 40,
+        trigger: 'construct_attempt_score < 20', trigger_value: global_profile.construct_attempt_score,
+        reason_code: 'construct_avoidance',
+        reason: 'Near-zero MSA construct attempts detected. Accuracy score floored to lower band.',
+        active: true
+      });
+    }
+
+    // ── 4. confidence_directives ──────────────────────────────────────────
+    const confidence_directives = [];
+
+    if (global_profile.construct_attempt_score < 20) {
+      confidence_directives.push({
+        dimension:   'language_accuracy',
+        confidence:  'LOW',
+        reason_code: 'insufficient_target_register_attempt',
+        reason: 'Near-zero MSA construct attempts. Accuracy evidence is insufficient for reliable scoring.'
+      });
+      dp.language_accuracy.confidence = 'LOW';
+    }
+
+    if (global_profile.dialect_density >= 0.10) {
+      confidence_directives.push({
+        dimension:   'language_range',
+        confidence:  'LOW',
+        reason_code: 'register_tainted_evidence',
+        reason: 'Dialect-dominant response. Range evidence is tainted — MSA range cannot be reliably scored.'
+      });
+      dp.language_range.confidence = 'LOW';
+    }
+
+    // Emit UNMEASURABLE confidence_directive for any dimension already flagged
+    for (const dim of DIMS) {
+      if (dp[dim].confidence === 'UNMEASURABLE') {
+        confidence_directives.push({
+          dimension:   dim,
+          confidence:  'UNMEASURABLE',
+          reason_code: 'no_measurable_evidence',
+          reason: 'No usable evidence and dimension routing is unmeasurable-pulled-to-centre.'
+        });
+      }
+    }
+
+    // ── 5. interpretation_flags ───────────────────────────────────────────
+    const interpretation_flags = [];
+
+    if (global_profile.register_tainted) {
+      interpretation_flags.push({
+        flag:        'dialect_dominant_response',
+        severity:    'high',
+        description: 'Dialect markers are frequent enough to classify the response as dialect-dominant. Multiple cap and confidence directives active.'
+      });
+    }
+    if (global_profile.construct_avoidance) {
+      interpretation_flags.push({
+        flag:        'construct_avoidance',
+        severity:    'high',
+        description: 'Construct attempt score below threshold. Response shows near-zero MSA structure attempts.'
+      });
+    }
+
+    // ── 6. assemble ───────────────────────────────────────────────────────
+    return {
+      schema_version: 'v0.3.1',
+      run_id:  runId,
+      task_id: taskId,
+      source_objects: {
+        verified_annotation_object_id: runId,
+        task_object_id:                taskId
+      },
+      global_profile,
+      dimension_profiles: {
+        task_achievement:       dp.task_achievement,
+        content_quality:        dp.content_quality,
+        style_register:         dp.style_register,
+        language_range:         dp.language_range,
+        organisation_coherence: dp.organisation_coherence,
+        language_accuracy:      dp.language_accuracy,
+        orthographic_control:   dp.orthographic_control
+      },
+      interpreted_annotations,
+      cap_directives,
+      confidence_directives,
+      interpretation_flags,
+      interpretation_log: []    // empty in v0.3; structure reserved for v0.4
+    };
+  }
+
+  // ===== End Interpretation Engine =====
+
   // ===== Scoring engine =====
 
   function computeScoreObject(annotations, taskObj, calibConfig) {
@@ -5366,6 +5804,9 @@ Return JSON only:
           verifiedCount + ' verified' + (failedCount > 0 ? ', ' + failedCount + ' failed' : ''));
       }
 
+      // Interpretation engine (Phase 1+2 — stored on run record for inspection)
+      const interpretObj = computeInterpretationObject(allAnnotations, taskObj, response);
+
       // Stage 4: Score
       setRun9Stage('score', 'running', '');
       const scoreObj = computeScoreObject(allAnnotations, taskObj, calibCfg);
@@ -5387,10 +5828,11 @@ Return JSON only:
         calibration_config: JSON.parse(JSON.stringify(calibCfg)),
         guardrail_config:   JSON.parse(JSON.stringify(grCfg)),
         response,
-        annotations:        allAnnotations,
-        score_object:       scoreObj,
-        guardrail_object:   guardrailObj,
-        feedback_paragraph: buildFeedbackParagraph(scoreObj, guardrailObj)
+        annotations:          allAnnotations,
+        interpretation_object: interpretObj,
+        score_object:          scoreObj,
+        guardrail_object:      guardrailObj,
+        feedback_paragraph:    buildFeedbackParagraph(scoreObj, guardrailObj)
       };
 
       state.runHistory.unshift(result);
@@ -5567,7 +6009,16 @@ Return JSON only:
           '<button id="btn_t10_export_csv"  class="btn secondary">Export CSV</button>' +
           '<button id="btn_t10_run_again"   class="btn secondary">Run again \u2192</button>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      (run.interpretation_object
+        ? '<details style="margin-top:12px;">'
+          + '<summary style="cursor:pointer; font-size:.85rem; color:var(--muted); padding:4px 0; user-select:none;">'
+          + 'Interpretation profile (raw)</summary>'
+          + '<pre style="font-size:.75rem; line-height:1.5; overflow:auto; max-height:400px; '
+          + 'background:var(--primary-soft-2); padding:12px; border-radius:6px; margin-top:6px; white-space:pre-wrap;">'
+          + JSON.stringify(run.interpretation_object, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          + '</pre></details>'
+        : '');
 
     // Bind run selector
     const sel = document.getElementById('tab10_run_selector');
