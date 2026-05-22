@@ -871,6 +871,180 @@
   .family-pill.f-cohesion      { background: #ecfeff; color: #155e75; }
   .family-pill.f-accuracy      { background: #fee2e2; color: #991b1b; }
   .family-pill.f-orthography   { background: #fff7ed; color: #9a3412; }
+
+  /* ================================================================ */
+  /* Tab 5 / 6 / 7 styles                                              */
+  /* ================================================================ */
+
+  /* Pipeline flow strip */
+  .pipeline-flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 16px 0 22px;
+    padding: 14px 18px;
+    background: var(--primary-soft-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .pipeline-flow .pf-stage {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .pipeline-flow .pf-arrow {
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* Dimension grid (Tab 5) */
+  .dim-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 16px 0 22px;
+  }
+  @media (max-width: 720px) {
+    .dim-grid { grid-template-columns: 1fr; }
+  }
+  .dim-card {
+    background: var(--primary-soft-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .dim-card .dim-name {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .dim-card .dim-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .dim-card .dim-meta {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .dim-card .dim-families {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* Calibration weight rows (Tab 6) */
+  .cal-weight-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cal-weight-row:last-of-type { border-bottom: none; }
+  .cal-weight-label {
+    flex: 1;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .cal-weight-input {
+    width: 82px;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    text-align: right;
+  }
+  .cal-weight-unit {
+    font-size: 12px;
+    color: var(--muted);
+    width: 18px;
+  }
+  .cal-total-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0 4px;
+    border-top: 2px solid var(--border-strong);
+    margin-top: 4px;
+    font-weight: 700;
+    font-size: 13.5px;
+  }
+  .cal-total-value {
+    font-size: 14px;
+    font-weight: 800;
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .cal-total-value.valid   { background: #dcfce7; color: #166534; }
+  .cal-total-value.invalid { background: #fee2e2; color: #991b1b; }
+
+  /* Sub-metric details panels */
+  details.sub-weights-detail {
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  details.sub-weights-detail summary {
+    padding: 10px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--primary-soft-2);
+    list-style: none;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  details.sub-weights-detail summary::-webkit-details-marker { display: none; }
+  details.sub-weights-detail summary::after {
+    content: '\203A';
+    font-size: 18px;
+    transition: transform 0.2s;
+    color: var(--muted);
+    line-height: 1;
+  }
+  details.sub-weights-detail[open] summary::after { transform: rotate(90deg); }
+  details.sub-weights-detail .sub-weights-body { padding: 10px 14px; }
+
+  /* Calibration action buttons row */
+  .cal-action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+    align-items: center;
+  }
+
+  /* Secondary button (calibration + other tabs) */
+  button.secondary {
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button.secondary:hover { background: var(--primary-soft-2); border-color: var(--primary); color: var(--primary-hover); }
 </style>
 </head>
 <body>
@@ -1454,26 +1628,343 @@
   </div>
 
   <div class="view" id="view-tab5">
-    <div class="stub-card">
-      <div class="stub-badge">Planned</div>
-      <h2>Tab 5 — Scoring Info</h2>
-      <p>Read-only explainer of the seven scoring dimensions and the pipeline stages.</p>
+    <div class="card">
+      <h2>Scoring Info</h2>
+      <div class="hint">How the pipeline turns annotations into dimension scores and an Overall Score. This tab is read-only — configuration lives in <strong>Tab 6 (Calibration)</strong>.</div>
+
+      <h3>Pipeline stages</h3>
+      <div class="pipeline-flow">
+        <span class="pf-stage">Task Object</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">Code Annotations</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">LLM Annotations</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">Verifier</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">Scoring Engine</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">Guardrails</span>
+        <span class="pf-arrow">›</span>
+        <span class="pf-stage">Results</span>
+      </div>
+
+      <h3>Seven scoring dimensions</h3>
+      <div class="dim-grid">
+
+        <div class="dim-card">
+          <div class="dim-name">1 · Task Achievement</div>
+          <div class="dim-desc">Does the response do what was asked — right length, right content, communicative effect?</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; Sub-metrics: WCC × 0.40 + TA × 0.48 + IE × 0.12</div>
+          <div class="dim-families">
+            <span class="family-pill f-word_count">word_count</span>
+            <span class="family-pill f-claim">claim:</span>
+            <span class="family-pill f-intelligibility">intelligibility:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">2 · Content Quality</div>
+          <div class="dim-desc">How well are requirements developed? Each requirement scored 0–3 (absent / mentioned / developed / extended). Evidence consumed once per requirement.</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; Single LLM score 0–100</div>
+          <div class="dim-families">
+            <span class="family-pill f-cq">cq:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">3 · Style &amp; Register</div>
+          <div class="dim-desc">Is the language formal and appropriate for MSA? Composite of MSA Consistency (LLM) and Dialect Detection (severity-mapped score).</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; MSA × 0.70 + Dialect × 0.30</div>
+          <div class="dim-families">
+            <span class="family-pill f-register">register:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">4 · Language Range</div>
+          <div class="dim-desc">Variety and sophistication of vocabulary, Arabic morphology (verb patterns, broken plurals, masdar, participles), and sentence structure.</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; Equal-weight mean of 3 sub-metrics</div>
+          <div class="dim-families">
+            <span class="family-pill f-range">range:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">5 · Organisation &amp; Coherence</div>
+          <div class="dim-desc">Logical flow, paragraph structure, idea linking. Hybrid: deterministic connective scan (~40 Arabic connectives) + LLM holistic judgement.</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; Cohesive Devices × 0.30 + Coherence &amp; Flow × 0.70</div>
+          <div class="dim-families">
+            <span class="family-pill f-cohesion">cohesion:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">6 · Language Accuracy</div>
+          <div class="dim-desc">Grammar correctness: agreement (human vs non-human plural, dual form), verb conjugation, sentence construction. Missing case endings are not errors.</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; Single LLM score 0–100</div>
+          <div class="dim-families">
+            <span class="family-pill f-accuracy">accuracy:</span>
+          </div>
+        </div>
+
+        <div class="dim-card">
+          <div class="dim-name">7 · Orthographic Control</div>
+          <div class="dim-desc">Script correctness: hamza, alif forms, taa marbuta, general spelling. Hybrid: curated-list scan (confidence-tiered) + LLM scope-locked judgement. 10-word floor.</div>
+          <div class="dim-meta">Default weight: ~14.3% &nbsp;·&nbsp; TQ × 0.10 + CED × 0.40 + LLM × 0.50 (with det. ceiling 88/96)</div>
+          <div class="dim-families">
+            <span class="family-pill f-orthography">orthography:</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="callout">
+        <strong>Scoring vs Guardrails</strong><br>
+        Scoring derives numbers from annotations. Guardrails are governance — they assess whether those numbers can be trusted, flag anomalies, and decide whether human review is needed. They are separate stages for a reason: a score can be technically correct and still require moderation.
+      </div>
+
+      <div class="callout info" style="margin-top: 12px;">
+        <strong>Calibration</strong><br>
+        All dimension weights and sub-metric weights shown above are defaults. They are adjustable in <strong>Tab 6 (Scoring Calibration)</strong> and persist in <code>state.calibrationConfig</code> for the current session.
+      </div>
     </div>
   </div>
 
   <div class="view" id="view-tab6">
-    <div class="stub-card">
-      <div class="stub-badge">Planned</div>
-      <h2>Tab 6 — Scoring Calibration</h2>
-      <p>Configures dimension weights, sub-metric weights, and dialect treatment.</p>
+
+    <!-- Card 1: Dimension weights -->
+    <div class="card">
+      <h2>Dimension Weights</h2>
+      <div class="hint">Set the percentage contribution of each dimension to the Overall Score. Must sum to exactly 100%.</div>
+      <div id="dim-weight-rows">
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">1 · Task Achievement</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_task_achievement"       min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">2 · Content Quality</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_content_quality"        min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">3 · Style &amp; Register</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_style_register"         min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">4 · Language Range</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_language_range"         min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">5 · Organisation &amp; Coherence</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_organisation_coherence" min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">6 · Language Accuracy</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_language_accuracy"      min="0" max="100" step="0.01" value="14.29" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+        <div class="cal-weight-row">
+          <span class="cal-weight-label">7 · Orthographic Control</span>
+          <input type="number" class="cal-weight-input dim-w-input" id="dw_orthographic_control"   min="0" max="100" step="0.01" value="14.26" />
+          <span class="cal-weight-unit">%</span>
+        </div>
+      </div>
+      <div class="cal-total-row">
+        <span>Total</span>
+        <span class="cal-total-value valid" id="cal_dim_total">100.02%</span>
+      </div>
+      <div style="margin-top: 12px;">
+        <button class="secondary" id="btn_cal_reset_dim">Reset to equal weights</button>
+      </div>
+      <div id="cal_dim_error" style="color: var(--danger); font-size: 12.5px; margin-top: 8px; display: none;"></div>
     </div>
+
+    <!-- Card 2: Sub-metric weights -->
+    <div class="card">
+      <h2>Sub-metric Weights</h2>
+      <div class="hint">Within each composite dimension, set how its sub-metrics combine. Each group must sum to 100.</div>
+
+      <details class="sub-weights-detail">
+        <summary>Task Achievement sub-metrics</summary>
+        <div class="sub-weights-body">
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Word Count Compliance (WCC)</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_wcc"   min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Task Requirements (TA)</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ta"    min="0" max="100" step="0.1" value="48" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Intelligibility &amp; Effect (IE)</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ie"    min="0" max="100" step="0.1" value="12" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_ta">100.0%</span></div>
+          <div id="sub_err_ta" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
+        </div>
+      </details>
+
+      <details class="sub-weights-detail">
+        <summary>Style &amp; Register sub-metrics</summary>
+        <div class="sub-weights-body">
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">MSA Consistency</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="sr" id="sw_sr_msa"    min="0" max="100" step="0.1" value="60" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Dialect Detection</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="sr" id="sw_sr_dialect" min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_sr">100.0%</span></div>
+          <div id="sub_err_sr" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
+        </div>
+      </details>
+
+      <details class="sub-weights-detail">
+        <summary>Organisation &amp; Coherence sub-metrics</summary>
+        <div class="sub-weights-body">
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Cohesive Devices</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_cohesive" min="0" max="100" step="0.1" value="50" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Coherence &amp; Flow</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_flow"     min="0" max="100" step="0.1" value="50" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_oc">100.0%</span></div>
+          <div id="sub_err_oc" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
+        </div>
+      </details>
+
+      <details class="sub-weights-detail">
+        <summary>Orthographic Control sub-metrics</summary>
+        <div class="sub-weights-body">
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Technical Quality</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_tq"  min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">Common Error Detection</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_ced" min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-weight-row">
+            <span class="cal-weight-label">LLM Orthographic Accuracy</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_llm" min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
+          </div>
+          <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_ortho">100.0%</span></div>
+          <div id="sub_err_ortho" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
+        </div>
+      </details>
+    </div>
+
+    <!-- Card 3: Dialect configuration -->
+    <div class="card">
+      <h2>Dialect Configuration</h2>
+      <div class="hint">Controls how dialect presence is treated when scoring Style &amp; Register. Dialect is always flagged — this setting controls the penalty severity.</div>
+      <div class="field" style="margin-bottom: 16px;">
+        <label for="cal_dialect_treatment" style="display: block; font-weight: 600; margin-bottom: 6px;">Dialect treatment</label>
+        <select id="cal_dialect_treatment" style="width: 100%; max-width: 360px; padding: 8px 10px; font-size: 13px; border: 1px solid var(--border-strong); border-radius: 6px;">
+          <option value="formal_msa_penalise" selected>Formal MSA (penalise dialect)</option>
+          <option value="mixed_register_allow">Mixed-register (allow)</option>
+          <option value="dialect_allowed_no_penalty">Dialect-allowed (no penalty)</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+        <div class="field">
+          <label for="cal_dialect_isolated" style="display: block; font-weight: 600; margin-bottom: 6px;">Isolated threshold <span style="font-weight: 400; color: var(--muted);">(% of sentences)</span></label>
+          <input type="number" id="cal_dialect_isolated" style="width: 90px; padding: 7px 10px; font-size: 13px; border: 1px solid var(--border-strong); border-radius: 6px;" min="0" max="100" step="1" value="5" />
+        </div>
+        <div class="field">
+          <label for="cal_dialect_moderate" style="display: block; font-weight: 600; margin-bottom: 6px;">Moderate threshold <span style="font-weight: 400; color: var(--muted);">(% of sentences)</span></label>
+          <input type="number" id="cal_dialect_moderate" style="width: 90px; padding: 7px 10px; font-size: 13px; border: 1px solid var(--border-strong); border-radius: 6px;" min="0" max="100" step="1" value="15" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Actions -->
+    <div class="card">
+      <h2>Save &amp; Export</h2>
+      <div class="hint">Save applies the calibration to <code>state.calibrationConfig</code> and unlocks Tab 9 (once Tab 8 is also saved). Export downloads a JSON snapshot. Import populates inputs — you must Save to apply.</div>
+      <div id="cal_save_error" style="color: var(--danger); font-size: 12.5px; margin-bottom: 10px; display: none;"></div>
+      <div class="cal-action-row">
+        <button class="primary" id="btn_cal_save">Save calibration</button>
+        <button class="secondary" id="btn_cal_export">Export JSON</button>
+        <button class="secondary" id="btn_cal_import_trigger">Import JSON</button>
+        <button class="secondary" id="btn_cal_reset_all">Reset to defaults</button>
+      </div>
+      <input type="file" id="cal_import_file" accept=".json" style="display: none;" />
+      <div id="cal_save_status" style="margin-top: 10px; font-size: 12.5px; color: var(--success); display: none;">✓ Calibration saved and active.</div>
+    </div>
+
   </div>
 
   <div class="view" id="view-tab7">
-    <div class="stub-card">
-      <div class="stub-badge">Planned</div>
-      <h2>Tab 7 — Guardrails Info</h2>
-      <p>Read-only explainer: guardrails are governance, not scoring.</p>
+    <div class="card">
+      <h2>Guardrails Info</h2>
+      <div class="hint">Guardrails are governance, not scoring. Read about what they check and why they’re architecturally separate. Configuration lives in <strong>Tab 8 (Apply Guardrails)</strong>.</div>
+
+      <p>Guardrails are not scoring. They are governance. A score can be technically correct and still be untrustworthy — too extreme, internally contradictory, or based on too little verified evidence. Guardrails surface these signals. <strong>They do not change scores. They flag them.</strong></p>
+
+      <h3>What guardrails check</h3>
+      <table class="data-table wide">
+        <thead>
+          <tr><th>Guardrail</th><th>What it checks</th><th>Signal produced</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term">Confidence bands</td>
+            <td>Response length below floor, verifier failures after retry, deterministic–LLM disagreement on Orthographic Control (&gt;25 pts), Cohesive Devices–Coherence&amp;Flow disagreement (&gt;30 pts), orthographic ceiling applied</td>
+            <td><code>LOW</code> / <code>MEDIUM</code> / <code>HIGH</code> chip per dimension + overall</td>
+          </tr>
+          <tr>
+            <td class="term">Extreme-score trigger</td>
+            <td>Overall ≥90 or ≤25; any single dimension ≥95 or ≤15</td>
+            <td>⚠ Moderation chip — score is in a range that warrants a second pair of eyes before recording</td>
+          </tr>
+          <tr>
+            <td class="term">Cross-dimension contradiction checker</td>
+            <td>Nine rules: 5 inter-dimension score comparisons + 4 annotation-style cross-checks comparing a dimension’s score against its own observed error data</td>
+            <td>⚠ Cross-dim review chip per firing rule (named)</td>
+          </tr>
+          <tr>
+            <td class="term">Dialect saturation %</td>
+            <td>% of sentences carrying at least one detected dialect marker, alongside the LLM severity classification</td>
+            <td>Saturation % shown in Dialect Influence row — lets moderators spot LLM severity vs observed frequency disagreements</td>
+          </tr>
+          <tr>
+            <td class="term">Evidence density caps</td>
+            <td>CQ score band vs verified evidence length: 3/3 needs ≥12-word verified quote or ≥15 words total; 2/3 needs ≥6-word quote</td>
+            <td>Score capped to highest supportable band; original LLM score preserved in <code>_original_score</code> audit field</td>
+          </tr>
+          <tr>
+            <td class="term">No-evidence enforcement</td>
+            <td>Non-zero CQ score with empty evidence array; TA PASS with empty evidence field</td>
+            <td>Score forced to 0 / FAIL; original preserved in audit fields</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>What guardrails do not do</strong><br>
+        They do not change scores (beyond the bounded adjustments in Evidence Density Caps and No-Evidence Enforcement, both of which preserve originals in audit fields). They do not make decisions. They do not replace human review.<br>
+        They surface signals — a human moderator acts on them.
+      </div>
+
+      <h3>Why governance is separate from scoring</h3>
+      <p>The architectural separation is deliberate and reflects two different kinds of concern.</p>
+      <p>Scoring must be <strong>reproducible and auditable</strong>: given the same annotations and the same calibration config, it must produce the same numbers every time. That requires scoring to depend only on those two inputs — nothing else. Introducing governance logic into the scoring stage would compromise reproducibility, because governance considers signals (LLM confidence, calibration history, moderation policy, deployment context) that should not affect the number itself.</p>
+      <p>Governance, on the other hand, must be able to consider <strong>context that scoring cannot see</strong>: calibration drift over time, model behaviour anomalies, moderation policy for the specific deployment, and the risk profile of the decision being made (formative feedback vs. high-stakes exam). Mixing these into the scoring formula would quietly corrupt the score’s meaning and make calibration harder, not easier.</p>
+      <p>Keeping them separate means each layer can evolve independently. The scoring engine can be updated for accuracy without touching the governance rules. The governance rules can be tightened for a high-stakes deployment without changing what the scores mean.</p>
+
+      <div class="callout info">
+        <strong>V1 guardrails already live in scorer-arabic.html</strong><br>
+        The six V1 guardrails (confidence bands, extreme-score moderation, cross-dim contradictions, dialect saturation %, evidence density caps, no-evidence enforcement) are implemented in the V1 scorer. This tab describes how they will be wired into the V2 annotation-first pipeline once Tab 8 (Apply Guardrails) and Tab 9 (Run Pipeline) are built.
+      </div>
     </div>
   </div>
 
@@ -2579,6 +3070,15 @@ TOPIC: {TOPIC}
   //
   // KNOWN LIMITATIONS / V2.1 FOLLOW-UPS  (review notes — Richard, May 2026)
   // ----------------------------------------------------------------
+  // Tier 1 fixes applied (May 22, 2026):
+  //   ✓ Protected-form check rewritten as span-intersection (was substring).
+  //   ✓ Orthography prompt: written-form only, strict scope.
+  //   ✓ Accuracy prompt: exclude dialect-only items; word_order + sentence_formation added.
+  //   ✓ Range prompt: rewritten positive-evidence led; explicitly forbids
+  //     treating dialect/colloquial features as range weakness.
+  //
+  // Tier 2 / 3 / 4 — still pending. See list below.
+  // ----------------------------------------------------------------
   // UX / surfacing
   //   • Annotation density will get visually noisy once real Arabic
   //     responses run — esp. orthography / accuracy / cohesion / cq.
@@ -2964,23 +3464,47 @@ Return JSON only:
   }
 
   function annotateRangeLLM(response, runId) {
-    const prompt = `Identify range markers in this Arabic response — places where the writer demonstrates vocabulary, morphology, or sentence complexity.
+    const prompt = `Identify POSITIVE EVIDENCE of Language Range in this Arabic response.
+
+Language Range = HOW VARIED, BROAD, OR SOPHISTICATED is the language used?
+This is NOT about formality (Register handles that) or correctness (Accuracy handles that).
+Dialectal language can still show strong range. Formal language can still show weak range. Do not conflate.
+
+Annotate evidence across these subtypes:
+- vocabulary: lexical variety — uncommon precise words, varied semantic fields, descriptive choices, idiomatic expressions. Variety counts regardless of whether the words are MSA or dialect.
+- morphology: morphological variety — different verb patterns/forms across the response, derived nouns, broken vs sound plurals, varied participles. Variety of FORMS = range. ERRORS in forms are NOT range — they are accuracy.
+- sentence_complexity: structural variety — subordinate clauses, relative clauses with الذي/التي, conditionals with إذا/لو, varied sentence length, varied sentence types (nominal/verbal).
+- descriptive_control: vivid or precise description, modifiers used purposefully, semantic precision.
+- elaboration: ideas extended beyond a topic mention into developed observations.
+
+DO NOT flag any of the following as range — they cause construct leakage:
+- "this word is dialect" — Register, not Range.
+- "this construction is colloquial" — Register or Accuracy, not Range.
+- "missing MSA equivalent" — Register, not Range.
+- "the word is colloquial so range is lower" — this is the exact leakage to avoid.
+- Errors in form (agreement, conjugation) — Accuracy.
+- Missing prepositions — Register or Accuracy.
+
+If a subtype shows no notable evidence in the response, do NOT invent it. Quality > quantity. It is acceptable to return zero findings for a subtype, or zero findings overall if the response is genuinely flat.
+
+Frame every note POSITIVELY — describe what the writer is doing that demonstrates range, not what they failed to do.
 
 RESPONSE:
 ${response}
 
-For each finding return:
+For each piece of range evidence return:
 - text: the EXACT phrase from the response (verbatim)
-- subtype: "vocabulary" | "morphology" | "sentence_complexity"
-- note: short English explanation
+- subtype: "vocabulary" | "morphology" | "sentence_complexity" | "descriptive_control" | "elaboration"
+- strength: "modest" | "clear" | "strong" — how strong is this piece of evidence?
+- note: short English explanation framed positively — what does this show about range?
 
 Return JSON only:
-{ "range_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
+{ "range_findings": [ { "text": "...", "subtype": "...", "strength": "...", "note": "..." }, ... ] }`;
     return llmAnnotate('range', prompt, response, runId, data => {
       return (data.range_findings || []).map(r => ({
         type: `range:${r.subtype || 'finding'}`,
         text: r.text,
-        metadata: { subtype: r.subtype, note: r.note }
+        metadata: { subtype: r.subtype, strength: r.strength, note: r.note }
       }));
     });
   }
@@ -3008,23 +3532,38 @@ Return JSON only:
   }
 
   function annotateAccuracy(response, runId) {
-    const prompt = `Identify grammar errors in this Arabic (MSA) response. Focus on:
-- agreement errors (gender, number, person)
-- conjugation errors
-- dual form errors
+    const prompt = `Identify ONLY genuine grammar errors in this Arabic (MSA) response.
+
+Flag these as grammar errors:
+- agreement errors (gender, number, person mismatches)
+- conjugation errors (wrong verb form for tense/person/number)
+- dual form errors (المثنى)
+- word order errors (e.g. misplaced verb/subject/object in a well-formed MSA construction)
+- sentence formation errors (e.g. broken construction, missing required element)
+
+DO NOT flag:
+- a word that is ONLY a dialect CHOICE (e.g. حسيت, شفت, رحنا, بعدين). These are register, not grammar.
+  Only flag a dialectal word if it ALSO has a genuine grammar breakdown beyond the dialect choice (e.g. real agreement failure, not just a colloquial form).
+- missing prepositions that are stylistically expected but the sentence is otherwise well-formed (these are style/register).
+- spelling or orthography issues (separate family).
+- vocabulary choice or register lapses (separate family).
+- punctuation.
+
+Test: would a literate MSA speaker writing carefully produce this same construction with intent? If yes, it is not a grammar error — even if a dialectal speaker would phrase it differently.
+
+If there are no genuine grammar errors, return { "errors": [] }. Do not speculate. Do not flag a word just because it is colloquial.
 
 RESPONSE:
 ${response}
 
-For each error return:
+For each genuine grammar error return:
 - text: the EXACT erroneous word or short phrase from the response (verbatim)
-- error_type: "agreement" | "conjugation" | "dual" | "other"
-- correction: the corrected form
-- note: short English explanation
+- error_type: "agreement" | "conjugation" | "dual" | "word_order" | "sentence_formation" | "other"
+- correction: the corrected MSA form
+- note: short English explanation of the GRAMMAR error (do not describe the register/dialect issue)
 
 Return JSON only:
-{ "errors": [ { "text": "...", "error_type": "...", "correction": "...", "note": "..." }, ... ] }
-If no errors, return { "errors": [] }.`;
+{ "errors": [ { "text": "...", "error_type": "...", "correction": "...", "note": "..." }, ... ] }`;
     return llmAnnotate('accuracy', prompt, response, runId, data => {
       return (data.errors || []).map(e => ({
         type: `accuracy:${e.error_type || 'error'}`,
@@ -3035,24 +3574,40 @@ If no errors, return { "errors": [] }.`;
   }
 
   function annotateOrthographyLLM(response, runId) {
-    const prompt = `Identify spelling errors in this Arabic response. Focus on:
-- hamza errors (ء، أ، إ، ؤ، ئ)
-- alif errors (ا، آ، ى)
-- taa marbuta errors (ة vs ت vs ه)
-- general spelling
+    const prompt = `Identify ONLY genuine spelling errors in this Arabic (MSA) response.
+
+Orthography = HOW A WORD IS WRITTEN, not which word was chosen.
+
+Flag only these:
+- hamza placement (ء، أ، إ، ؤ، ئ) — e.g. writing إنشاء الله instead of إن شاء الله
+- alif forms (ا، آ، ى) — wrong alif used
+- taa marbuta vs taa vs ha (ة vs ت vs ه)
+- letter substitution, missing letter, extra letter
+- internal spacing within established compounds
+
+DO NOT flag any of the following — they belong to other families:
+- dialect word CHOICE (e.g. حسيت, بعدين, شفت — these are register, not orthography)
+- missing MSA equivalent words (e.g. "use ذهبت instead of رحت" — this is register)
+- colloquial meaning shifts (e.g. بعد used as "also/still" — this is grammar/register)
+- grammar errors (agreement, conjugation, dual form — separate family)
+- punctuation, capitalisation, formatting
+
+The test: would removing the orthographic error change how the word LOOKS, not which word it is?
+If the word itself is wrong-for-MSA but written correctly, do NOT flag here.
+
+If there is no genuine WRITTEN-FORM error, return { "spelling_errors": [] }. Do not speculate. Do not invent errors.
 
 RESPONSE:
 ${response}
 
-For each error return:
+For each genuine spelling error return:
 - text: the EXACT misspelled word from the response (verbatim)
 - error_subtype: "hamza" | "alif" | "taa_marbuta" | "general"
 - correction: the correctly-spelled word
-- note: short English explanation
+- note: short English explanation of what is wrong about the WRITTEN form (not the word choice)
 
 Return JSON only:
-{ "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." }, ... ] }
-If no errors, return { "spelling_errors": [] }.`;
+{ "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." }, ... ] }`;
     return llmAnnotate('orthography', prompt, response, runId, data => {
       return (data.spelling_errors || []).map(s => ({
         type: `orthography:${s.error_subtype || 'general'}`,
@@ -3081,6 +3636,22 @@ If no errors, return { "spelling_errors": [] }.`;
   // VERIFIER — five checks. Sets verified=true|false on each annotation.
   // ================================================================
   function verifyAnnotations(annotations, response) {
+    // Precompute protected-form occurrences in THIS response (spans, not strings).
+    // Fixes the substring trap where e.g. "إن" got suppressed because it appears
+    // inside "إن شاء الله". Suppression now requires the annotation's span to
+    // actually overlap a real occurrence of a protected phrase in the response.
+    const protectedSpans = [];
+    PROTECTED_FORMS.forEach(phrase => {
+      let from = 0;
+      while (true) {
+        const idx = response.indexOf(phrase, from);
+        if (idx < 0) break;
+        protectedSpans.push({ start: idx, end: idx + phrase.length, phrase });
+        from = idx + phrase.length;
+      }
+    });
+    const spansIntersect = (a, b) => a.start < b.end && b.start < a.end;
+
     // Pass 1 — independent checks per annotation
     annotations.forEach(a => {
       const failures = [];
@@ -3111,11 +3682,13 @@ If no errors, return { "spelling_errors": [] }.`;
         else if (!allowed.includes(dim)) failures.push(`score_in:dimension_not_allowed_for_family(${a.family}→${dim})`);
       });
 
-      // (4) Protected forms — error annotations on protected phrases are suppressed
+      // (4) Protected forms — span-based intersection (NOT substring match).
+      // An error annotation is suppressed only if its span actually overlaps a
+      // real occurrence of a protected phrase in the response.
       const errorFamilies = ['accuracy', 'orthography'];
-      if (errorFamilies.includes(a.family) && a.text) {
-        const isProtected = PROTECTED_FORMS.some(p => p.includes(a.text) || a.text.includes(p));
-        if (isProtected) failures.push('protected_form:suppressed');
+      if (errorFamilies.includes(a.family) && a.span && typeof a.span.start === 'number' && a.span.start >= 0) {
+        const hit = protectedSpans.find(p => spansIntersect(a.span, p));
+        if (hit) failures.push(`protected_form:suppressed(${hit.phrase})`);
       }
 
       a.verification_failures = failures;
@@ -3468,6 +4041,258 @@ If no errors, return { "spelling_errors": [] }.`;
   });
 
   // ===== End Tab 4 =====
+
+
+  // ===== Tab 6 — Scoring Calibration =====
+
+  const DIM_DEFAULTS = {
+    task_achievement:       14.29,
+    content_quality:        14.29,
+    style_register:         14.29,
+    language_range:         14.29,
+    organisation_coherence: 14.29,
+    language_accuracy:      14.29,
+    orthographic_control:   14.26  // absorbs rounding so total = 100.00
+  };
+
+  const SUB_DEFAULTS = {
+    ta:    { wcc: 40, ta: 48, ie: 12 },
+    sr:    { msa: 60, dialect: 40 },
+    oc:    { cohesive: 50, flow: 50 },
+    ortho: { tq: 40, ced: 30, llm: 30 }
+  };
+
+  const DIALECT_DEFAULT = {
+    treatment: 'formal_msa_penalise',
+    isolated:  5,
+    moderate:  15
+  };
+
+  function _readDimWeights() {
+    return [
+      'dw_task_achievement', 'dw_content_quality', 'dw_style_register',
+      'dw_language_range', 'dw_organisation_coherence', 'dw_language_accuracy',
+      'dw_orthographic_control'
+    ].map(id => parseFloat(document.getElementById(id).value) || 0);
+  }
+
+  function _updateDimTotal() {
+    const total = _readDimWeights().reduce((a, b) => a + b, 0);
+    const el = document.getElementById('cal_dim_total');
+    el.textContent = total.toFixed(2) + '%';
+    el.className = 'cal-total-value ' + (Math.abs(total - 100) < 0.11 ? 'valid' : 'invalid');
+  }
+
+  function _subGroupInputs(group) {
+    return [...document.querySelectorAll(`.sub-w-input[data-group="${group}"]`)];
+  }
+
+  function _updateSubTotal(group) {
+    const total = _subGroupInputs(group).reduce((s, el) => s + (parseFloat(el.value) || 0), 0);
+    const el = document.getElementById('sub_total_' + group);
+    if (!el) return;
+    el.textContent = total.toFixed(1) + '%';
+    el.className = 'cal-total-value ' + (Math.abs(total - 100) < 0.11 ? 'valid' : 'invalid');
+  }
+
+  // Live total update listeners
+  document.querySelectorAll('.dim-w-input').forEach(inp => {
+    inp.addEventListener('input', _updateDimTotal);
+  });
+  document.querySelectorAll('.sub-w-input').forEach(inp => {
+    inp.addEventListener('input', () => _updateSubTotal(inp.dataset.group));
+  });
+
+  // ── Reset dim weights only ─────────────────────────────────────────────────
+  document.getElementById('btn_cal_reset_dim').addEventListener('click', () => {
+    Object.entries(DIM_DEFAULTS).forEach(([key, val]) => {
+      const el = document.getElementById('dw_' + key);
+      if (el) el.value = val;
+    });
+    _updateDimTotal();
+  });
+
+  // ── Reset everything to factory defaults ──────────────────────────────────
+  document.getElementById('btn_cal_reset_all').addEventListener('click', () => {
+    Object.entries(DIM_DEFAULTS).forEach(([key, val]) => {
+      const el = document.getElementById('dw_' + key);
+      if (el) el.value = val;
+    });
+    const suMap = {
+      sw_ta_wcc: SUB_DEFAULTS.ta.wcc,    sw_ta_ta: SUB_DEFAULTS.ta.ta,       sw_ta_ie: SUB_DEFAULTS.ta.ie,
+      sw_sr_msa: SUB_DEFAULTS.sr.msa,    sw_sr_dialect: SUB_DEFAULTS.sr.dialect,
+      sw_oc_cohesive: SUB_DEFAULTS.oc.cohesive, sw_oc_flow: SUB_DEFAULTS.oc.flow,
+      sw_ortho_tq: SUB_DEFAULTS.ortho.tq, sw_ortho_ced: SUB_DEFAULTS.ortho.ced, sw_ortho_llm: SUB_DEFAULTS.ortho.llm
+    };
+    Object.entries(suMap).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    });
+    const dEl = document.getElementById('cal_dialect_treatment');
+    const iEl = document.getElementById('cal_dialect_isolated');
+    const mEl = document.getElementById('cal_dialect_moderate');
+    if (dEl) dEl.value = DIALECT_DEFAULT.treatment;
+    if (iEl) iEl.value = DIALECT_DEFAULT.isolated;
+    if (mEl) mEl.value = DIALECT_DEFAULT.moderate;
+    _updateDimTotal();
+    ['ta', 'sr', 'oc', 'ortho'].forEach(_updateSubTotal);
+    showToast('Reset to factory defaults.');
+  });
+
+  // ── Save calibration ───────────────────────────────────────────────────────
+  document.getElementById('btn_cal_save').addEventListener('click', () => {
+    const errEl  = document.getElementById('cal_save_error');
+    const statEl = document.getElementById('cal_save_status');
+    errEl.style.display  = 'none';
+    statEl.style.display = 'none';
+
+    // Validate dimension weights
+    const dimTotal = _readDimWeights().reduce((a, b) => a + b, 0);
+    if (Math.abs(dimTotal - 100) > 0.11) {
+      errEl.textContent = `Dimension weights sum to ${dimTotal.toFixed(2)}% — must be 100% (within 0.1).`;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Validate sub-metric groups
+    for (const group of ['ta', 'sr', 'oc', 'ortho']) {
+      const total = _subGroupInputs(group).reduce((s, el) => s + (parseFloat(el.value) || 0), 0);
+      if (Math.abs(total - 100) > 0.11) {
+        errEl.textContent = `Sub-metric weights for "${group}" sum to ${total.toFixed(2)}% — must be 100%.`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
+    const gv = id => parseFloat(document.getElementById(id).value);
+
+    const cfg = {
+      version: SCHEMA_VERSION,
+      dimension_weights: {
+        task_achievement:       gv('dw_task_achievement'),
+        content_quality:        gv('dw_content_quality'),
+        style_register:         gv('dw_style_register'),
+        language_range:         gv('dw_language_range'),
+        organisation_coherence: gv('dw_organisation_coherence'),
+        language_accuracy:      gv('dw_language_accuracy'),
+        orthographic_control:   gv('dw_orthographic_control')
+      },
+      sub_metric_weights: {
+        task_achievement: {
+          wcc: gv('sw_ta_wcc'),
+          ta:  gv('sw_ta_ta'),
+          ie:  gv('sw_ta_ie')
+        },
+        style_register: {
+          msa_consistency:   gv('sw_sr_msa'),
+          dialect_detection: gv('sw_sr_dialect')
+        },
+        organisation_coherence: {
+          cohesive_devices: gv('sw_oc_cohesive'),
+          coherence_flow:   gv('sw_oc_flow')
+        },
+        orthographic_control: {
+          technical_quality:      gv('sw_ortho_tq'),
+          common_error_detection: gv('sw_ortho_ced'),
+          llm:                    gv('sw_ortho_llm')
+        }
+      },
+      dialect: {
+        treatment:           document.getElementById('cal_dialect_treatment').value,
+        isolated_threshold:  gv('cal_dialect_isolated'),
+        moderate_threshold:  gv('cal_dialect_moderate')
+      }
+    };
+
+    state.calibrationConfig = cfg;
+    refreshLockState();
+    refreshPipelineStatus();
+    statEl.style.display = 'block';
+    showToast('Calibration saved.');
+  });
+
+  // ── Export calibration JSON ────────────────────────────────────────────────
+  document.getElementById('btn_cal_export').addEventListener('click', () => {
+    if (!state.calibrationConfig) {
+      showToast('Save calibration first before exporting.');
+      return;
+    }
+    const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob([JSON.stringify(state.calibrationConfig, null, 2)], { type: 'application/json' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `calibration_${ts}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ── Import calibration JSON ────────────────────────────────────────────────
+  document.getElementById('btn_cal_import_trigger').addEventListener('click', () => {
+    document.getElementById('cal_import_file').click();
+  });
+
+  document.getElementById('cal_import_file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const obj = JSON.parse(evt.target.result);
+        if (!obj.dimension_weights || !obj.sub_metric_weights || !obj.dialect) {
+          showToast('Import failed — JSON missing required fields (dimension_weights, sub_metric_weights, dialect).');
+          return;
+        }
+
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+        const dw = obj.dimension_weights;
+        setVal('dw_task_achievement',       dw.task_achievement);
+        setVal('dw_content_quality',        dw.content_quality);
+        setVal('dw_style_register',         dw.style_register);
+        setVal('dw_language_range',         dw.language_range);
+        setVal('dw_organisation_coherence', dw.organisation_coherence);
+        setVal('dw_language_accuracy',      dw.language_accuracy);
+        setVal('dw_orthographic_control',   dw.orthographic_control);
+
+        const sm = obj.sub_metric_weights || {};
+        if (sm.task_achievement) {
+          setVal('sw_ta_wcc', sm.task_achievement.wcc);
+          setVal('sw_ta_ta',  sm.task_achievement.ta);
+          setVal('sw_ta_ie',  sm.task_achievement.ie);
+        }
+        if (sm.style_register) {
+          setVal('sw_sr_msa',    sm.style_register.msa_consistency);
+          setVal('sw_sr_dialect', sm.style_register.dialect_detection);
+        }
+        if (sm.organisation_coherence) {
+          setVal('sw_oc_cohesive', sm.organisation_coherence.cohesive_devices);
+          setVal('sw_oc_flow',     sm.organisation_coherence.coherence_flow);
+        }
+        if (sm.orthographic_control) {
+          setVal('sw_ortho_tq',  sm.orthographic_control.technical_quality);
+          setVal('sw_ortho_ced', sm.orthographic_control.common_error_detection);
+          setVal('sw_ortho_llm', sm.orthographic_control.llm);
+        }
+
+        const d = obj.dialect || {};
+        setVal('cal_dialect_treatment', d.treatment);
+        setVal('cal_dialect_isolated',  d.isolated_threshold);
+        setVal('cal_dialect_moderate',  d.moderate_threshold);
+
+        _updateDimTotal();
+        ['ta', 'sr', 'oc', 'ortho'].forEach(_updateSubTotal);
+        showToast('Import successful — review and Save to apply.');
+      } catch (err) {
+        showToast('Import failed — invalid JSON.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ── Initialise live totals on page load ───────────────────────────────────
+  _updateDimTotal();
+  ['ta', 'sr', 'oc', 'ortho'].forEach(_updateSubTotal);
+
+  // ===== End Tab 6 =====
 
   // ===== Boot =====
   refreshLockState();
