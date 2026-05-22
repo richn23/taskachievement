@@ -1,0 +1,3478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="AZE Arabic Writing Scorer V2 — annotation-first pipeline for Arabic (MSA) writing samples." />
+<meta name="color-scheme" content="light" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%271%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%236366f1%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%238b5cf6%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Ctext%20x%3D%2716%27%20y%3D%2722%27%20text-anchor%3D%27middle%27%20font-family%3D%27-apple-system%2Csans-serif%27%20font-size%3D%2718%27%20font-weight%3D%27700%27%20fill%3D%27%23fff%27%3EA%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<title>AZE Arabic Writing Scorer V2</title>
+<style>
+  /* ===== Design tokens (carried over from V1) ===== */
+  :root {
+    --bg: #f5f6fb;
+    --card: #ffffff;
+    --border: #e5e7ee;
+    --border-strong: #d4d7e0;
+    --text: #1a1f2c;
+    --muted: #6b7280;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --primary-soft: #f5f3ff;
+    --primary-soft-2: #eef2ff;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warn: #d97706;
+    --pill: #eef2ff;
+    --pill-text: #4338ca;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(99, 102, 241, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  /* ===== Header ===== */
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header .brand { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  header .subtitle { font-size: 12px; color: var(--muted); }
+  .api-row { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .api-row .throttle-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .api-row .key-indicator { font-size: 12px; color: var(--muted); }
+  .api-row select { width: 200px; padding: 7px 10px; font-size: 13px; }
+
+  /* ===== Pipeline status strip ===== */
+  .pipeline-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+  .pipeline-status .ps-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  .ps-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: 1px solid var(--border);
+    transition: all 150ms ease;
+  }
+  .ps-pill.active {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+  .ps-pill .ps-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d1d5db;
+  }
+  .ps-pill.active .ps-dot {
+    background: var(--success);
+  }
+  .ps-sep { color: #d1d5db; font-size: 10px; }
+
+  /* ===== Tabs ===== */
+  .container { max-width: 1140px; margin: 0 auto; padding: 28px 32px 96px; }
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 11px 16px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: color 120ms ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .tab:hover:not(.active):not(.locked) { color: var(--text); }
+  .tab.locked { color: #c1c4cc; cursor: not-allowed; }
+  .tab.locked:hover { color: #c1c4cc; }
+  .tab .tab-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    background: #f3f4f6;
+    border-radius: 4px;
+    padding: 1px 6px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .tab.active .tab-num {
+    color: #fff;
+    background: var(--primary);
+  }
+  .tab .lock-icon {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  /* ===== Views ===== */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ===== Card ===== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .card h3 { margin: 24px 0 10px; font-size: 14px; font-weight: 700; letter-spacing: -0.005em; }
+  .card h3:first-child { margin-top: 0; }
+  .card .hint { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .card p { margin: 0 0 12px; }
+  .card p:last-child { margin-bottom: 0; }
+
+  /* ===== Buttons ===== */
+  button {
+    border: 1px solid var(--border-strong);
+    background: #fff;
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  }
+  button:hover { background: #f3f4f6; }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: var(--primary-gradient);
+    border-color: transparent;
+    color: #fff;
+    padding: 10px 20px;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(99, 102, 241, 0.25), 0 6px 16px rgba(99, 102, 241, 0.18);
+  }
+  button.primary:hover { filter: brightness(1.05); }
+
+  /* ===== Tables (explainer) ===== */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 14px 0 22px;
+    font-size: 13.5px;
+  }
+  .data-table th, .data-table td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .data-table thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 700;
+    background: var(--primary-soft-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table thead th:first-child { border-top-left-radius: 8px; }
+  .data-table thead th:last-child { border-top-right-radius: 8px; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table td.term {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    width: 1%;
+  }
+  .data-table.wide td.term { white-space: normal; width: 28%; }
+
+  /* ===== Callout boxes ===== */
+  .callout {
+    background: var(--primary-soft);
+    border: 1px solid #e0e7ff;
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13.5px;
+  }
+  .callout strong { color: var(--primary-hover); }
+  .callout.info { background: #ecfeff; border-color: #a5f3fc; border-left-color: #0891b2; }
+  .callout.info strong { color: #0e7490; }
+  .callout.warn { background: #fffbeb; border-color: #fde68a; border-left-color: var(--warn); }
+  .callout.warn strong { color: #92400e; }
+
+  /* ===== Stub view for unbuilt tabs ===== */
+  .stub-card {
+    background: var(--card);
+    border: 1px dashed var(--border-strong);
+    border-radius: 14px;
+    padding: 48px 28px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .stub-card h2 { margin: 0 0 8px; color: var(--text); font-size: 17px; }
+  .stub-card .stub-badge {
+    display: inline-block;
+    background: var(--primary-soft);
+    color: var(--primary-hover);
+    border: 1px solid #e0e7ff;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .stub-card .stub-lock {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* ===== Toast (for locked-tab click feedback) ===== */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease;
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ================================================================ */
+  /* V1 LIFT — Tab 2 (Create Question) styles                         */
+  /* Copied wholesale from scorer-arabic.html. Do not edit unless V1   */
+  /* changes — Tab 2 is a direct replica of the V1 test system.       */
+  /* ================================================================ */
+
+  /* ===== Writing Task Editor ===== */
+  .editor-header {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 22px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  .editor-title-row { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .editor-back {
+    width: 36px; height: 36px; padding: 0;
+    border-radius: 50%;
+    font-size: 16px;
+    background: #fff;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .editor-icon-square {
+    width: 46px; height: 46px;
+    background: var(--primary-gradient);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 22px;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    flex-shrink: 0;
+  }
+  .editor-title-text h2 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .editor-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .editor-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-soft {
+    background: var(--primary-soft);
+    border: 1px solid #e0e7ff;
+    color: var(--primary-hover);
+    font-weight: 600;
+    padding: 8px 14px;
+  }
+  .btn-soft:hover { background: #ede9fe; }
+  .pill-warn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 7px 12px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .editor-inner-tabs {
+    display: flex;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    margin-bottom: 18px;
+    gap: 4px;
+    box-shadow: var(--shadow-sm);
+  }
+  .editor-inner-tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .editor-inner-tab.active {
+    background: var(--primary-gradient);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  }
+  .editor-inner-tab:disabled { cursor: not-allowed; opacity: 0.5; }
+  .editor-inner-tab:hover:not(.active):not(:disabled) { background: #f3f4f6; color: var(--text); }
+
+  .editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 22px;
+    align-items: start;
+  }
+  .editor-main { min-width: 0; }
+  .editor-aside .ai-assistant-card {
+    position: sticky;
+    top: 88px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .ai-assistant-card .ai-header {
+    background: var(--primary-gradient);
+    color: #fff;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .ai-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .difficulty-section {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .difficulty-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 600; margin-bottom: 10px;
+  }
+  .difficulty-pill {
+    background: var(--pill);
+    color: var(--pill-text);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    border: 1px solid #c7d2fe;
+    font-size: 13px;
+  }
+  .difficulty-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .difficulty-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, #34d399, #6366f1, #ec4899);
+    border-radius: 999px;
+    transition: width 200ms ease;
+  }
+  .difficulty-bands {
+    display: grid; grid-template-columns: repeat(6, 1fr);
+    font-size: 11px; color: var(--muted);
+    text-align: center;
+  }
+  .difficulty-bands span { display: block; }
+  .difficulty-bands .lvl { font-weight: 700; color: var(--text); font-size: 12px; }
+  .difficulty-current { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .ai-action {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: left;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    width: 100%;
+    line-height: 1.4;
+  }
+  .ai-action:hover { background: #f9fafb; border-color: var(--primary); }
+  .ai-action .ai-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+  .ai-action .ai-text { flex: 1; min-width: 0; }
+  .ai-action .ai-text strong { display: block; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .ai-action .ai-text small { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .ai-validate {
+    margin-top: 4px;
+    padding: 12px;
+    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .req-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .req-tab {
+    border: 1px solid var(--border);
+    background: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .req-tab.active {
+    background: var(--primary-gradient);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  }
+  .req-tab.locked {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+  .req-tab.locked.active {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .auto-list-inline {
+    background: var(--primary-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 42px;
+  }
+  .auto-list-inline > strong { display: block; margin-bottom: 4px; }
+  .auto-list-inline ul { margin: 0; padding-left: 20px; }
+
+  @media (max-width: 980px) {
+    .editor-grid { grid-template-columns: 1fr; }
+    .editor-aside .ai-assistant-card { position: static; }
+  }
+
+  .req-block {
+    border: 1px solid var(--border);
+    background: #fdfdff;
+    border-radius: 12px;
+    padding: 18px 20px 18px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .req-block:hover { border-color: #d8dbeb; }
+  .req-block .req-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .req-block .req-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pill-text);
+    background: var(--pill);
+    padding: 4px 12px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .req-block .field { margin-bottom: 12px; }
+  .req-block .field:last-child { margin-bottom: 0; }
+  .req-block label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .req-block textarea { min-height: 64px; font-size: 13px; }
+  .req-block input { font-size: 13px; }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+  .pill.pass { background: #dcfce7; color: #166534; }
+  .pill.fail { background: #fee2e2; color: #991b1b; }
+  .pill.score-0 { background: #fee2e2; color: #991b1b; }
+  .pill.score-1 { background: #fef3c7; color: #92400e; }
+  .pill.score-2 { background: #e0f2fe; color: #075985; }
+  .pill.score-3 { background: #dcfce7; color: #166534; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+  .empty-state { color: var(--muted); font-style: italic; padding: 12px 0; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .status.success { color: var(--success); }
+
+  .question-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .question-list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px;
+  }
+
+  details summary { cursor: pointer; font-weight: 500; padding: 4px 0; }
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid #e5e7eb; border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Arabic / RTL support */
+  .rtl-content {
+    direction: rtl !important;
+    text-align: right !important;
+    font-family: "Noto Naskh Arabic", "Amiri", "Cairo", "Scheherazade New", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  textarea.rtl-content { line-height: 1.85; }
+  .rtl-content::placeholder { color: #94a3b8; font-style: italic; }
+
+  /* ===== End V1 lift CSS ===== */
+
+  /* ================================================================ */
+  /* Tab 4 — Annotation Application styles                            */
+  /* ================================================================ */
+
+  /* Progress display (Stage 1/2/3 checkmarks) */
+  .pipeline-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 14px 0 4px;
+  }
+  .pipeline-progress .stage {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .pipeline-progress .stage .stage-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+  .pipeline-progress .stage.active { color: var(--text); font-weight: 600; }
+  .pipeline-progress .stage.active .stage-icon { background: var(--primary-soft); color: var(--primary); }
+  .pipeline-progress .stage.done { color: var(--success); }
+  .pipeline-progress .stage.done .stage-icon { background: #dcfce7; color: var(--success); }
+  .pipeline-progress .run-id-line {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--pill-text);
+    background: var(--pill);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 4px;
+    word-break: break-all;
+  }
+
+  /* Live word count under textarea */
+  .live-word-count {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .live-word-count .wc-warn { color: var(--warn); font-weight: 600; }
+  .live-word-count .wc-ok   { color: var(--success); font-weight: 600; }
+  .live-word-count .wc-bad  { color: var(--danger); font-weight: 600; }
+
+  /* Annotated text view — colours per V2 spec table */
+  .annotated-text {
+    background: #fdfdff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    direction: rtl;
+    text-align: right;
+    font-family: "Noto Naskh Arabic", "Amiri", "Cairo", Georgia, serif;
+    font-size: 17px;
+    line-height: 2.1;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .anno-span { cursor: pointer; position: relative; padding: 1px 2px; border-radius: 2px; }
+  .anno-span:hover { filter: brightness(0.97); }
+  .anno-claim         { background: #dcfce7; border-bottom: 2px solid #16a34a; }
+  .anno-register-dialect { background: #fef3c7; }
+  .anno-register-msa     { background: #dbeafe; }
+  .anno-accuracy      { border-bottom: 2px solid var(--danger); background: #fef2f2; }
+  .anno-orthography   { border-bottom: 2px dotted #ea580c; background: #fff7ed; }
+  .anno-intelligibility { background: #e5e7eb; }
+  .anno-range         { background: #e0e7ff; }
+  .anno-cohesion      { border-bottom: 2px solid #0891b2; background: #ecfeff; }
+  .anno-cq            { background: #fae8ff; border-bottom: 2px dashed #a855f7; }
+  .anno-rejected      { opacity: 0.4; text-decoration: line-through; }
+  .anno-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin: 0 2px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: super;
+  }
+
+  /* Annotation popover (shown on click) */
+  .anno-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .anno-popover-backdrop.show { display: flex; }
+  .anno-popover {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 22px 24px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+    direction: ltr;
+    text-align: left;
+  }
+  .anno-popover h3 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+  .anno-popover .pop-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .anno-popover .pop-row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .anno-popover .pop-row:last-of-type { border-bottom: none; }
+  .anno-popover .pop-row .pop-label { color: var(--muted); font-weight: 600; }
+  .anno-popover .pop-row .pop-value { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; max-width: 60%; text-align: right; }
+  .anno-popover .pop-quote {
+    background: #fdfdff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 10px 0 12px;
+    font-family: "Noto Naskh Arabic", "Amiri", "Cairo", Georgia, serif;
+    font-size: 15px;
+    direction: rtl;
+    text-align: right;
+    line-height: 1.8;
+  }
+  .anno-popover .pop-close {
+    margin-top: 14px;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Summary counts row */
+  .anno-summary {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .anno-summary-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .anno-summary-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .anno-summary-card .value { font-size: 20px; font-weight: 700; margin-top: 2px; color: var(--text); }
+  .anno-summary-card.verified .value { color: var(--success); }
+  .anno-summary-card.rejected .value { color: var(--danger); }
+  @media (max-width: 720px) {
+    .anno-summary { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* Annotation list table */
+  .anno-list-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+  }
+  .anno-list-table th, .anno-list-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .anno-list-table thead th {
+    background: var(--primary-soft-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 700;
+    cursor: default;
+  }
+  .anno-list-table tbody tr.row-rejected { opacity: 0.55; background: #fff7ed; }
+  .anno-list-table .row-toggle {
+    cursor: pointer;
+    color: var(--primary);
+    font-weight: 600;
+    user-select: none;
+  }
+  .anno-list-table tr.detail-json td {
+    background: #f9fafb;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    white-space: pre-wrap;
+    color: var(--text);
+  }
+  .anno-list-table .anchored-text {
+    font-family: "Noto Naskh Arabic", "Amiri", "Cairo", Georgia, serif;
+    direction: rtl;
+    text-align: right;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .verified-yes { color: var(--success); font-weight: 700; }
+  .verified-no  { color: var(--danger); font-weight: 700; }
+
+  /* Family pill — used in annotation list */
+  .family-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--pill);
+    color: var(--pill-text);
+  }
+  .family-pill.f-word_count    { background: #f3f4f6; color: #6b7280; }
+  .family-pill.f-claim         { background: #dcfce7; color: #166534; }
+  .family-pill.f-intelligibility { background: #e5e7eb; color: #4b5563; }
+  .family-pill.f-cq            { background: #fae8ff; color: #86198f; }
+  .family-pill.f-register      { background: #fef3c7; color: #92400e; }
+  .family-pill.f-range         { background: #e0e7ff; color: #3730a3; }
+  .family-pill.f-cohesion      { background: #ecfeff; color: #155e75; }
+  .family-pill.f-accuracy      { background: #fee2e2; color: #991b1b; }
+  .family-pill.f-orthography   { background: #fff7ed; color: #9a3412; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>AZE Arabic Writing Scorer</h1>
+    <div class="subtitle">Annotation Pipeline · V2</div>
+    <div class="pipeline-status" id="pipelineStatus">
+      <span class="ps-label">Pipeline</span>
+      <span class="ps-pill" data-stage="task"><span class="ps-dot"></span>Task</span>
+      <span class="ps-sep">›</span>
+      <span class="ps-pill" data-stage="annotation"><span class="ps-dot"></span>Annotation</span>
+      <span class="ps-sep">›</span>
+      <span class="ps-pill" data-stage="scoring"><span class="ps-dot"></span>Scoring</span>
+      <span class="ps-sep">›</span>
+      <span class="ps-pill" data-stage="guardrails"><span class="ps-dot"></span>Guardrails</span>
+      <span class="ps-sep">›</span>
+      <span class="ps-pill" data-stage="results"><span class="ps-dot"></span>Results</span>
+    </div>
+  </div>
+  <div class="api-row">
+    <label class="throttle-label" title="When ON: limit concurrent API calls to avoid rate limits. Slower but safer.">
+      <input type="checkbox" id="throttleToggle" />
+      <span>Throttle</span>
+      <span id="throttleIndicator" style="display: none; font-size: 11px; color: #7c3aed; font-weight: 600;">⏳ queue active</span>
+    </label>
+    <span class="key-indicator">Key on server</span>
+    <select id="modelSelect" title="Model used for LLM annotation, verification, and scoring calls.">
+      <optgroup label="Anthropic (Claude)">
+        <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6</option>
+        <option value="claude-opus-4-6">Claude Opus 4.6</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+      </optgroup>
+      <optgroup label="OpenAI">
+        <option value="gpt-5">gpt-5</option>
+        <option value="gpt-5-mini">gpt-5-mini</option>
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="gpt-4.1">gpt-4.1</option>
+        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+      </optgroup>
+    </select>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="tabs" id="tabBar">
+    <button class="tab active" data-tab="tab1"><span class="tab-num">1</span>Question Requirements</button>
+    <button class="tab" data-tab="tab2"><span class="tab-num">2</span>Create Question</button>
+    <button class="tab" data-tab="tab3"><span class="tab-num">3</span>Annotation Info</button>
+    <button class="tab locked" data-tab="tab4" data-requires="task"><span class="tab-num">4</span>Annotation Application<span class="lock-icon">🔒</span></button>
+    <button class="tab" data-tab="tab5"><span class="tab-num">5</span>Scoring Info</button>
+    <button class="tab" data-tab="tab6"><span class="tab-num">6</span>Scoring Calibration</button>
+    <button class="tab" data-tab="tab7"><span class="tab-num">7</span>Guardrails Info</button>
+    <button class="tab" data-tab="tab8"><span class="tab-num">8</span>Apply Guardrails</button>
+    <button class="tab locked" data-tab="tab9" data-requires="task+calibration+guardrails"><span class="tab-num">9</span>Run Pipeline<span class="lock-icon">🔒</span></button>
+    <button class="tab locked" data-tab="tab10" data-requires="run"><span class="tab-num">10</span>Results<span class="lock-icon">🔒</span></button>
+  </div>
+
+  <!-- ===== Tab 1 — Question Requirements ===== -->
+  <div class="view active" id="view-tab1">
+    <div class="card">
+      <h2>What makes a question scoreable</h2>
+      <div class="hint">Before a writing prompt enters the AZE pipeline, it must carry four pieces of information. This tab explains what they are and what happens if any are missing. If your question has all four, head to <strong>Tab 2 — Create Question</strong>.</div>
+
+      <h3>The four components</h3>
+      <table class="data-table wide">
+        <thead>
+          <tr><th>Component</th><th>What it is</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term">Task prompt</td>
+            <td>The instruction the student sees. Written in Arabic, clear, and complete — no missing context, no ambiguous references.</td>
+          </tr>
+          <tr>
+            <td class="term">Word range</td>
+            <td>A minimum and maximum word count appropriate to the CEFR level being targeted. Drives the Word Count Compliance sub-metric.</td>
+          </tr>
+          <tr>
+            <td class="term">Task requirements</td>
+            <td>Four specific, named, discrete things the student must address. These are not the prompt itself — they are the structured checklist the annotator and scorer use.</td>
+          </tr>
+          <tr>
+            <td class="term">Content quality descriptors</td>
+            <td>For each of the four requirements, four band anchors (0–3) describing what <em>absent</em>, <em>mentioned</em>, <em>developed</em>, and <em>extended</em> look like in the student's response.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>What happens if a component is missing</h3>
+      <table class="data-table wide">
+        <thead>
+          <tr><th>Missing</th><th>Consequence</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term">No task requirements</td>
+            <td>Task Achievement and Content Quality dimensions cannot be scored — the pipeline has nothing to match the response against.</td>
+          </tr>
+          <tr>
+            <td class="term">No band descriptors</td>
+            <td>Content Quality dimension cannot be scored. The annotator cannot decide between 0, 1, 2, or 3 without anchors.</td>
+          </tr>
+          <tr>
+            <td class="term">No word range</td>
+            <td>The Word Count Compliance sub-metric defaults to N/A and drops out of the calculation.</td>
+          </tr>
+          <tr>
+            <td class="term">Vague prompt</td>
+            <td>Annotation quality degrades. The LLM cannot reliably identify evidence for requirements that aren't clearly stated.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>What to do next.</strong> If your question already has all four components, go to <strong>Tab 2 — Create Question</strong> and load it in. Band descriptors are the most common gap — Tab 2 has a guided form for building them one band at a time.
+      </div>
+
+      <div class="callout info">
+        <strong>Why this matters.</strong> V1 of the scorer would happily score a response against a vague prompt — and then confabulate justifications. V2's annotation-first design refuses to score anything it can't find evidence for. That means the question itself has to carry the evidence the scorer will look for.
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Stubs for tabs 2–10 ===== -->
+  <!-- =============================================================== -->
+  <!-- V1 LIFT — Tab 2 (Create Question) markup                        -->
+  <!-- Copied wholesale from scorer-arabic.html. Direct replica.       -->
+  <!-- =============================================================== -->
+  <div class="view" id="view-tab2">
+
+    <!-- Editor Header Bar -->
+    <div class="editor-header">
+      <div class="editor-title-row">
+        <button type="button" class="editor-back" title="Back">←</button>
+        <div class="editor-icon-square">📝</div>
+        <div class="editor-title-text">
+          <h2>Writing Task Editor</h2>
+          <div class="editor-subtitle">CEFR <span id="editor_cefr_label">B2</span> · 1 Question</div>
+        </div>
+      </div>
+      <div class="editor-actions">
+        <button type="button" id="btn_toggle_assistant" class="btn-soft">🤖 Hide Assistant</button>
+        <span class="pill-warn">⚠ Unverified</span>
+        <button class="primary" id="btn_save_q">📝 Save Question</button>
+      </div>
+    </div>
+
+    <!-- Editor Inner Tabs -->
+    <div class="editor-inner-tabs">
+      <button type="button" class="editor-inner-tab active">📄 Content &amp; Questions</button>
+      <button type="button" class="editor-inner-tab" disabled>🖼 Visual Media</button>
+      <button type="button" class="editor-inner-tab" disabled>⚙ Settings</button>
+    </div>
+
+    <!-- Two-column grid -->
+    <div class="editor-grid">
+
+      <div class="editor-main">
+
+        <!-- Writing Task Details -->
+        <div class="card">
+          <h2 style="margin-bottom: 18px;">Writing Task Details</h2>
+          <div class="row">
+            <div class="field">
+              <label class="required">Reference Number</label>
+              <input type="text" id="q_id" placeholder="e.g. W-A1-9" />
+            </div>
+            <div class="field">
+              <label>Task Title</label>
+              <input type="text" id="q_title" placeholder="Enter Title" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label class="required">CEFR Level</label>
+              <select id="q_cefr">
+                <option>A1</option><option>A2</option><option>A2+</option>
+                <option>B1</option><option>B1+</option><option selected>B2</option>
+                <option>B2+</option><option>C1</option><option>C2</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>CEFR Descriptor</label>
+              <input type="text" id="q_cefr_desc" placeholder="Select CEFR Descriptor" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Topic</label>
+              <input type="text" id="q_topic" placeholder="e.g. people, relationships, and family" />
+            </div>
+            <div class="field">
+              <label>Skill Focus</label>
+              <input type="text" id="q_skill_focus" placeholder="e.g. holistic" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Domain</label>
+              <input type="text" id="q_domain" placeholder="General" />
+            </div>
+            <div class="field">
+              <label>Learning Objective</label>
+              <input type="text" id="q_learning_obj" placeholder="e.g. To write simple phrases…" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label class="required">Word Limit Min</label>
+              <input type="number" id="q_min" value="120" />
+            </div>
+            <div class="field">
+              <label class="required">Word Limit Max</label>
+              <input type="number" id="q_max" value="180" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Box -->
+        <div class="card">
+          <h2 style="margin-bottom: 18px;">Questions <span style="color: var(--muted); font-weight: 500;">(1)</span></h2>
+
+          <div class="row">
+            <div class="field">
+              <label class="required">Task Type</label>
+              <select id="q_task_type">
+                <option value="essay">essay</option>
+                <option value="email">email</option>
+                <option value="letter">letter</option>
+                <option value="article">article</option>
+                <option value="report">report</option>
+                <option value="paragraph">paragraph</option>
+                <option value="proposal">proposal</option>
+                <option value="summary">summary</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Task Type Requirements <span style="color: var(--muted); font-weight: 400; text-transform: none;">(auto)</span></label>
+              <div class="auto-list-inline" id="task_type_reqs"></div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label>Instruction</label>
+            <input type="text" id="q_instruction" value="Read the task below and write your response in the space provided." />
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label class="required">Question (Arabic)</label>
+            <textarea id="q_prompt" dir="rtl" class="rtl-content" placeholder="اكتب نص المهمة التي سيراها الطالب..."></textarea>
+          </div>
+
+          <div class="field" style="margin-top: 12px;">
+            <label style="color: var(--muted);">Question — English translation (optional, for reviewer reference only)</label>
+            <textarea id="q_prompt_en" placeholder="English translation of the question prompt..."></textarea>
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label>Subtype</label>
+            <input type="text" id="q_subtype" placeholder="e.g. inform (a1)" />
+          </div>
+        </div>
+
+        <!-- Task Requirements (tabbed) -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h2 style="margin: 0;">Task Requirements &amp; Development Markers</h2>
+            <button type="button" id="btn_add_req">+ Add Requirement</button>
+          </div>
+          <div class="hint" style="margin-bottom: 14px;">At least 3 question-specific requirements. Click a tab to edit. Requirement N+1 is generic and applies to every question.</div>
+          <div class="req-tabs" id="req_tabs"></div>
+          <div id="req_list"></div>
+        </div>
+
+        <!-- Footer action row -->
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 22px;">
+          <span id="save_status" class="status"></span>
+          <div class="actions">
+            <button id="btn_clear_q">Clear Form</button>
+            <button class="primary" id="btn_save_q_2">📝 Save Question</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Assistant sidebar -->
+      <div class="editor-aside" id="ai_aside">
+        <div class="ai-assistant-card">
+          <div class="ai-header">🤖 AI Assistant</div>
+          <div class="ai-body">
+            <div class="difficulty-section">
+              <div class="difficulty-row">
+                <span>Difficulty Level</span>
+                <span class="difficulty-pill" id="difficulty_pill">B2</span>
+              </div>
+              <div class="difficulty-bar"><div id="difficulty_fill" style="width: 70%;"></div></div>
+              <div class="difficulty-bands">
+                <span><span class="lvl">A1</span><br>10–29</span>
+                <span><span class="lvl">A2</span><br>30–42</span>
+                <span><span class="lvl">B1</span><br>43–58</span>
+                <span><span class="lvl">B2</span><br>59–75</span>
+                <span><span class="lvl">C1</span><br>76–84</span>
+                <span><span class="lvl">C2</span><br>85–90</span>
+              </div>
+              <div class="difficulty-current" id="difficulty_current">Current: B2 (GSE: 59–75)</div>
+            </div>
+            <button type="button" class="ai-action" data-ai="populate">
+              <span class="ai-icon">🪄</span>
+              <span class="ai-text"><strong>Populate Missing Fields</strong><small>AI fills in empty required fields automatically</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-question">
+              <span class="ai-icon">✨</span>
+              <span class="ai-text"><strong>Generate Question</strong><small>AI creates a level-appropriate task prompt</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-task-reqs">
+              <span class="ai-icon">📋</span>
+              <span class="ai-text"><strong>Generate Task Requirements</strong><small>AI suggests 3 task requirements from the prompt</small></span>
+            </button>
+            <button type="button" class="ai-action" data-ai="generate-quality-markers">
+              <span class="ai-icon">📊</span>
+              <span class="ai-text"><strong>Generate Quality Markers</strong><small>AI fills score 1–3 descriptors for each requirement</small></span>
+            </button>
+            <button type="button" class="primary ai-validate" data-ai="validate">▶ Run EFL Validation</button>
+            <div id="ai_status" style="margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--muted); min-height: 18px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Questions -->
+    <div class="card" style="margin-top: 28px;">
+      <div class="toolbar">
+        <h2 style="margin: 0;">Saved Questions</h2>
+        <div class="actions">
+          <button id="btn_import_qbank">Import CSV</button>
+          <input type="file" id="file_import_qbank" accept=".csv" style="display:none" />
+          <button id="btn_export_qbank">Export CSV</button>
+          <button class="danger" id="btn_clear_qbank">Clear All</button>
+        </div>
+      </div>
+      <div id="import_status" class="status" style="margin-bottom: 8px;"></div>
+      <div id="qbank_list" class="question-list"></div>
+    </div>
+  </div>
+  <!-- ===== End V1 lift markup ===== -->
+
+  <!-- ===== Tab 3 — Annotation Info ===== -->
+  <div class="view" id="view-tab3">
+    <div class="card">
+      <h2>What annotation is</h2>
+      <div class="hint">The annotation pipeline marks up every piece of evidence in a student's response <em>before</em> any score is calculated. Each annotation points at a specific position in the text and labels what it is. Scores are then derived only from <strong>verified</strong> annotations — never from prose justifications.</div>
+
+      <p>Annotation runs in three stages: code first (cheap, deterministic), then LLM (near-deterministic, temperature 0), then a verifier that checks each annotation against the actual text. Anything that fails verification is dropped. What survives becomes the input to scoring. <strong>Annotations are immutable once verified</strong> — downstream stages read them, never rewrite them.</p>
+
+      <div class="callout info">
+        <strong>The rule.</strong> No annotation = no score contribution. A dimension cannot score itself out of thin air — it must point at evidence the verifier accepts.
+      </div>
+
+      <h3>Why annotations before scores</h3>
+      <p>In V1, the AI was asked to score and justify in the same call. The justification was prose generated <em>after</em> the score had already been chosen. Nothing constrained the model to point at real evidence, and it would happily invent a quote that wasn't in the response. This is confabulation — convincing-sounding text that has no grounding.</p>
+
+      <p>V2 inverts this. The pipeline first asks the model: <em>"Find evidence — quote the text, label it, mark its position."</em> Only after annotations are produced and verified does scoring run. The scorer reads the verified annotations and does the arithmetic. It cannot make up evidence because it does not produce evidence — it only consumes it.</p>
+
+      <div class="callout">
+        <strong>Practical effect.</strong> If the LLM hallucinates a quote, the verifier rejects it (the text isn't actually in the response). The dimension that quote would have supported loses that point of evidence. If a dimension has no surviving evidence, its score is nulled and a guardrail flag is raised.
+      </div>
+
+      <h3>What gets annotated</h3>
+      <table class="data-table wide">
+        <thead>
+          <tr><th>Family</th><th>What it finds</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term"><code>word_count</code></td>
+            <td>Total words in the response; in-range check against the task's word limit.</td>
+            <td><span class="pill">Code</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>claim:</code></td>
+            <td>Task requirements addressed by the response, and the specific sentence(s) where each is addressed.</td>
+            <td><span class="pill">LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>intelligibility:</code></td>
+            <td>Sentences where meaning is unclear — broken syntax, missing referents, untranslatable fragments.</td>
+            <td><span class="pill">LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>cq:</code></td>
+            <td>How well each task requirement is developed (0 absent · 1 mentioned · 2 developed · 3 extended).</td>
+            <td><span class="pill">LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>register:</code></td>
+            <td>Dialect markers, MSA markers, and register lapses (informal phrasing where formal is expected).</td>
+            <td><span class="pill">Code + LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>range:</code></td>
+            <td>Vocabulary variety, morphological range, sentence complexity.</td>
+            <td><span class="pill">Code + LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>cohesion:</code></td>
+            <td>Arabic connectives (و، ثم، لكن، لذلك …) and coherence signals.</td>
+            <td><span class="pill">Code + LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>accuracy:</code></td>
+            <td>Grammar errors — agreement, conjugation, dual form.</td>
+            <td><span class="pill">LLM</span></td>
+          </tr>
+          <tr>
+            <td class="term"><code>orthography:</code></td>
+            <td>Spelling errors — hamza, alif, taa marbuta, and general spelling.</td>
+            <td><span class="pill">Code + LLM</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Code vs LLM annotations</h3>
+      <table class="data-table">
+        <thead>
+          <tr><th>Property</th><th>Code annotations</th><th>LLM annotations</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term">Determinism</td>
+            <td>Deterministic — same input always yields same output.</td>
+            <td>Near-deterministic at temperature 0; rare variation remains.</td>
+          </tr>
+          <tr>
+            <td class="term">Speed and cost</td>
+            <td>Fast. No API call. No cost.</td>
+            <td>Requires an API call per annotation prompt.</td>
+          </tr>
+          <tr>
+            <td class="term">What it does</td>
+            <td>Word count, spelling list lookups, connective scans, regex-matchable patterns.</td>
+            <td>Requirement matching, grammar errors, dialect verb forms, intelligibility judgements.</td>
+          </tr>
+          <tr>
+            <td class="term">Reproducibility</td>
+            <td>Versioned lists (e.g. <code>spelling_list_v3</code>) — fully reproducible across runs.</td>
+            <td>Model name + prompt version recorded on each annotation.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout info">
+        <strong>Reading this in context.</strong> Code annotations are the cheap floor that catches the obvious things. LLM annotations are the expensive ceiling that handles judgement. Several families use both — for example, <code>orthography:</code> uses a code-side spelling list <em>and</em> an LLM pass for errors the list doesn't cover. The verifier treats them identically once produced.
+      </div>
+
+      <h3>What the verifier checks</h3>
+      <p>The verifier is the trust gate between annotation and scoring. Every annotation — code-source or LLM-source — passes through it, and only the ones that survive contribute to the score.</p>
+      <table class="data-table wide">
+        <thead>
+          <tr><th>Verifier check</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="term">Text span exists</td>
+            <td>Prevent hallucinated quotes — the annotated text must be findable in the actual response.</td>
+          </tr>
+          <tr>
+            <td class="term"><code>score_in</code> valid</td>
+            <td>Prevent construct leakage — an annotation can only feed dimensions it is allowed to feed.</td>
+          </tr>
+          <tr>
+            <td class="term">Overlap rules</td>
+            <td>Prevent double-counting — the same evidence cannot score the same dimension twice.</td>
+          </tr>
+          <tr>
+            <td class="term">Protected forms</td>
+            <td>Suppress invalid penalties — certain word forms (e.g. canonical Quranic phrasing) cannot trigger error annotations.</td>
+          </tr>
+          <tr>
+            <td class="term">Schema conformity</td>
+            <td>Validate annotation structure — every field present, every type correct, every reference resolvable.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Tab 4 — Annotation Application ===== -->
+  <div class="view" id="view-tab4">
+
+    <!-- Response input -->
+    <div class="card">
+      <h2>Response input</h2>
+      <div class="hint">Paste the student's Arabic response below or upload a <code>.txt</code> file. The pipeline will annotate it against the current Task Object.</div>
+
+      <div id="tab4_task_context" class="callout info" style="margin-bottom: 14px;">
+        <strong>Current Task Object:</strong> <span id="tab4_task_id_label">—</span> · <span id="tab4_task_meta">—</span>
+      </div>
+
+      <div class="field">
+        <label class="required">Response (Arabic)</label>
+        <textarea id="anno_response" dir="rtl" class="rtl-content" placeholder="الصق إجابة الطالب هنا..." rows="10"></textarea>
+        <div class="live-word-count">
+          <span><button type="button" id="btn_anno_upload" class="ghost" style="padding: 2px 8px; font-size: 12px;">📄 Upload .txt</button>
+          <input type="file" id="file_anno_upload" accept=".txt" style="display:none" /></span>
+          <span id="anno_wc_display">0 words</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run -->
+    <div class="card">
+      <h2>Run annotation</h2>
+      <div class="hint">Executes three stages: code annotations → LLM annotations → verifier. Throttle is recommended ON for first runs.</div>
+      <button class="primary" id="btn_run_annotation" style="width: 100%; padding: 14px; font-size: 15px;">▶ Run Annotation</button>
+
+      <div class="pipeline-progress" id="anno_progress" style="display: none;">
+        <div class="stage" data-stage="code"><span class="stage-icon">1</span><span class="stage-label">Stage 1 · Code annotations</span></div>
+        <div class="stage" data-stage="llm"><span class="stage-icon">2</span><span class="stage-label">Stage 2 · LLM annotation calls</span></div>
+        <div class="stage" data-stage="verify"><span class="stage-icon">3</span><span class="stage-label">Stage 3 · Verifier</span></div>
+        <div class="run-id-line" id="anno_run_id_line" style="display: none;"></div>
+      </div>
+      <div id="anno_run_status" class="status" style="margin-top: 10px;"></div>
+    </div>
+
+    <!-- Annotation report -->
+    <div class="card" id="anno_report_card" style="display: none;">
+      <h2>Annotation report</h2>
+
+      <!-- Summary counts -->
+      <h3 style="margin-top: 14px;">Summary</h3>
+      <div class="anno-summary" id="anno_summary_row">
+        <div class="anno-summary-card"><div class="label">Total</div><div class="value" id="sum_total">0</div></div>
+        <div class="anno-summary-card verified"><div class="label">Verified</div><div class="value" id="sum_verified">0</div></div>
+        <div class="anno-summary-card rejected"><div class="label">Rejected</div><div class="value" id="sum_rejected">0</div></div>
+        <div class="anno-summary-card"><div class="label">Code</div><div class="value" id="sum_code">0</div></div>
+        <div class="anno-summary-card"><div class="label">LLM</div><div class="value" id="sum_llm">0</div></div>
+        <div class="anno-summary-card"><div class="label">Inherited</div><div class="value" id="sum_inherited">0</div></div>
+      </div>
+
+      <!-- Annotated text view -->
+      <h3>Annotated text</h3>
+      <div class="hint" style="margin-bottom: 8px;">Click any highlight to see the underlying annotation. Overlapping annotations show a count badge — click it to see all annotations at that position.</div>
+      <div class="annotated-text" id="anno_annotated_text"></div>
+
+      <!-- Annotation list -->
+      <h3>Annotation list</h3>
+      <div class="hint" style="margin-bottom: 8px;">Click "show" on any row to see the full JSON.</div>
+      <div style="overflow-x: auto;">
+        <table class="anno-list-table" id="anno_list_table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Family</th>
+              <th>Type</th>
+              <th>Source</th>
+              <th>Anchored text</th>
+              <th>Verified</th>
+              <th>score_in</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="anno_list_body"></tbody>
+        </table>
+      </div>
+
+      <!-- Export -->
+      <h3>Export</h3>
+      <div class="actions">
+        <button id="btn_anno_export_full" class="primary">⬇ Download AnnotationObject (JSON)</button>
+        <button id="btn_anno_export_verified">⬇ Download VerifiedAnnotationObject (JSON)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotation popover (shared overlay) -->
+  <div class="anno-popover-backdrop" id="anno_popover_backdrop">
+    <div class="anno-popover" id="anno_popover"></div>
+  </div>
+
+  <div class="view" id="view-tab5">
+    <div class="stub-card">
+      <div class="stub-badge">Planned</div>
+      <h2>Tab 5 — Scoring Info</h2>
+      <p>Read-only explainer of the seven scoring dimensions and the pipeline stages.</p>
+    </div>
+  </div>
+
+  <div class="view" id="view-tab6">
+    <div class="stub-card">
+      <div class="stub-badge">Planned</div>
+      <h2>Tab 6 — Scoring Calibration</h2>
+      <p>Configures dimension weights, sub-metric weights, and dialect treatment.</p>
+    </div>
+  </div>
+
+  <div class="view" id="view-tab7">
+    <div class="stub-card">
+      <div class="stub-badge">Planned</div>
+      <h2>Tab 7 — Guardrails Info</h2>
+      <p>Read-only explainer: guardrails are governance, not scoring.</p>
+    </div>
+  </div>
+
+  <div class="view" id="view-tab8">
+    <div class="stub-card">
+      <div class="stub-badge">Planned</div>
+      <h2>Tab 8 — Apply Guardrails</h2>
+      <p>Configures confidence band thresholds, extreme-score triggers, and contradiction rules.</p>
+    </div>
+  </div>
+
+  <div class="view" id="view-tab9">
+    <div class="stub-card">
+      <div class="stub-lock">🔒 Requires Task Object + Calibration + Guardrails</div>
+      <h2>Tab 9 — Run Pipeline</h2>
+      <p>Runs all five stages, produces <code>ResultObject</code> with a fresh <code>run_id</code>.</p>
+    </div>
+  </div>
+
+  <div class="view" id="view-tab10">
+    <div class="stub-card">
+      <div class="stub-lock">🔒 Requires a completed run</div>
+      <h2>Tab 10 — Results</h2>
+      <p>Read-only display of the most recent <code>ResultObject</code>. Run history selector to navigate prior runs.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== Global session state =====
+  // Each stage produces an immutable object. Downstream stages read upstream;
+  // they never write back. RunHistory holds the last N ResultObjects keyed by run_id.
+  //
+  // The `version` field is stamped onto every object we produce. Critical for:
+  //   - export compatibility (older exports load cleanly into newer builds)
+  //   - migration (we can detect old schemas and upgrade them)
+  //   - regression testing (compare runs from different versions)
+  //   - saved-object loading (refuse silently-incompatible imports)
+  //
+  // FUTURE — per-object traceability (TaskObject, AnnotationObject, ScoreObject,
+  // GuardrailObject, ResultObject). Each should carry:
+  //   - created_at        ISO timestamp
+  //   - created_by_stage  e.g. "task_form", "code_annotation", "verifier", "scoring_engine"
+  //   - source_run_id     for objects produced inside a pipeline run
+  // Becomes essential during calibration and moderation. Not wired in this pass.
+  const SCHEMA_VERSION = "v0.3";
+  const RUN_HISTORY_CAP = 10;
+  const state = {
+    version: SCHEMA_VERSION,
+    taskObject: null,
+    calibrationConfig: null,
+    guardrailConfig: null,
+    runHistory: [],   // newest first
+    currentTab: 'tab1',
+  };
+
+  // ===== Tab availability =====
+  // Tabs 1, 2, 3, 5, 6, 7, 8: always available
+  // Tab 4: requires taskObject
+  // Tab 9: requires taskObject + calibrationConfig + guardrailConfig
+  // Tab 10: requires at least one completed run
+  function isTabAvailable(tabId) {
+    switch (tabId) {
+      case 'tab4':  return !!state.taskObject;
+      case 'tab9':  return !!(state.taskObject && state.calibrationConfig && state.guardrailConfig);
+      case 'tab10': return state.runHistory.length > 0;
+      default:      return true;
+    }
+  }
+
+  function lockReason(tabId) {
+    switch (tabId) {
+      case 'tab4':  return 'Locked — save a Task Object in Tab 2 first.';
+      case 'tab9':  return 'Locked — needs a Task Object (Tab 2), saved Calibration (Tab 6), and saved Guardrails (Tab 8).';
+      case 'tab10': return 'Locked — run the pipeline at least once.';
+      default:      return '';
+    }
+  }
+
+  // ===== Tab switching =====
+  function switchTab(tabId) {
+    if (!isTabAvailable(tabId)) {
+      showToast(lockReason(tabId));
+      return;
+    }
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+    document.getElementById(`view-${tabId}`).classList.add('active');
+    state.currentTab = tabId;
+  }
+
+  document.getElementById('tabBar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    switchTab(btn.dataset.tab);
+  });
+
+  // ===== Refresh lock state on each render =====
+  // Call this whenever state changes (TaskObject saved, etc.) so locks update.
+  function refreshLockState() {
+    document.querySelectorAll('.tab[data-requires]').forEach(btn => {
+      const available = isTabAvailable(btn.dataset.tab);
+      btn.classList.toggle('locked', !available);
+      const lockIcon = btn.querySelector('.lock-icon');
+      if (lockIcon) lockIcon.style.display = available ? 'none' : 'inline';
+    });
+  }
+
+  // ===== Pipeline status badge updates =====
+  function setPipelineStage(stage, active) {
+    const pill = document.querySelector(`.ps-pill[data-stage="${stage}"]`);
+    if (pill) pill.classList.toggle('active', !!active);
+  }
+  function refreshPipelineStatus() {
+    setPipelineStage('task',       !!state.taskObject);
+    // The remaining stages light up on a per-run basis (Tab 4 / Tab 9). Stubs for now.
+    setPipelineStage('annotation', false);
+    setPipelineStage('scoring',    false);
+    setPipelineStage('guardrails', false);
+    setPipelineStage('results',    state.runHistory.length > 0);
+  }
+
+  // ===== Toast =====
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  // ================================================================
+  // V1 LIFT — Tab 2 (Create Question) JS
+  // Copied wholesale from scorer-arabic.html (V1).
+  // ================================================================
+  // Note: V1 used several module-level globals (questionBank, reqState,
+  // activeReqTab, questionMarkersConfig). Those stay as V1 globals here
+  // so the lifted code works without rewrites. V2's `state.taskObject`
+  // is populated on Save in addition to V1's localStorage qbank.
+  //
+  // Markers config: skipped per V2 scope. questionMarkersConfig is an
+  // empty object so renderQBank's config-source branch is dead code.
+  // ================================================================
+
+  // ---- V1 constants ----
+  const TASK_TYPE_REQUIREMENTS = {
+    essay: ["Clear position or main idea", "Supporting reasons given", "Some form of conclusion or final point"],
+    email: ["Includes a clear message", "Addresses the situation appropriately", "Responds to all parts of the situation"],
+    letter: ["Includes a clear message", "Addresses the situation appropriately", "Responds to all parts of the situation"],
+    paragraph: ["Addresses the topic clearly", "Ideas are connected"],
+    article: ["Engages reader with clear topic or angle", "Ideas are explained not just listed", "Has an introduction that sets up the topic"],
+    report: ["Uses headings or sections", "Key points are explained not just listed", "Purpose is clear"],
+    proposal: ["Problem or situation clearly described", "Suggestions or solutions given", "At least one specific recommendation made"],
+    summary: ["Main ideas are included", "Response is shorter than source text", "Meaning is accurate"]
+  };
+
+  const CEFR_GSE_RANGES = { "A1": "10–29", "A2": "30–42", "A2+": "30–42", "B1": "43–58", "B1+": "43–58", "B2": "59–75", "B2+": "59–75", "C1": "76–84", "C2": "85–90" };
+  const CEFR_PCT = { "A1": 8, "A2": 24, "A2+": 30, "B1": 42, "B1+": 50, "B2": 62, "B2+": 70, "C1": 84, "C2": 95 };
+
+  const WORD_COUNT_DEFAULTS = {
+    "A1": [25, 80], "A2": [40, 120], "A2+": [40, 120],
+    "B1": [50, 300], "B1+": [50, 300],
+    "B2": [100, 400], "B2+": [100, 400],
+    "C1": [150, 500], "C2": [150, 500]
+  };
+
+  const VERBATIM_GENERIC_4TH = {
+    requirement: "Additional on-topic development",
+    "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+    "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+    "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+  };
+
+  // ---- V1 globals ----
+  let questionBank = JSON.parse(localStorage.getItem("aze_qbank_arabic") || "[]");
+  let questionMarkersConfig = {}; // markers config skipped in V2 — empty
+  let reqState = [];
+  let activeReqTab = 0;
+
+  // ---- Generic helpers (lifted) ----
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+  function setStatus(el, msg, kind) {
+    if (!el) return;
+    el.className = "status " + (kind || "");
+    el.innerHTML = msg;
+  }
+  function stripHtmlToPlain(s) {
+    return String(s || "").replace(/<\/?[^>]+>/g, "").trim();
+  }
+  function parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQuotes = false;
+    let i = 0;
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    while (i < text.length) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i+1] === '"') { cell += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        cell += ch; i++; continue;
+      }
+      if (ch === '"') { inQuotes = true; i++; continue; }
+      if (ch === ",") { row.push(cell); cell = ""; i++; continue; }
+      if (ch === "\r") { i++; continue; }
+      if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; i++; continue; }
+      cell += ch; i++;
+    }
+    if (cell.length > 0 || row.length > 0) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  function downloadCSV(filename, rows) {
+    const csv = rows.map(r => r.map(cell => {
+      const s = String(cell ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---- API call + throttle (lifted) ----
+  const THROTTLE_MAX_CONCURRENT = 1;
+  const THROTTLE_RELEASE_DELAY_MS = 3500;
+  const _throttleState = { active: 0, queue: [] };
+
+  function _isThrottleEnabled() {
+    return document.getElementById("throttleToggle")?.checked || false;
+  }
+  function _updateThrottleIndicator() {
+    const el = document.getElementById("throttleIndicator");
+    if (!el) return;
+    if (_isThrottleEnabled() && (_throttleState.active > 0 || _throttleState.queue.length > 0)) {
+      el.style.display = "inline";
+      el.textContent = `⏳ queue active (${_throttleState.active} running, ${_throttleState.queue.length} waiting)`;
+    } else {
+      el.style.display = "none";
+    }
+  }
+  async function _acquireSlot() {
+    if (!_isThrottleEnabled()) return;
+    if (_throttleState.active < THROTTLE_MAX_CONCURRENT) {
+      _throttleState.active++;
+      _updateThrottleIndicator();
+      return;
+    }
+    await new Promise(resolve => {
+      _throttleState.queue.push(resolve);
+      _updateThrottleIndicator();
+    });
+    _throttleState.active++;
+    _updateThrottleIndicator();
+  }
+  function _releaseSlot() {
+    if (!_isThrottleEnabled()) { _updateThrottleIndicator(); return; }
+    setTimeout(() => {
+      _throttleState.active--;
+      if (_throttleState.queue.length > 0) {
+        const next = _throttleState.queue.shift();
+        next();
+      }
+      _updateThrottleIndicator();
+    }, THROTTLE_RELEASE_DELAY_MS);
+  }
+  function assistantContentFromCompletion(data) {
+    const msg = data?.choices?.[0]?.message;
+    if (!msg) return "";
+    const c = msg.content;
+    if (typeof c === "string") return c;
+    if (Array.isArray(c)) {
+      return c.map(part => {
+        if (typeof part === "string") return part;
+        if (part?.text && typeof part.text === "string") return part.text;
+        return "";
+      }).join("");
+    }
+    return "";
+  }
+  async function callOpenAI(prompt, _unused, label = "?", options = {}) {
+    const model = document.getElementById("modelSelect").value;
+    const max_tokens = options.max_tokens ?? 2000;
+    const system = options.system ?? "You are a strict English-writing scorer. Always return valid JSON only — no prose, no markdown fences.";
+    const isClaudeModel = /^claude-/.test(model);
+    const endpoint = isClaudeModel ? "/api/claude" : "/api/openai";
+    console.log(`[${label}] calling ${endpoint}`, { model, promptLength: prompt.length, max_tokens, throttled: _isThrottleEnabled() });
+    await _acquireSlot();
+    try {
+      const maxAttempts = 4;
+      let res, lastErr;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const requestBody = {
+            model, max_tokens, temperature: 0,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: prompt }
+            ]
+          };
+          if (!isClaudeModel) requestBody.response_format = { type: "json_object" };
+          res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+          });
+          if (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) {
+            const errText = await res.text();
+            console.warn(`[${label}] HTTP ${res.status} (attempt ${attempt}/${maxAttempts}):`, errText.slice(0, 200));
+            if (attempt < maxAttempts) {
+              let backoff;
+              if (res.status === 429) {
+                const retryAfter = parseInt(res.headers.get("retry-after") || "", 10);
+                backoff = (!isNaN(retryAfter) && retryAfter > 0) ? retryAfter * 1000 + 1000 : 35000 + (attempt - 1) * 15000;
+                console.warn(`[${label}] 429 rate limit — waiting ${Math.round(backoff/1000)}s before retry`);
+              } else {
+                backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+              }
+              await new Promise(r => setTimeout(r, backoff));
+              continue;
+            }
+            throw new Error(`API ${res.status}: ${errText.slice(0, 200)}`);
+          }
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[${label}] fetch attempt ${attempt}/${maxAttempts} failed:`, err.message);
+          if (attempt < maxAttempts) {
+            const backoff = 1000 * Math.pow(2, attempt - 1) + Math.random() * 500;
+            await new Promise(r => setTimeout(r, backoff));
+            continue;
+          }
+        }
+      }
+      if (lastErr) { console.error(`[${label}] all ${maxAttempts} attempts failed:`, lastErr); throw lastErr; }
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(`[${label}] HTTP ${res.status}:`, err);
+        throw new Error(`API ${res.status}: ${err.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      console.log(`[${label}] raw API response:`, data);
+      const text = assistantContentFromCompletion(data);
+      if (!text || !String(text).trim()) {
+        throw new Error("Empty model response (likely output token budget exhausted after reasoning). Try again or use a different model.");
+      }
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("No JSON in response: " + text.slice(0, 100));
+      try { return JSON.parse(match[0]); }
+      catch (e) { throw new Error("Invalid JSON: " + match[0].slice(0, 100)); }
+    } finally {
+      _releaseSlot();
+    }
+  }
+
+  // ---- Throttle preference persistence ----
+  (function initThrottle() {
+    const stored = localStorage.getItem("aze_throttle");
+    const initial = stored === null ? true : stored === "1";
+    document.getElementById("throttleToggle").checked = initial;
+    if (stored === null) localStorage.setItem("aze_throttle", "1");
+  })();
+  document.getElementById("throttleToggle").addEventListener("change", e => {
+    localStorage.setItem("aze_throttle", e.target.checked ? "1" : "0");
+  });
+  document.getElementById("modelSelect").value = localStorage.getItem("aze_model_v2") || "claude-sonnet-4-6";
+  document.getElementById("modelSelect").addEventListener("change", e => localStorage.setItem("aze_model_v2", e.target.value));
+
+  // ================================================================
+  // STEP 1: CREATE QUESTION — main logic (lifted verbatim from V1)
+  // ================================================================
+  function emptyReq() {
+    return { req: "", score_0: "", score_1: "", score_2: "", score_3: "" };
+  }
+
+  function renderRequirements(reqs) {
+    const tabsEl = document.getElementById("req_tabs");
+    const container = document.getElementById("req_list");
+    if (!tabsEl || !container) return;
+    if (activeReqTab > reqs.length) activeReqTab = reqs.length;
+
+    let tabsHtml = "";
+    reqs.forEach((r, idx) => {
+      tabsHtml += `<button type="button" class="req-tab${activeReqTab === idx ? " active" : ""}" data-tab-idx="${idx}">Requirement ${idx + 1}</button>`;
+    });
+    tabsHtml += `<button type="button" class="req-tab locked${activeReqTab === reqs.length ? " active" : ""}" data-tab-idx="${reqs.length}">Requirement ${reqs.length + 1} · generic</button>`;
+    tabsEl.innerHTML = tabsHtml;
+    tabsEl.querySelectorAll(".req-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeReqTab = +btn.dataset.tabIdx;
+        renderRequirements(reqState);
+      });
+    });
+
+    container.innerHTML = "";
+
+    if (activeReqTab < reqs.length) {
+      const idx = activeReqTab;
+      const r = reqs[idx];
+      const block = document.createElement("div");
+      block.className = "req-block";
+      block.innerHTML = `
+        <div class="req-head">
+          <span class="req-num">Requirement ${idx + 1}</span>
+          <button type="button" class="danger" data-action="del" data-idx="${idx}">Remove</button>
+        </div>
+        <div class="field">
+          <label>Requirement (Arabic)</label>
+          <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: وصف ما فعلوه أمس" data-field="req" data-idx="${idx}" value="${escapeHtml(r.req || "")}" />
+        </div>
+        <div class="field">
+          <label style="color: var(--muted);">Requirement — English translation (optional)</label>
+          <input type="text" placeholder="English translation..." data-field="req_en" data-idx="${idx}" value="${escapeHtml(r.req_en || "")}" />
+        </div>
+        <div class="field">
+          <label>Score 0 — absent or completely off-topic</label>
+          <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: لم يُذكر" data-field="score_0" data-idx="${idx}" value="${escapeHtml(r.score_0 || "")}" />
+        </div>
+        <div class="field">
+          <label>Score 1 — mentioned but not developed</label>
+          <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: ذكر نشاط واحد بشكل مبهم" data-field="score_1" data-idx="${idx}" value="${escapeHtml(r.score_1 || "")}" />
+        </div>
+        <div class="field">
+          <label>Score 2 — developed with reason or explanation</label>
+          <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: نشاط محدد مع بعض التفاصيل" data-field="score_2" data-idx="${idx}" value="${escapeHtml(r.score_2 || "")}" />
+        </div>
+        <div class="field">
+          <label>Score 3 — extended with specific example or detail</label>
+          <input type="text" dir="rtl" class="rtl-content" placeholder="مثال: نشاطان أو أكثر مع الوقت أو المكان أو التفاصيل" data-field="score_3" data-idx="${idx}" value="${escapeHtml(r.score_3 || "")}" />
+        </div>
+      `;
+      container.appendChild(block);
+      container.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("input", e => {
+          const i = +e.target.dataset.idx;
+          reqState[i][e.target.dataset.field] = e.target.value;
+        });
+      });
+      container.querySelectorAll("[data-action='del']").forEach(btn => {
+        btn.addEventListener("click", e => {
+          const i = +e.currentTarget.dataset.idx;
+          reqState.splice(i, 1);
+          if (reqState.length === 0) reqState.push(emptyReq());
+          if (activeReqTab >= reqState.length) activeReqTab = Math.max(0, reqState.length - 1);
+          renderRequirements(reqState);
+        });
+      });
+    } else {
+      const generic = document.createElement("div");
+      generic.className = "req-block";
+      generic.style.background = "#fef3c7";
+      generic.style.borderColor = "#fde68a";
+      generic.innerHTML = `
+        <div class="req-head">
+          <span class="req-num" style="background: #fde68a; color: #92400e;">Requirement ${reqs.length + 1} · auto-applied to every question</span>
+          <span style="font-size: 11px; color: #92400e; font-weight: 600;">read-only</span>
+        </div>
+        <div class="field">
+          <label>Requirement</label>
+          <input type="text" disabled value="Additional on-topic development" style="background: #fffbeb; cursor: not-allowed;" />
+        </div>
+        <div class="field">
+          <label>Score 0 — absent (or paraphrase of another requirement)</label>
+          <input type="text" disabled value="no semantically distinct extra on-topic point, OR the 'extra' content paraphrases an idea already credited under another requirement" style="background: #fffbeb; cursor: not-allowed;" />
+        </div>
+        <div class="field">
+          <label>Score 1 — mentioned but not developed</label>
+          <input type="text" disabled value="introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail" style="background: #fffbeb; cursor: not-allowed;" />
+        </div>
+        <div class="field">
+          <label>Score 2 — developed with reason or explanation</label>
+          <input type="text" disabled value="introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)" style="background: #fffbeb; cursor: not-allowed;" />
+        </div>
+        <div class="field">
+          <label>Score 3 — extended with specific example or detail</label>
+          <input type="text" disabled value="introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument" style="background: #fffbeb; cursor: not-allowed;" />
+        </div>
+        <div style="font-size: 11px; color: #92400e; margin-top: 10px;">This requirement is appended to every question at scoring time for both Task Achievement (PASS/FAIL) and Content Quality (0–3). It cannot be edited or removed.</div>
+      `;
+      container.appendChild(generic);
+    }
+  }
+
+  reqState = [emptyReq(), emptyReq(), emptyReq()];
+  renderRequirements(reqState);
+
+  document.getElementById("btn_add_req").addEventListener("click", () => {
+    reqState.push(emptyReq());
+    activeReqTab = reqState.length - 1;
+    renderRequirements(reqState);
+  });
+
+  function updateDifficultyMeter() {
+    const lvl = document.getElementById("q_cefr").value;
+    const pill = document.getElementById("difficulty_pill");
+    const fill = document.getElementById("difficulty_fill");
+    const cur = document.getElementById("difficulty_current");
+    const headerLbl = document.getElementById("editor_cefr_label");
+    if (pill) pill.textContent = lvl;
+    if (fill) fill.style.width = (CEFR_PCT[lvl] || 50) + "%";
+    if (cur) cur.textContent = `Current: ${lvl} (GSE: ${CEFR_GSE_RANGES[lvl] || "—"})`;
+    if (headerLbl) headerLbl.textContent = lvl;
+  }
+  document.getElementById("q_cefr").addEventListener("change", updateDifficultyMeter);
+  updateDifficultyMeter();
+
+  document.getElementById("btn_save_q_2").addEventListener("click", () => {
+    document.getElementById("btn_save_q").click();
+  });
+
+  document.getElementById("btn_toggle_assistant").addEventListener("click", () => {
+    const aside = document.getElementById("ai_aside");
+    const grid = aside.parentElement;
+    const btn = document.getElementById("btn_toggle_assistant");
+    const hidden = aside.style.display === "none";
+    aside.style.display = hidden ? "" : "none";
+    grid.style.gridTemplateColumns = hidden ? "minmax(0, 1fr) 320px" : "1fr";
+    btn.innerHTML = hidden ? "🤖 Hide Assistant" : "🤖 Show Assistant";
+  });
+
+  // ---- AI authoring prompts (embedded so file:// works) ----
+  const PROMPT_GENERATE_TASK_REQS = `# Generate Task Requirements (AI authoring prompt)
+
+Given a question stem, generate exactly **3 task requirements**.
+These are the bullet points the scorer's TA prompt will mark PASS/FAIL on.
+
+---
+
+## Inputs
+
+QUESTION STEM:
+{QUESTION_STEM}
+
+CEFR LEVEL: {CEFR_LEVEL}
+TASK TYPE: {TASK_TYPE}
+TOPIC: {TOPIC}
+
+## Rules
+
+1. **Always 3 requirements.** Not 2, not 4.
+2. **Short noun phrase, 4–10 words each.** Do not write full sentences.
+3. **Testable.** The scorer must be able to ask: "Can I quote a sentence that names this topic AND gives a specific detail (name, place, time, number, reason, example)?". If you can't imagine that test passing or failing cleanly, the requirement is too vague.
+4. **Map to the question stem's bullets when present.** If the stem already has 3 bullet points (e.g., "Think about X, consider Y, include Z"), use them as-is or with light rephrasing. Do NOT invent new topics not implied by the stem.
+5. **Distinct topics.** No two requirements should overlap.
+6. **Plain language at the CEFR level.** No academic jargon, no abstract nouns where a concrete one works.
+7. **Avoid interpretive verbs** like "discuss", "explore", "consider", "reflect on", "evaluate". Replace with concrete asks: "name", "give", "explain why", "compare", "describe".
+
+## Output format (JSON only, no commentary)
+
+{
+  "task_requirements": ["...", "...", "..."]
+}`;
+
+  const PROMPT_GENERATE_QUALITY_MARKERS = `# Generate Quality Markers (AI authoring prompt) — v1.1
+
+Given the 3 task requirements, generate the full development_markers array. The output must contain **4 entries**: the 3 question-specific ladders + the verbatim generic 4th.
+
+---
+
+## Inputs
+
+TASK REQUIREMENTS (3 entries, in order):
+{TASK_REQUIREMENTS}
+
+QUESTION STEM (for context):
+{QUESTION_STEM}
+
+CEFR LEVEL: {CEFR_LEVEL}
+TOPIC: {TOPIC}
+
+## Rules
+
+1. **Output 4 markers, in this order:** the 3 task requirements (in same order as input), then the generic 4th: "Additional on-topic development".
+2. **The generic 4th is verbatim.** Copy it from the bottom of this prompt. Do not modify any wording.
+3. **Each ladder has 3 rungs (1, 2, 3).** Score 0 is implicit ("absent").
+4. **Use this exact rung pattern:**
+   - **1_mentioned** — names the topic, no further detail.
+   - **2_developed** — names the topic AND adds a reason, cause, effect, or how/why explanation.
+   - **3_extended** — all of rung 2 AND a **concrete specific** that adds meaningful elaboration.
+
+## CRITICAL — what "concrete specific" means in rung 3
+
+The rung-3 anchor is about **language concreteness**, NOT factual or world knowledge. We are scoring language proficiency, not encyclopedic recall.
+
+5. **Every rung-3 MUST include a "do NOT count" anti-example.**
+6. **Provide a concrete (e.g., ...) example in rung 2 and rung 3.**
+
+## Verbatim generic 4th marker (always include, never modify)
+
+{
+  "requirement": "Additional on-topic development",
+  "1_mentioned": "introduces a DISTINCT extra on-topic point — not a rephrasing or repeat of any other requirement — within the question's subject, with no further detail",
+  "2_developed": "introduces a distinct extra on-topic point AND develops it meaningfully (a real reason, cause, or effect — not just length)",
+  "3_extended": "introduces a distinct extra on-topic point AND develops it AND supports it with a concrete specific that genuinely advances the argument"
+}
+
+## Output format (JSON only, no commentary)
+
+{
+  "development_markers": [
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "...", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." },
+    { "requirement": "Additional on-topic development", "1_mentioned": "...", "2_developed": "...", "3_extended": "..." }
+  ]
+}`;
+
+  const PROMPT_GENERATE_QUESTION = `# Generate Question (AI authoring prompt)
+
+Given a CEFR level, task type, and topic, generate a level-appropriate question stem that the student will see when answering.
+
+The stem must contain 3 bullet points. Those bullets will be turned into task requirements by the next step.
+
+---
+
+## Inputs
+
+CEFR LEVEL: {CEFR_LEVEL}
+TASK TYPE: {TASK_TYPE}
+TOPIC: {TOPIC}
+
+## Rules
+
+1. **Output a question stem with this structure:**
+   - **Framing line:** 1 short sentence introducing the topic.
+   - **Instruction line:** 1 short sentence telling the student what to write.
+   - **3 bullet points:** what they must address.
+
+2. **Always 3 bullet points.**
+3. **Each bullet is a short concrete topic, 4–12 words.**
+4. **Match CEFR level** in vocabulary and grammar.
+5. **Suggest word_count_min and word_count_max** based on level and task type.
+
+## Output format (JSON only, no commentary, no markdown fences)
+
+{
+  "question_stem": "Framing line.\\n\\nInstruction line.\\n\\n- Bullet 1\\n- Bullet 2\\n- Bullet 3",
+  "word_count_min": NUMBER,
+  "word_count_max": NUMBER
+}`;
+
+  // ---- AI assistant helpers ----
+  function setAiStatus(msg, kind) {
+    const el = document.getElementById("ai_status");
+    if (!el) return;
+    el.style.color = kind === "success" ? "#16a34a" : kind === "error" ? "#dc2626" : "var(--muted)";
+    el.innerHTML = msg || "";
+  }
+  function setBtnBusy(btn, busyText) {
+    if (!btn._origHtml) btn._origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="ai-icon">⏳</span><span class="ai-text"><strong>${busyText}…</strong></span>`;
+  }
+  function restoreBtn(btn) {
+    if (btn._origHtml) btn.innerHTML = btn._origHtml;
+    btn.disabled = false;
+  }
+  function updateAiButtonStates() {
+    const stem = stripHtmlToPlain(document.getElementById("q_prompt")?.value || "");
+    const cefr = document.getElementById("q_cefr")?.value || "";
+    const taskType = document.getElementById("q_task_type")?.value || "";
+    const topic = (document.getElementById("q_topic")?.value || "").trim();
+    const reqsReady = reqState.slice(0, 3).every(r => (r.req || "").trim().length > 0);
+    const taReqsBtn = document.querySelector('[data-ai="generate-task-reqs"]');
+    const qmBtn = document.querySelector('[data-ai="generate-quality-markers"]');
+    const genQBtn = document.querySelector('[data-ai="generate-question"]');
+    if (genQBtn) {
+      const missing = [];
+      if (!cefr) missing.push("CEFR");
+      if (!taskType) missing.push("Task Type");
+      if (!topic) missing.push("Topic");
+      genQBtn.title = missing.length ? `Needs: ${missing.join(", ")}` : "Ready";
+    }
+    if (taReqsBtn) {
+      const missing = [];
+      if (!stem) missing.push("Question");
+      if (!cefr) missing.push("CEFR");
+      if (!taskType) missing.push("Task Type");
+      if (!topic) missing.push("Topic");
+      taReqsBtn.title = missing.length ? `Needs: ${missing.join(", ")}` : "Ready";
+    }
+    if (qmBtn) {
+      qmBtn.title = reqsReady ? "Ready" : "Needs: 3 task requirements with text";
+    }
+  }
+  ["q_prompt", "q_cefr", "q_task_type", "q_topic"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updateAiButtonStates);
+    if (el) el.addEventListener("change", updateAiButtonStates);
+  });
+  updateAiButtonStates();
+  const _origRenderRequirements = renderRequirements;
+  renderRequirements = function (reqs) {
+    _origRenderRequirements(reqs);
+    updateAiButtonStates();
+  };
+
+  async function generateQuestion(btn) {
+    const cefr = document.getElementById("q_cefr").value;
+    const taskType = document.getElementById("q_task_type").value;
+    const topic = (document.getElementById("q_topic").value || "").trim();
+    if (!cefr || !taskType || !topic) { setAiStatus("Pick CEFR level, task type, and topic first.", "error"); return; }
+    setBtnBusy(btn, "Generating");
+    setAiStatus(`<span class="spinner"></span> Generating question…`);
+    const fill = (s) => s.replace("{CEFR_LEVEL}", cefr).replace("{TASK_TYPE}", taskType).replace("{TOPIC}", topic);
+    const validate = (data) => {
+      if (!data || typeof data.question_stem !== "string" || !data.question_stem.trim()) return { valid: false };
+      const bullets = data.question_stem.split("\n").filter(l => /^\s*-\s+\S/.test(l));
+      if (bullets.length !== 3) return { valid: false };
+      return { valid: true, stem: data.question_stem, min: data.word_count_min, max: data.word_count_max };
+    };
+    let validated;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const data = await callOpenAI(fill(PROMPT_GENERATE_QUESTION), null, `gen-question-${attempt}`, {
+          max_tokens: 1000,
+          system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+        });
+        const v = validate(data);
+        if (v.valid) { validated = v; break; }
+      } catch (err) { console.error(`[gen-question] attempt ${attempt}:`, err); }
+    }
+    restoreBtn(btn);
+    if (!validated) { setAiStatus("AI returned the wrong number of bullets — please regenerate or write manually.", "error"); return; }
+    let min = +validated.min || 0, max = +validated.max || 0, usedFallback = false;
+    if (!min || !max || min >= max || min < 25 || max > 900) {
+      const def = WORD_COUNT_DEFAULTS[cefr] || WORD_COUNT_DEFAULTS["B1"];
+      min = def[0]; max = def[1]; usedFallback = true;
+    }
+    const lines = validated.stem.split("\n");
+    const bulletLines = lines.filter(l => /^\s*-\s+\S/.test(l));
+    const stemLines = lines.filter(l => !/^\s*-\s+/.test(l));
+    const stemNoBullets = stemLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    const bullets = bulletLines.map(l => l.replace(/^\s*-\s+/, "").trim());
+    document.getElementById("q_prompt").value = stemNoBullets;
+    document.getElementById("q_min").value = min;
+    document.getElementById("q_max").value = max;
+    if (bullets.length === 3) {
+      while (reqState.length < 3) reqState.push(emptyReq());
+      for (let i = 0; i < 3; i++) {
+        reqState[i] = reqState[i] || emptyReq();
+        reqState[i].req = bullets[i];
+      }
+      activeReqTab = 0;
+      renderRequirements(reqState);
+    }
+    let msg = "✓ Generated question and pre-filled 3 task requirements. Review and edit, or re-run Generate Task Requirements to refine.";
+    if (usedFallback) msg += ` Word range adjusted to ${min}–${max} for ${cefr}.`;
+    setAiStatus(msg, usedFallback ? "error" : "success");
+  }
+
+  async function generateTaskRequirements(btn) {
+    const stem = stripHtmlToPlain(document.getElementById("q_prompt").value);
+    const cefr = document.getElementById("q_cefr").value;
+    const taskType = document.getElementById("q_task_type").value;
+    const topic = (document.getElementById("q_topic").value || "").trim();
+    if (!stem || !cefr || !taskType || !topic) { setAiStatus("Fill in Question, CEFR Level, Task Type, and Topic first.", "error"); return; }
+    setBtnBusy(btn, "Generating");
+    setAiStatus(`<span class="spinner"></span> Generating task requirements…`);
+    const fill = (s) => s.replace("{QUESTION_STEM}", stem).replace("{CEFR_LEVEL}", cefr).replace("{TASK_TYPE}", taskType).replace("{TOPIC}", topic);
+    const validate = (data) => {
+      const arr = data && Array.isArray(data.task_requirements) ? data.task_requirements : null;
+      if (!arr || arr.length !== 3) return { valid: false };
+      if (!arr.every(s => typeof s === "string" && s.trim().length > 0)) return { valid: false };
+      return { valid: true, items: arr.map(s => s.trim()) };
+    };
+    let validated;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const data = await callOpenAI(fill(PROMPT_GENERATE_TASK_REQS), null, `gen-task-reqs-${attempt}`, {
+          max_tokens: 800,
+          system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+        });
+        const v = validate(data);
+        if (v.valid) { validated = v; break; }
+      } catch (err) { console.error(`[gen-task-reqs] attempt ${attempt}:`, err); }
+    }
+    restoreBtn(btn);
+    if (!validated) { setAiStatus("AI generation failed — please write requirements manually.", "error"); return; }
+    while (reqState.length < 3) reqState.push(emptyReq());
+    for (let i = 0; i < 3; i++) {
+      reqState[i] = reqState[i] || emptyReq();
+      reqState[i].req = validated.items[i];
+    }
+    activeReqTab = 0;
+    renderRequirements(reqState);
+    setAiStatus("✓ Generated 3 task requirements. Review and edit before saving.", "success");
+  }
+
+  async function generateQualityMarkers(btn) {
+    const taskRequirements = reqState.slice(0, 3).map(r => (r.req || "").trim());
+    if (!taskRequirements.every(s => s.length > 0)) { setAiStatus("Fill in all 3 task requirements first.", "error"); return; }
+    const stem = stripHtmlToPlain(document.getElementById("q_prompt").value);
+    const cefr = document.getElementById("q_cefr").value;
+    const topic = (document.getElementById("q_topic").value || "").trim();
+    setBtnBusy(btn, "Generating");
+    setAiStatus(`<span class="spinner"></span> Generating quality markers…`);
+    const fill = (s) => s
+      .replace("{TASK_REQUIREMENTS}", JSON.stringify(taskRequirements, null, 2))
+      .replace("{QUESTION_STEM}", stem)
+      .replace("{CEFR_LEVEL}", cefr)
+      .replace("{TOPIC}", topic);
+    const validate = (data) => {
+      const arr = data && Array.isArray(data.development_markers) ? data.development_markers : null;
+      if (!arr || arr.length !== 4) return { valid: false };
+      for (let i = 0; i < 4; i++) {
+        const m = arr[i];
+        if (!m || typeof m !== "object") return { valid: false };
+        if (typeof m["1_mentioned"] !== "string" || typeof m["2_developed"] !== "string" || typeof m["3_extended"] !== "string") return { valid: false };
+      }
+      return { valid: true, markers: arr };
+    };
+    let validated;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const data = await callOpenAI(fill(PROMPT_GENERATE_QUALITY_MARKERS), null, `gen-quality-markers-${attempt}`, {
+          max_tokens: 2000,
+          system: "You are an expert assessment author. Always return valid JSON only — no prose, no markdown fences."
+        });
+        const v = validate(data);
+        if (v.valid) { validated = v; break; }
+      } catch (err) { console.error(`[gen-quality-markers] attempt ${attempt}:`, err); }
+    }
+    restoreBtn(btn);
+    if (!validated) { setAiStatus("AI generation failed — please write markers manually.", "error"); return; }
+    const markers = validated.markers;
+    // Force verbatim generic 4th
+    markers[3] = { ...VERBATIM_GENERIC_4TH };
+    while (reqState.length < 3) reqState.push(emptyReq());
+    for (let i = 0; i < 3; i++) {
+      reqState[i] = reqState[i] || emptyReq();
+      reqState[i].req = markers[i].requirement || reqState[i].req;
+      reqState[i].score_1 = markers[i]["1_mentioned"] || "";
+      reqState[i].score_2 = markers[i]["2_developed"] || "";
+      reqState[i].score_3 = markers[i]["3_extended"] || "";
+    }
+    activeReqTab = 0;
+    renderRequirements(reqState);
+    setAiStatus("✓ Generated quality markers. Review and edit before saving.", "success");
+  }
+
+  document.querySelectorAll('[data-ai]').forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const action = btn.dataset.ai;
+      if (action === "generate-question") return generateQuestion(btn);
+      if (action === "generate-task-reqs") return generateTaskRequirements(btn);
+      if (action === "generate-quality-markers") return generateQualityMarkers(btn);
+      const labels = { "populate": "Populate Missing Fields", "validate": "Run EFL Validation" };
+      alert(`${labels[action] || action}: AI assistant stub. Not yet wired to the scoring API.`);
+    });
+  });
+
+  function renderTaskTypeReqs() {
+    const t = document.getElementById("q_task_type").value;
+    const reqs = TASK_TYPE_REQUIREMENTS[t] || [];
+    document.getElementById("task_type_reqs").innerHTML =
+      `<div><strong>${t}</strong></div><ul>${reqs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`;
+  }
+  document.getElementById("q_task_type").addEventListener("change", renderTaskTypeReqs);
+  renderTaskTypeReqs();
+
+  // ---- Save / Clear / QBank ----
+  document.getElementById("btn_save_q").addEventListener("click", () => {
+    const status = document.getElementById("save_status");
+    const q = {
+      question_id: document.getElementById("q_id").value.trim(),
+      cefr_level: document.getElementById("q_cefr").value,
+      task_type: document.getElementById("q_task_type").value,
+      task_prompt: document.getElementById("q_prompt").value.trim(),
+      task_prompt_translation: (document.getElementById("q_prompt_en")?.value || "").trim(),
+      min_words: +document.getElementById("q_min").value,
+      max_words: +document.getElementById("q_max").value,
+      task_title: document.getElementById("q_title").value.trim(),
+      cefr_descriptor: document.getElementById("q_cefr_desc").value.trim(),
+      topic: document.getElementById("q_topic").value.trim(),
+      skill_focus: document.getElementById("q_skill_focus").value.trim(),
+      domain: document.getElementById("q_domain").value.trim(),
+      learning_objective: document.getElementById("q_learning_obj").value.trim(),
+      instruction: document.getElementById("q_instruction").value.trim(),
+      subtype: document.getElementById("q_subtype").value.trim(),
+      task_requirements: reqState.filter(r => r.req.trim()).map(r => r.req.trim()),
+      development_markers: reqState.filter(r => r.req.trim()).map(r => ({
+        point: r.req.trim(),
+        score_0: (r.score_0 || "").trim(),
+        score_1: (r.score_1 || "").trim(),
+        score_2: (r.score_2 || "").trim(),
+        score_3: (r.score_3 || "").trim()
+      })),
+      task_type_requirements: TASK_TYPE_REQUIREMENTS[document.getElementById("q_task_type").value] || []
+    };
+    if (!q.question_id) return setStatus(status, "Question ID is required.", "error");
+    if (!q.task_prompt) return setStatus(status, "Task prompt is required.", "error");
+    if (q.task_requirements.length < 3) return setStatus(status, "At least 3 task requirements required.", "error");
+    if (!q.min_words || !q.max_words || q.min_words >= q.max_words) return setStatus(status, "Invalid word range.", "error");
+
+    const existing = questionBank.findIndex(x => x.question_id === q.question_id);
+    if (existing >= 0) {
+      if (!confirm(`Question ID "${q.question_id}" exists. Overwrite?`)) return;
+      questionBank[existing] = q;
+    } else {
+      questionBank.push(q);
+    }
+    localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+    setStatus(status, `Saved "${q.question_id}".`, "success");
+    renderQBank();
+
+    // ---- V2 wiring: populate state.taskObject + unlock downstream tabs ----
+    state.taskObject = {
+      version: SCHEMA_VERSION,
+      task_id: q.question_id,
+      // TODO (future traceability): created_at, created_by_stage="task_form", source_run_id (n/a here)
+      ...q
+    };
+    refreshLockState();
+    refreshPipelineStatus();
+    showToast(`Task Object saved — "${q.question_id}" is now available to downstream tabs.`);
+  });
+
+  document.getElementById("btn_clear_q").addEventListener("click", () => {
+    document.getElementById("q_id").value = "";
+    document.getElementById("q_prompt").value = "";
+    if (document.getElementById("q_prompt_en")) document.getElementById("q_prompt_en").value = "";
+    document.getElementById("q_min").value = 120;
+    document.getElementById("q_max").value = 180;
+    ["q_title","q_cefr_desc","q_topic","q_skill_focus","q_domain","q_learning_obj","q_subtype"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    const ins = document.getElementById("q_instruction");
+    if (ins) ins.value = "Read the task below and write your response in the space provided.";
+    reqState = [emptyReq(), emptyReq(), emptyReq()];
+    activeReqTab = 0;
+    renderRequirements(reqState);
+    if (typeof updateDifficultyMeter === "function") updateDifficultyMeter();
+    document.getElementById("save_status").textContent = "";
+  });
+
+  function renderQBank() {
+    const wrap = document.getElementById("qbank_list");
+    if (!wrap) return;
+    if (questionBank.length === 0) {
+      wrap.innerHTML = '<div class="empty-state">No questions saved yet.</div>';
+      return;
+    }
+    wrap.innerHTML = questionBank.map((q, i) => `
+      <div class="question-list-item">
+        <div>
+          <strong>${escapeHtml(q.question_id)}</strong>
+          <span class="pill" style="margin-left: 8px;">${escapeHtml(q.cefr_level || "—")}</span>
+          <span class="pill" style="margin-left: 4px;">${escapeHtml(q.task_type || "—")}</span>
+          <span style="color: var(--muted); margin-left: 8px;">${q.min_words}–${q.max_words} words · ${(q.task_requirements || []).length} reqs</span>
+        </div>
+        <div class="actions">
+          <button data-load-key="${i}">Load</button>
+          <button class="danger" data-del="${i}">Delete</button>
+        </div>
+      </div>
+    `).join("");
+    wrap.querySelectorAll("[data-load-key]").forEach(btn => {
+      btn.addEventListener("click", () => loadQuestion(+btn.dataset.loadKey));
+    });
+    wrap.querySelectorAll("[data-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (!confirm("Delete this question?")) return;
+        questionBank.splice(+btn.dataset.del, 1);
+        localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+        renderQBank();
+      });
+    });
+  }
+
+  function loadQuestion(idx) {
+    const q = questionBank[idx];
+    if (!q) return;
+    document.getElementById("q_id").value = q.question_id;
+    document.getElementById("q_cefr").value = q.cefr_level;
+    document.getElementById("q_task_type").value = q.task_type;
+    document.getElementById("q_prompt").value = q.task_prompt;
+    if (document.getElementById("q_prompt_en")) document.getElementById("q_prompt_en").value = q.task_prompt_translation || "";
+    document.getElementById("q_min").value = q.min_words;
+    document.getElementById("q_max").value = q.max_words;
+    document.getElementById("q_title").value = q.task_title || "";
+    document.getElementById("q_cefr_desc").value = q.cefr_descriptor || "";
+    document.getElementById("q_topic").value = q.topic || "";
+    document.getElementById("q_skill_focus").value = q.skill_focus || "";
+    document.getElementById("q_domain").value = q.domain || "";
+    document.getElementById("q_learning_obj").value = q.learning_objective || "";
+    document.getElementById("q_instruction").value = q.instruction || "Read the task below and write your response in the space provided.";
+    document.getElementById("q_subtype").value = q.subtype || "";
+    updateDifficultyMeter();
+    activeReqTab = 0;
+    reqState = (q.task_requirements || []).map((r, idx2) => {
+      const m = (q.development_markers || [])[idx2];
+      if (m && typeof m === "object") {
+        return {
+          req: r,
+          score_0: m.score_0 || "",
+          score_1: m.score_1 || m["1_mentioned"] || "",
+          score_2: m.score_2 || m["2_developed"] || "",
+          score_3: m.score_3 || m["3_extended"] || ""
+        };
+      }
+      return { req: r, score_0: "", score_1: "", score_2: "", score_3: m || "" };
+    });
+    if (reqState.length === 0) reqState = [emptyReq(), emptyReq(), emptyReq()];
+    renderRequirements(reqState);
+    renderTaskTypeReqs();
+    setStatus(document.getElementById("save_status"), `Loaded "${q.question_id}".`, "success");
+  }
+
+  document.getElementById("btn_clear_qbank").addEventListener("click", () => {
+    if (!confirm("Delete all saved questions?")) return;
+    questionBank = [];
+    localStorage.setItem("aze_qbank_arabic", "[]");
+    renderQBank();
+  });
+
+  document.getElementById("btn_import_qbank").addEventListener("click", () => {
+    document.getElementById("file_import_qbank").click();
+  });
+  document.getElementById("file_import_qbank").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById("import_status");
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error("CSV is empty or has no data rows.");
+      const header = rows[0].map(h => h.trim());
+      const required = ["question_id","cefr_level","task_type","task_prompt","min_words","max_words","task_requirements","development_markers","task_type_requirements"];
+      const missing = required.filter(c => !header.includes(c));
+      if (missing.length) throw new Error("Missing columns: " + missing.join(", "));
+      const colIdx = Object.fromEntries(header.map((h,i) => [h, i]));
+      let added = 0, replaced = 0, skipped = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length === 1 && row[0].trim() === "") continue;
+        const get = c => row[colIdx[c]] ?? "";
+        const parseJSONField = (v, label) => {
+          const s = (v || "").trim();
+          if (!s) return [];
+          try { return JSON.parse(s); }
+          catch { throw new Error(`Row ${i+1} — invalid JSON in ${label}: ${s.slice(0, 60)}`); }
+        };
+        const q = {
+          question_id: get("question_id").trim(),
+          cefr_level: get("cefr_level").trim(),
+          task_type: get("task_type").trim(),
+          task_prompt: get("task_prompt"),
+          min_words: +get("min_words") || 0,
+          max_words: +get("max_words") || 0,
+          task_requirements: parseJSONField(get("task_requirements"), "task_requirements"),
+          development_markers: parseJSONField(get("development_markers"), "development_markers"),
+          task_type_requirements: parseJSONField(get("task_type_requirements"), "task_type_requirements")
+        };
+        if (!q.question_id) { skipped++; continue; }
+        const existing = questionBank.findIndex(x => x.question_id === q.question_id);
+        if (existing >= 0) { questionBank[existing] = q; replaced++; }
+        else { questionBank.push(q); added++; }
+      }
+      localStorage.setItem("aze_qbank_arabic", JSON.stringify(questionBank));
+      renderQBank();
+      setStatus(status, `Imported: ${added} added, ${replaced} replaced${skipped ? ", " + skipped + " skipped" : ""}.`, "success");
+    } catch (err) {
+      setStatus(status, "Import failed: " + err.message, "error");
+    }
+    e.target.value = "";
+  });
+
+  document.getElementById("btn_export_qbank").addEventListener("click", () => {
+    if (questionBank.length === 0) return alert("No questions to export.");
+    const cols = ["question_id","cefr_level","task_type","task_prompt","min_words","max_words","task_requirements","development_markers","task_type_requirements"];
+    const rows = questionBank.map(q => cols.map(c => {
+      const v = q[c];
+      return Array.isArray(v) ? JSON.stringify(v) : (v ?? "");
+    }));
+    downloadCSV("question_bank.csv", [cols, ...rows]);
+  });
+
+  renderQBank();
+
+  // ===== End V1 lift JS =====
+
+  // ================================================================
+  // Tab 4 — Annotation Application
+  // Three-stage pipeline: code → LLM → verifier.
+  // Produces AnnotationObject and VerifiedAnnotationObject, stamped
+  // with run_id and SCHEMA_VERSION. Annotations are immutable once
+  // verified — downstream stages read them, never rewrite them.
+  // ================================================================
+  //
+  // KNOWN LIMITATIONS / V2.1 FOLLOW-UPS  (review notes — Richard, May 2026)
+  // ----------------------------------------------------------------
+  // UX / surfacing
+  //   • Annotation density will get visually noisy once real Arabic
+  //     responses run — esp. orthography / accuracy / cohesion / cq.
+  //     Add per-family visibility filters in the annotated text view:
+  //     [✓] claim [✓] cq [ ] orthography [ ] cohesion …
+  //   • Visual state distinction is incomplete. Today we render:
+  //       verified  → coloured
+  //       rejected  → faded / strike-through in the list
+  //     Still to do:
+  //       suppressed → amber outline (e.g. protected-form hits)
+  //       inherited  → dotted border (from a prior run, when we
+  //                    start carrying annotations across runs)
+  //   • Surface verifier rejection reason prominently for rejected
+  //     annotations. Today the `verification_failures` list is in the
+  //     popover and the row's title attribute — but rejected rows in
+  //     the list should show a one-line "Rejected: <reason>" inline.
+  //     This is high-value for debugging, calibration, trust, moderation.
+  //
+  // Coverage gaps vs V1
+  //   • DIALECT_MARKERS (7 items) — Egyptian/Levantine only. Gulf
+  //     markers (وايد، شوي، رحنا، استانست، يخليه …) are caught by the
+  //     LLM register annotator but NOT by the deterministic code pass.
+  //     Port V1's dialect lists into this code annotator.
+  //   • COMMON_SPELLING_ERRORS (2 items) — the biggest gap. V1 had
+  //     full curated lists for hamza / alif / taa marbuta / general
+  //     (ORTHOGRAPHY_HAMZA, ORTHOGRAPHY_ALIF, ORTHOGRAPHY_TAA_MARBUTA,
+  //     ORTHOGRAPHY_GENERAL). Port these from V1 into this code
+  //     annotator. Once ported, the code-side orthography pass will
+  //     do most of the spelling work and the LLM-side pass only
+  //     handles judgement calls.
+  //   • ARABIC_CONNECTIVES regex matches with whitespace/punctuation
+  //     boundaries. Cliticised connectives (وأيضاً، فلذلك) are NOT
+  //     matched because `و` is attached to the following word with no
+  //     space. V1 handled this explicitly — port the V1 approach.
+  //
+  // Concurrency
+  //   • runLLMAnnotators uses Promise.all — with Throttle ON (the
+  //     default for new visitors) the throttle serialises calls and
+  //     this is safe. With Throttle OFF, 8 concurrent calls will hit
+  //     rate limits. Keep default ON.
+  //
+  // Architecture
+  //   • refreshTab4TaskContext wraps switchTab in an override (chain
+  //     pattern). Fragile — if Tab 9 does the same, the chain order
+  //     matters. Refactor switchTab to a published-event / subscribe
+  //     pattern before Tab 9 is built.
+  // ----------------------------------------------------------------
+
+  // ---- Annotation schema ----
+  const ANNOTATION_FAMILIES = [
+    'word_count', 'claim', 'intelligibility', 'cq',
+    'register', 'range', 'cohesion', 'accuracy', 'orthography'
+  ];
+  const DIMENSIONS = [
+    'task_achievement', 'content_quality', 'style_register',
+    'language_range', 'organisation_coherence', 'language_accuracy', 'orthographic_control'
+  ];
+  // Family → dimension list. The verifier uses this to validate score_in.
+  const FAMILY_TO_DIMENSIONS = {
+    word_count:      ['task_achievement'],
+    claim:           ['task_achievement'],
+    intelligibility: ['task_achievement'],
+    cq:              ['content_quality'],
+    register:        ['style_register'],
+    range:           ['language_range'],
+    cohesion:        ['organisation_coherence'],
+    accuracy:        ['language_accuracy'],
+    orthography:     ['orthographic_control']
+  };
+  // Protected canonical Arabic phrases — should not trigger error annotations.
+  // Small list for v0.3 — expand later.
+  const PROTECTED_FORMS = [
+    'بسم الله الرحمن الرحيم',
+    'الحمد لله',
+    'إن شاء الله',
+    'ما شاء الله',
+    'سبحان الله',
+    'الله أكبر',
+    'لا إله إلا الله',
+    'السلام عليكم'
+  ];
+
+  function makeRunId(taskId) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const hex = Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0');
+    return `run_${taskId || 'unknown'}_${stamp}_${hex}`;
+  }
+  function makeAnnotationId() {
+    return 'anno_' + Math.random().toString(36).slice(2, 10);
+  }
+  function makeAnnotation({ family, type, source, text, span, metadata, score_in, runId }) {
+    return {
+      id: makeAnnotationId(),
+      family,
+      type: type || family,
+      source,
+      text: text || '',
+      span: span || { start: -1, end: -1 },
+      metadata: metadata || {},
+      score_in: score_in || (FAMILY_TO_DIMENSIONS[family] || []),
+      verified: null,
+      verification_failures: [],
+      version: SCHEMA_VERSION,
+      run_id: runId
+      // FUTURE traceability: created_at, created_by_stage
+    };
+  }
+  function countWords(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }
+  function findSpan(haystack, needle) {
+    if (!haystack || !needle) return null;
+    const idx = haystack.indexOf(needle);
+    if (idx < 0) return null;
+    return { start: idx, end: idx + needle.length };
+  }
+
+  // ================================================================
+  // CODE ANNOTATORS — deterministic, no API calls
+  // ================================================================
+
+  // word_count: total + in-range check
+  function annotateWordCount(response, taskObj, runId) {
+    const wc = countWords(response);
+    const min = taskObj.min_words || 0;
+    const max = taskObj.max_words || 999999;
+    const inRange = wc >= min && wc <= max;
+    return [makeAnnotation({
+      family: 'word_count',
+      type: inRange ? 'word_count:in_range' : (wc < min ? 'word_count:under' : 'word_count:over'),
+      source: 'code',
+      text: `${wc} words (expected ${min}–${max})`,
+      span: { start: 0, end: response.length },
+      metadata: { word_count: wc, min, max, in_range: inRange },
+      runId
+    })];
+  }
+
+  // cohesion (code-side): Arabic connectives — lifted from V1's computeArabicCohesiveDevices spirit.
+  // Small set for v0.3; expand later.
+  const ARABIC_CONNECTIVES = [
+    'و', 'ثم', 'لكن', 'لذلك', 'لأن', 'بسبب', 'بالإضافة إلى', 'علاوة على ذلك',
+    'من ناحية أخرى', 'في المقابل', 'أيضاً', 'أيضًا', 'كذلك', 'إذن', 'فإن',
+    'بينما', 'حيث', 'عندما', 'إذا', 'لو', 'كما', 'مثلاً', 'مثلًا',
+    'أولاً', 'أولًا', 'ثانياً', 'ثانيًا', 'ثالثاً', 'ثالثًا', 'أخيراً', 'أخيرًا',
+    'في النهاية', 'في الختام', 'باختصار', 'إجمالاً'
+  ];
+  function annotateCohesionCode(response, runId) {
+    const out = [];
+    ARABIC_CONNECTIVES.forEach(conn => {
+      // word-ish boundary: whitespace/punctuation/start/end of string
+      const re = new RegExp(`(?:^|[\\s.،,;؛])(${conn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[\\s.،,;؛]|$)`, 'g');
+      let m;
+      while ((m = re.exec(response)) !== null) {
+        const start = m.index + (m[0].length - m[1].length);
+        const end = start + m[1].length;
+        out.push(makeAnnotation({
+          family: 'cohesion',
+          type: 'cohesion:connective',
+          source: 'code',
+          text: m[1],
+          span: { start, end },
+          metadata: { connective: conn },
+          runId
+        }));
+      }
+    });
+    return out;
+  }
+
+  // register (code-side): basic dialect markers (small list).
+  // Dialect lists vary by variety — this is a starter set. Expand per dialect later.
+  const DIALECT_MARKERS = [
+    { word: 'مش', note: 'Egyptian/Levantine negation' },
+    { word: 'هاي', note: 'Levantine demonstrative' },
+    { word: 'هون', note: 'Levantine "here"' },
+    { word: 'كده', note: 'Egyptian "like this"' },
+    { word: 'دلوقتي', note: 'Egyptian "now"' },
+    { word: 'إيه', note: 'colloquial "what"' },
+    { word: 'بتاع', note: 'Egyptian possessive' }
+  ];
+  function annotateRegisterCode(response, runId) {
+    const out = [];
+    DIALECT_MARKERS.forEach(({ word, note }) => {
+      const re = new RegExp(`(?:^|[\\s.،,;؛])(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[\\s.،,;؛]|$)`, 'g');
+      let m;
+      while ((m = re.exec(response)) !== null) {
+        const start = m.index + (m[0].length - m[1].length);
+        out.push(makeAnnotation({
+          family: 'register',
+          type: 'register:dialect_marker',
+          source: 'code',
+          text: m[1],
+          span: { start, end: start + m[1].length },
+          metadata: { dialect_note: note },
+          runId
+        }));
+      }
+    });
+    return out;
+  }
+
+  // orthography (code-side): basic common-error list. Small starter set.
+  const COMMON_SPELLING_ERRORS = [
+    { wrong: 'إنشاء الله', right: 'إن شاء الله', kind: 'spacing' },
+    { wrong: 'ماشاء الله', right: 'ما شاء الله', kind: 'spacing' }
+  ];
+  function annotateOrthographyCode(response, runId) {
+    const out = [];
+    COMMON_SPELLING_ERRORS.forEach(({ wrong, right, kind }) => {
+      let from = 0;
+      while (true) {
+        const idx = response.indexOf(wrong, from);
+        if (idx < 0) break;
+        out.push(makeAnnotation({
+          family: 'orthography',
+          type: 'orthography:common_error',
+          source: 'code',
+          text: wrong,
+          span: { start: idx, end: idx + wrong.length },
+          metadata: { kind, suggested: right },
+          runId
+        }));
+        from = idx + wrong.length;
+      }
+    });
+    return out;
+  }
+
+  // range (code-side): lexical density + sentence count
+  function annotateRangeCode(response, runId) {
+    const words = response.trim().split(/\s+/).filter(Boolean);
+    const types = new Set(words.map(w => w.replace(/[.،,;:!؟?]/g, '')));
+    const density = words.length ? (types.size / words.length) : 0;
+    const sentences = response.split(/[.!؟?]+/).filter(s => s.trim().length > 0);
+    return [makeAnnotation({
+      family: 'range',
+      type: 'range:lexical_density',
+      source: 'code',
+      text: `${types.size} unique / ${words.length} tokens`,
+      span: { start: 0, end: response.length },
+      metadata: { types: types.size, tokens: words.length, density: +density.toFixed(3), sentences: sentences.length },
+      runId
+    })];
+  }
+
+  function runCodeAnnotators(response, taskObj, runId) {
+    return [
+      ...annotateWordCount(response, taskObj, runId),
+      ...annotateCohesionCode(response, runId),
+      ...annotateRegisterCode(response, runId),
+      ...annotateOrthographyCode(response, runId),
+      ...annotateRangeCode(response, runId)
+    ];
+  }
+
+  // ================================================================
+  // LLM ANNOTATORS — one prompt per family, temperature 0
+  // Each returns an array of annotations. Failures are logged and
+  // result in zero annotations for that family (not pipeline death).
+  // ================================================================
+
+  const ANNO_SYS = "You are a strict annotation engine for Arabic (MSA) writing. Always return valid JSON only — no prose, no markdown fences. Quote the response text exactly when anchoring an annotation; do not paraphrase.";
+
+  async function llmAnnotate(family, prompt, response, runId, parser) {
+    try {
+      const data = await callOpenAI(prompt, null, `anno-${family}`, { max_tokens: 2000, system: ANNO_SYS });
+      const items = parser(data) || [];
+      return items.map(it => makeAnnotation({ ...it, family, source: 'llm', runId, span: findSpan(response, it.text || '') || it.span || { start: -1, end: -1 } }));
+    } catch (err) {
+      console.error(`[anno-${family}] failed:`, err);
+      return [];
+    }
+  }
+
+  function annotateClaim(response, taskObj, runId) {
+    const reqs = (taskObj.task_requirements || []).map((r, i) => `${i}. ${r}`).join('\n');
+    const prompt = `Given a student's Arabic response and a list of task requirements, find sentences in the response that address each requirement.
+
+TASK REQUIREMENTS:
+${reqs}
+
+RESPONSE:
+${response}
+
+For each match, return:
+- requirement_id: integer (0-indexed)
+- text: the EXACT sentence from the response (copy verbatim, no paraphrase)
+- evidence_type: "direct" or "implied"
+
+Return JSON only:
+{ "claims": [ { "requirement_id": 0, "text": "...", "evidence_type": "direct" }, ... ] }`;
+    return llmAnnotate('claim', prompt, response, runId, data => {
+      return (data.claims || []).map(c => ({
+        type: 'claim:requirement',
+        text: c.text,
+        metadata: { requirement_id: c.requirement_id, requirement_text: (taskObj.task_requirements || [])[c.requirement_id], evidence_type: c.evidence_type }
+      }));
+    });
+  }
+
+  function annotateIntelligibility(response, runId) {
+    const prompt = `Identify sentences in this Arabic response where meaning is unclear — broken syntax, missing referents, untranslatable fragments.
+
+RESPONSE:
+${response}
+
+For each unclear sentence return:
+- text: the EXACT sentence (verbatim)
+- issue: short reason in English
+
+Return JSON only:
+{ "issues": [ { "text": "...", "issue": "..." }, ... ] }
+If meaning is clear throughout, return { "issues": [] }.`;
+    return llmAnnotate('intelligibility', prompt, response, runId, data => {
+      return (data.issues || []).map(i => ({
+        type: 'intelligibility:issue',
+        text: i.text,
+        metadata: { issue: i.issue }
+      }));
+    });
+  }
+
+  function annotateCQ(response, taskObj, runId) {
+    const reqs = (taskObj.task_requirements || []).map((r, i) => `${i}. ${r}`).join('\n');
+    const markers = (taskObj.development_markers || []).map((m, i) =>
+      `Requirement ${i}: ${m.point}\n  0 (absent): ${m.score_0 || '—'}\n  1 (mentioned): ${m.score_1 || '—'}\n  2 (developed): ${m.score_2 || '—'}\n  3 (extended): ${m.score_3 || '—'}`
+    ).join('\n\n');
+    const prompt = `Score how well each task requirement is developed in the student response. Use the development markers as anchors.
+
+TASK REQUIREMENTS:
+${reqs}
+
+DEVELOPMENT MARKERS:
+${markers}
+
+RESPONSE:
+${response}
+
+For each requirement return:
+- requirement_id: integer (0-indexed)
+- score: 0, 1, 2, or 3
+- evidence_text: the EXACT sentence(s) from the response that justify the score (verbatim). Empty string if score is 0.
+- justification: 1 sentence explaining the score
+
+Return JSON only:
+{ "cq_scores": [ { "requirement_id": 0, "score": 2, "evidence_text": "...", "justification": "..." }, ... ] }`;
+    return llmAnnotate('cq', prompt, response, runId, data => {
+      return (data.cq_scores || []).map(c => ({
+        type: `cq:requirement_${c.requirement_id}`,
+        text: c.evidence_text || '',
+        metadata: { requirement_id: c.requirement_id, score: c.score, justification: c.justification }
+      }));
+    });
+  }
+
+  function annotateRegisterLLM(response, runId) {
+    const prompt = `Identify register issues in this Arabic response. Find:
+- dialect markers (colloquial phrasing where MSA is expected)
+- MSA markers (formal phrasing — worth noting positively)
+- register lapses (informal where formal expected)
+
+RESPONSE:
+${response}
+
+For each finding return:
+- text: the EXACT word or short phrase from the response (verbatim)
+- subtype: "dialect_marker" | "msa_marker" | "register_lapse"
+- note: short explanation in English
+
+Return JSON only:
+{ "register_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
+    return llmAnnotate('register', prompt, response, runId, data => {
+      return (data.register_findings || []).map(r => ({
+        type: `register:${r.subtype || 'finding'}`,
+        text: r.text,
+        metadata: { subtype: r.subtype, note: r.note }
+      }));
+    });
+  }
+
+  function annotateRangeLLM(response, runId) {
+    const prompt = `Identify range markers in this Arabic response — places where the writer demonstrates vocabulary, morphology, or sentence complexity.
+
+RESPONSE:
+${response}
+
+For each finding return:
+- text: the EXACT phrase from the response (verbatim)
+- subtype: "vocabulary" | "morphology" | "sentence_complexity"
+- note: short English explanation
+
+Return JSON only:
+{ "range_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
+    return llmAnnotate('range', prompt, response, runId, data => {
+      return (data.range_findings || []).map(r => ({
+        type: `range:${r.subtype || 'finding'}`,
+        text: r.text,
+        metadata: { subtype: r.subtype, note: r.note }
+      }));
+    });
+  }
+
+  function annotateCohesionLLM(response, runId) {
+    const prompt = `Identify coherence signals in this Arabic response — beyond simple connectives, look at how ideas link and progress.
+
+RESPONSE:
+${response}
+
+For each finding return:
+- text: the EXACT phrase or transition word (verbatim)
+- subtype: "connective" | "transition" | "discourse_marker"
+- note: short English explanation
+
+Return JSON only:
+{ "cohesion_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
+    return llmAnnotate('cohesion', prompt, response, runId, data => {
+      return (data.cohesion_findings || []).map(c => ({
+        type: `cohesion:${c.subtype || 'finding'}`,
+        text: c.text,
+        metadata: { subtype: c.subtype, note: c.note }
+      }));
+    });
+  }
+
+  function annotateAccuracy(response, runId) {
+    const prompt = `Identify grammar errors in this Arabic (MSA) response. Focus on:
+- agreement errors (gender, number, person)
+- conjugation errors
+- dual form errors
+
+RESPONSE:
+${response}
+
+For each error return:
+- text: the EXACT erroneous word or short phrase from the response (verbatim)
+- error_type: "agreement" | "conjugation" | "dual" | "other"
+- correction: the corrected form
+- note: short English explanation
+
+Return JSON only:
+{ "errors": [ { "text": "...", "error_type": "...", "correction": "...", "note": "..." }, ... ] }
+If no errors, return { "errors": [] }.`;
+    return llmAnnotate('accuracy', prompt, response, runId, data => {
+      return (data.errors || []).map(e => ({
+        type: `accuracy:${e.error_type || 'error'}`,
+        text: e.text,
+        metadata: { error_type: e.error_type, correction: e.correction, note: e.note }
+      }));
+    });
+  }
+
+  function annotateOrthographyLLM(response, runId) {
+    const prompt = `Identify spelling errors in this Arabic response. Focus on:
+- hamza errors (ء، أ، إ، ؤ، ئ)
+- alif errors (ا، آ، ى)
+- taa marbuta errors (ة vs ت vs ه)
+- general spelling
+
+RESPONSE:
+${response}
+
+For each error return:
+- text: the EXACT misspelled word from the response (verbatim)
+- error_subtype: "hamza" | "alif" | "taa_marbuta" | "general"
+- correction: the correctly-spelled word
+- note: short English explanation
+
+Return JSON only:
+{ "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." }, ... ] }
+If no errors, return { "spelling_errors": [] }.`;
+    return llmAnnotate('orthography', prompt, response, runId, data => {
+      return (data.spelling_errors || []).map(s => ({
+        type: `orthography:${s.error_subtype || 'general'}`,
+        text: s.text,
+        metadata: { error_subtype: s.error_subtype, correction: s.correction, note: s.note }
+      }));
+    });
+  }
+
+  async function runLLMAnnotators(response, taskObj, runId) {
+    // Throttle handles concurrency in callOpenAI; we kick all 8 off and Promise.all them.
+    const families = await Promise.all([
+      annotateClaim(response, taskObj, runId),
+      annotateIntelligibility(response, runId),
+      annotateCQ(response, taskObj, runId),
+      annotateRegisterLLM(response, runId),
+      annotateRangeLLM(response, runId),
+      annotateCohesionLLM(response, runId),
+      annotateAccuracy(response, runId),
+      annotateOrthographyLLM(response, runId)
+    ]);
+    return families.flat();
+  }
+
+  // ================================================================
+  // VERIFIER — five checks. Sets verified=true|false on each annotation.
+  // ================================================================
+  function verifyAnnotations(annotations, response) {
+    // Pass 1 — independent checks per annotation
+    annotations.forEach(a => {
+      const failures = [];
+
+      // (1) Schema conformity
+      if (!a.id || !a.family || !a.source || !a.run_id || !a.span) failures.push('schema:missing_required_field');
+      if (!ANNOTATION_FAMILIES.includes(a.family)) failures.push(`schema:unknown_family(${a.family})`);
+      if (!['code', 'llm'].includes(a.source)) failures.push(`schema:invalid_source(${a.source})`);
+      if (typeof a.text !== 'string') failures.push('schema:text_not_string');
+      if (typeof a.span?.start !== 'number' || typeof a.span?.end !== 'number') failures.push('schema:bad_span');
+
+      // (2) Text span exists — anchored text must appear in the response.
+      //     Skips families where text isn't a literal span (word_count, range:lexical_density, etc.)
+      const literalSpanFamilies = ['claim', 'intelligibility', 'cq', 'register', 'cohesion', 'accuracy', 'orthography'];
+      if (literalSpanFamilies.includes(a.family) && a.text) {
+        // CQ with score 0 may have empty evidence_text — accept that.
+        if (a.family === 'cq' && (a.metadata?.score === 0 || a.metadata?.score === '0')) {
+          // skip span check for score-0 CQ
+        } else if (response.indexOf(a.text) < 0) {
+          failures.push('text_span:not_found');
+        }
+      }
+
+      // (3) score_in valid — every dimension must be a known dimension AND match the family's allowed list
+      const allowed = FAMILY_TO_DIMENSIONS[a.family] || [];
+      (a.score_in || []).forEach(dim => {
+        if (!DIMENSIONS.includes(dim)) failures.push(`score_in:unknown_dimension(${dim})`);
+        else if (!allowed.includes(dim)) failures.push(`score_in:dimension_not_allowed_for_family(${a.family}→${dim})`);
+      });
+
+      // (4) Protected forms — error annotations on protected phrases are suppressed
+      const errorFamilies = ['accuracy', 'orthography'];
+      if (errorFamilies.includes(a.family) && a.text) {
+        const isProtected = PROTECTED_FORMS.some(p => p.includes(a.text) || a.text.includes(p));
+        if (isProtected) failures.push('protected_form:suppressed');
+      }
+
+      a.verification_failures = failures;
+      a.verified = failures.length === 0;
+    });
+
+    // Pass 2 — overlap rules. Same span + same dimension = duplicate; keep first verified, reject the rest.
+    // We only enforce this for verified-so-far annotations.
+    const byKey = new Map();
+    annotations.forEach(a => {
+      if (!a.verified) return;
+      (a.score_in || []).forEach(dim => {
+        const key = `${dim}::${a.span.start}::${a.span.end}::${a.family}`;
+        if (!byKey.has(key)) byKey.set(key, []);
+        byKey.get(key).push(a);
+      });
+    });
+    byKey.forEach(group => {
+      if (group.length > 1) {
+        // Keep the first; reject the others as overlap duplicates
+        group.slice(1).forEach(a => {
+          a.verified = false;
+          a.verification_failures.push('overlap:duplicate_span_dimension');
+        });
+      }
+    });
+
+    return annotations;
+  }
+
+  // ================================================================
+  // RENDER — annotated text view + popover + summary + list
+  // ================================================================
+  function familyHighlightClass(a) {
+    switch (a.family) {
+      case 'claim':           return 'anno-claim';
+      case 'accuracy':        return 'anno-accuracy';
+      case 'orthography':     return 'anno-orthography';
+      case 'intelligibility': return 'anno-intelligibility';
+      case 'range':           return 'anno-range';
+      case 'cohesion':        return 'anno-cohesion';
+      case 'cq':              return 'anno-cq';
+      case 'register':
+        if (a.type === 'register:dialect_marker') return 'anno-register-dialect';
+        if (a.type === 'register:msa_marker')     return 'anno-register-msa';
+        return 'anno-register-dialect';
+      default: return '';
+    }
+  }
+
+  // Render the response with overlapping-aware highlights using event splitting.
+  // For each character position we know which annotations cover it; we slice the
+  // text at every boundary and emit a <span> per slice. Slices with >1 annotation
+  // get a stacked count badge after them, clickable to show all at that position.
+  function renderAnnotatedText(response, annotations) {
+    // Only highlight annotations that have a valid literal span and are verified.
+    const spans = annotations.filter(a =>
+      a.verified && a.span && a.span.start >= 0 && a.span.end > a.span.start &&
+      a.family !== 'word_count' && a.family !== 'range' /* range:lexical_density is whole-text */
+    );
+    // Skip whole-document spans for highlighting
+    const inline = spans.filter(a => !(a.span.start === 0 && a.span.end === response.length));
+
+    // Collect all boundary positions
+    const boundaries = new Set([0, response.length]);
+    inline.forEach(a => { boundaries.add(a.span.start); boundaries.add(a.span.end); });
+    const sorted = Array.from(boundaries).sort((a, b) => a - b);
+
+    let html = '';
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const start = sorted[i], end = sorted[i + 1];
+      const slice = response.slice(start, end);
+      if (!slice) continue;
+      const here = inline.filter(a => a.span.start <= start && a.span.end >= end);
+      if (here.length === 0) {
+        html += escapeHtml(slice);
+      } else if (here.length === 1) {
+        const a = here[0];
+        html += `<span class="anno-span ${familyHighlightClass(a)}" data-anno-id="${a.id}">${escapeHtml(slice)}</span>`;
+      } else {
+        // Overlap — use the first family for colour, badge shows the count, click shows all
+        const a = here[0];
+        const ids = here.map(x => x.id).join(',');
+        html += `<span class="anno-span ${familyHighlightClass(a)}" data-anno-ids="${ids}">${escapeHtml(slice)}<span class="anno-count-badge" data-anno-ids="${ids}">${here.length}</span></span>`;
+      }
+    }
+    return html;
+  }
+
+  function familyPillHtml(family) {
+    return `<span class="family-pill f-${family}">${family}</span>`;
+  }
+
+  function renderAnnotationList(annotations) {
+    if (!annotations.length) return '<tr><td colspan="8" class="empty-state">No annotations.</td></tr>';
+    return annotations.map(a => {
+      const cls = a.verified ? '' : 'row-rejected';
+      const verifiedCell = a.verified
+        ? '<span class="verified-yes">✓</span>'
+        : `<span class="verified-no" title="${escapeHtml((a.verification_failures || []).join('; '))}">✗</span>`;
+      const scoreInCell = (a.score_in || []).map(d => `<code style="font-size:11px;">${d}</code>`).join(' ');
+      return `
+        <tr class="${cls}" data-anno-id="${a.id}">
+          <td><code style="font-size:11px;">${a.id}</code></td>
+          <td>${familyPillHtml(a.family)}</td>
+          <td><code style="font-size:11px;">${escapeHtml(a.type)}</code></td>
+          <td><span class="pill">${a.source}</span></td>
+          <td class="anchored-text" title="${escapeHtml(a.text)}">${escapeHtml((a.text || '').slice(0, 80))}</td>
+          <td>${verifiedCell}</td>
+          <td>${scoreInCell}</td>
+          <td><span class="row-toggle" data-toggle-id="${a.id}">show</span></td>
+        </tr>
+        <tr class="detail-json" data-detail-id="${a.id}" style="display:none;">
+          <td colspan="8">${escapeHtml(JSON.stringify(a, null, 2))}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderSummary(annotations) {
+    const total = annotations.length;
+    const verified = annotations.filter(a => a.verified).length;
+    const rejected = total - verified;
+    const code = annotations.filter(a => a.source === 'code').length;
+    const llm = annotations.filter(a => a.source === 'llm').length;
+    const inherited = 0; // inherited from a prior run — v0.3 doesn't carry these yet
+    document.getElementById('sum_total').textContent     = total;
+    document.getElementById('sum_verified').textContent  = verified;
+    document.getElementById('sum_rejected').textContent  = rejected;
+    document.getElementById('sum_code').textContent      = code;
+    document.getElementById('sum_llm').textContent       = llm;
+    document.getElementById('sum_inherited').textContent = inherited;
+  }
+
+  // Popover ----
+  function showAnnoPopover(annotations) {
+    const backdrop = document.getElementById('anno_popover_backdrop');
+    const pop = document.getElementById('anno_popover');
+    const a = annotations[0];
+    const others = annotations.length > 1
+      ? `<div class="pop-sub">${annotations.length} annotations at this position</div>`
+      : '';
+    let cards = annotations.map(an => `
+      <div style="border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          ${familyPillHtml(an.family)}
+          <code style="font-size:11px; color: var(--muted);">${escapeHtml(an.id)}</code>
+        </div>
+        <div class="pop-quote">${escapeHtml(an.text || '(no anchored text)')}</div>
+        <div class="pop-row"><span class="pop-label">type</span><span class="pop-value">${escapeHtml(an.type)}</span></div>
+        <div class="pop-row"><span class="pop-label">source</span><span class="pop-value">${an.source}</span></div>
+        <div class="pop-row"><span class="pop-label">verified</span><span class="pop-value">${an.verified ? '✓ true' : '✗ false'}</span></div>
+        <div class="pop-row"><span class="pop-label">score_in</span><span class="pop-value">${(an.score_in || []).join(', ')}</span></div>
+        <div class="pop-row"><span class="pop-label">span</span><span class="pop-value">${an.span.start}–${an.span.end}</span></div>
+        ${Object.keys(an.metadata || {}).length ? `<div class="pop-row"><span class="pop-label">metadata</span><span class="pop-value">${escapeHtml(JSON.stringify(an.metadata))}</span></div>` : ''}
+        ${an.verification_failures.length ? `<div class="pop-row"><span class="pop-label">failures</span><span class="pop-value" style="color: var(--danger);">${escapeHtml(an.verification_failures.join('; '))}</span></div>` : ''}
+      </div>
+    `).join('');
+    pop.innerHTML = `
+      <h3>Annotation${annotations.length > 1 ? 's' : ''}</h3>
+      ${others}
+      ${cards}
+      <button class="pop-close" id="btn_pop_close">Close</button>
+    `;
+    backdrop.classList.add('show');
+    document.getElementById('btn_pop_close').addEventListener('click', () => backdrop.classList.remove('show'));
+  }
+  document.getElementById('anno_popover_backdrop').addEventListener('click', (e) => {
+    if (e.target.id === 'anno_popover_backdrop') e.target.classList.remove('show');
+  });
+
+  // ================================================================
+  // RUN orchestrator — wires Run button → 3 stages → render → state
+  // ================================================================
+
+  // Tab 4 boot: live word count, file upload, etc.
+  const annoResponse = document.getElementById('anno_response');
+  function updateAnnoWC() {
+    const wc = countWords(annoResponse.value);
+    const t = state.taskObject;
+    let html = `${wc} words`;
+    if (t) {
+      if (wc === 0) html += ` <span style="color: var(--muted);">(target ${t.min_words}–${t.max_words})</span>`;
+      else if (wc < t.min_words) html += ` <span class="wc-bad">↓ under (${t.min_words}–${t.max_words})</span>`;
+      else if (wc > t.max_words) html += ` <span class="wc-bad">↑ over (${t.min_words}–${t.max_words})</span>`;
+      else html += ` <span class="wc-ok">✓ in range (${t.min_words}–${t.max_words})</span>`;
+    }
+    document.getElementById('anno_wc_display').innerHTML = html;
+  }
+  annoResponse.addEventListener('input', updateAnnoWC);
+  document.getElementById('btn_anno_upload').addEventListener('click', () => document.getElementById('file_anno_upload').click());
+  document.getElementById('file_anno_upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    annoResponse.value = await file.text();
+    updateAnnoWC();
+    e.target.value = '';
+  });
+
+  // When Tab 4 becomes visible, refresh the task context summary
+  function refreshTab4TaskContext() {
+    const t = state.taskObject;
+    document.getElementById('tab4_task_id_label').textContent = t ? t.task_id : '—';
+    document.getElementById('tab4_task_meta').textContent = t
+      ? `${t.cefr_level} · ${t.task_type} · ${t.min_words}–${t.max_words} words · ${(t.task_requirements || []).length} reqs`
+      : 'No task object loaded — go to Tab 2 first.';
+    updateAnnoWC();
+  }
+  // Hook into switchTab so Tab 4 refreshes when shown
+  const _origSwitchTab = switchTab;
+  switchTab = function (tabId) {
+    _origSwitchTab(tabId);
+    if (tabId === 'tab4') refreshTab4TaskContext();
+  };
+
+  function setStage(stage, status) {
+    const el = document.querySelector(`#anno_progress .stage[data-stage="${stage}"]`);
+    if (!el) return;
+    el.classList.remove('active', 'done');
+    if (status === 'active') el.classList.add('active');
+    if (status === 'done')   el.classList.add('done');
+    const icon = el.querySelector('.stage-icon');
+    if (icon) icon.textContent = status === 'done' ? '✓' : (stage === 'code' ? '1' : stage === 'llm' ? '2' : '3');
+  }
+
+  // V2-native run state
+  let lastAnnotationObject = null;
+  let lastVerifiedAnnotationObject = null;
+
+  document.getElementById('btn_run_annotation').addEventListener('click', async () => {
+    const taskObj = state.taskObject;
+    if (!taskObj) { showToast('No Task Object — save one in Tab 2 first.'); return; }
+    const response = annoResponse.value.trim();
+    if (!response) { showToast('Paste a response first.'); return; }
+
+    const runId = makeRunId(taskObj.task_id);
+    const status = document.getElementById('anno_run_status');
+    const progress = document.getElementById('anno_progress');
+    const runIdLine = document.getElementById('anno_run_id_line');
+    const runBtn = document.getElementById('btn_run_annotation');
+
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Running…';
+    progress.style.display = 'flex';
+    runIdLine.style.display = 'block';
+    runIdLine.textContent = `run_id: ${runId}`;
+    setStage('code', 'active'); setStage('llm', '');  setStage('verify', '');
+    setStatus(status, 'Running code annotations…', '');
+
+    // Pipeline status pills — Task is already lit by save; Annotation lights when stage 3 finishes
+    setPipelineStage('annotation', false);
+
+    let allAnnotations = [];
+    try {
+      // Stage 1 — code
+      const codeAnnos = runCodeAnnotators(response, taskObj, runId);
+      allAnnotations = allAnnotations.concat(codeAnnos);
+      setStage('code', 'done');
+      setStage('llm', 'active');
+      setStatus(status, `Code annotations: ${codeAnnos.length}. Running LLM annotators (8 families)…`, '');
+
+      // Stage 2 — LLM
+      const llmAnnos = await runLLMAnnotators(response, taskObj, runId);
+      allAnnotations = allAnnotations.concat(llmAnnos);
+      setStage('llm', 'done');
+      setStage('verify', 'active');
+      setStatus(status, `LLM annotations: ${llmAnnos.length}. Running verifier…`, '');
+
+      // AnnotationObject (pre-verify)
+      lastAnnotationObject = {
+        version: SCHEMA_VERSION,
+        run_id: runId,
+        task_id: taskObj.task_id,
+        response,
+        annotations: JSON.parse(JSON.stringify(allAnnotations))  // deep copy — pre-verify snapshot
+      };
+
+      // Stage 3 — verify (mutates allAnnotations in place)
+      verifyAnnotations(allAnnotations, response);
+      setStage('verify', 'done');
+
+      // VerifiedAnnotationObject
+      lastVerifiedAnnotationObject = {
+        version: SCHEMA_VERSION,
+        run_id: runId,
+        task_id: taskObj.task_id,
+        response,
+        annotations: allAnnotations
+      };
+
+      // Render
+      document.getElementById('anno_annotated_text').innerHTML = renderAnnotatedText(response, allAnnotations);
+      document.getElementById('anno_list_body').innerHTML = renderAnnotationList(allAnnotations);
+      renderSummary(allAnnotations);
+      document.getElementById('anno_report_card').style.display = 'block';
+
+      // Wire popover clicks
+      document.getElementById('anno_annotated_text').querySelectorAll('[data-anno-id], [data-anno-ids]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const ids = (el.dataset.annoIds || el.dataset.annoId || '').split(',').filter(Boolean);
+          const annos = ids.map(id => allAnnotations.find(a => a.id === id)).filter(Boolean);
+          if (annos.length) showAnnoPopover(annos);
+        });
+      });
+      // Wire annotation-list row toggles
+      document.getElementById('anno_list_body').querySelectorAll('[data-toggle-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.dataset.toggleId;
+          const detail = document.querySelector(`tr.detail-json[data-detail-id="${id}"]`);
+          if (!detail) return;
+          const showing = detail.style.display !== 'none';
+          detail.style.display = showing ? 'none' : '';
+          el.textContent = showing ? 'show' : 'hide';
+        });
+      });
+
+      const verified = allAnnotations.filter(a => a.verified).length;
+      const rejected = allAnnotations.length - verified;
+      setStatus(status, `✓ Run complete · ${allAnnotations.length} annotations (${verified} verified · ${rejected} rejected). Run ID: ${runId}`, 'success');
+
+      // Pipeline status — annotation produced
+      setPipelineStage('annotation', true);
+
+    } catch (err) {
+      console.error('[anno] run failed:', err);
+      setStatus(status, '✗ Run failed: ' + err.message, 'error');
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = '▶ Run Annotation';
+    }
+  });
+
+  // ---- Export buttons ----
+  document.getElementById('btn_anno_export_full').addEventListener('click', () => {
+    if (!lastAnnotationObject) return alert('Nothing to export yet — run annotation first.');
+    const blob = new Blob([JSON.stringify(lastAnnotationObject, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${lastAnnotationObject.run_id}_AnnotationObject.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  document.getElementById('btn_anno_export_verified').addEventListener('click', () => {
+    if (!lastVerifiedAnnotationObject) return alert('Nothing to export yet — run annotation first.');
+    const blob = new Blob([JSON.stringify(lastVerifiedAnnotationObject, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${lastVerifiedAnnotationObject.run_id}_VerifiedAnnotationObject.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ===== End Tab 4 =====
+
+  // ===== Boot =====
+  refreshLockState();
+  refreshPipelineStatus();
+</script>
+
+</body>
+</html>
