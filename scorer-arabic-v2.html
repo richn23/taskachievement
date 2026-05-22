@@ -1045,6 +1045,62 @@
     transition: background 0.12s, border-color 0.12s;
   }
   button.secondary:hover { background: var(--primary-soft-2); border-color: var(--primary); color: var(--primary-hover); }
+
+  /* ===== Tabs 8 / 9 / 10 ===== */
+  .cefr-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:.78rem; font-weight:600; letter-spacing:.04em; }
+  .cefr-pre-a1 { background:#f1f5f9; color:#475569; }
+  .cefr-a1  { background:#dbeafe; color:#1d4ed8; }
+  .cefr-a2  { background:#e0f2fe; color:#0369a1; }
+  .cefr-b1  { background:#dcfce7; color:#166534; }
+  .cefr-b2  { background:#bbf7d0; color:#14532d; }
+  .cefr-c1  { background:#fef9c3; color:#854d0e; }
+  .cefr-c2  { background:#fde68a; color:#78350f; }
+  .conf-badge  { display:inline-block; padding:3px 10px; border-radius:12px; font-size:.78rem; font-weight:600; }
+  .conf-high   { background:#dcfce7; color:#166534; }
+  .conf-medium { background:#fef9c3; color:#854d0e; }
+  .conf-low    { background:#fee2e2; color:#991b1b; }
+  .dim-score-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:14px; }
+  @media (max-width:720px){ .dim-score-grid { grid-template-columns:1fr; } }
+  .dim-score-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+  .dim-score-card .dsn { font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .dim-score-card .dsv { font-size:2rem; font-weight:700; color:var(--text); line-height:1; }
+  .dim-score-bar { height:6px; border-radius:3px; background:var(--border); margin-top:8px; }
+  .dim-score-bar-fill { height:100%; border-radius:3px; background:var(--accent); transition:width .4s ease; }
+  .run-header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:18px; }
+  .run-id-label { font-family:monospace; font-size:.78rem; color:var(--muted); background:var(--primary-soft-2); padding:3px 8px; border-radius:6px; }
+  .overall-score-big { font-size:2.6rem; font-weight:800; color:var(--accent); line-height:1; }
+  .guardrail-flag { display:flex; gap:10px; align-items:flex-start; padding:10px 14px; border-radius:8px; background:#fff8f0; border-left:4px solid #f59e0b; margin-bottom:8px; font-size:.9rem; }
+  .guardrail-flag.contradiction { background:#fff0f0; border-left-color:#ef4444; }
+  .guardrail-flag .gf-code { font-family:monospace; font-size:.78rem; color:var(--muted); flex-shrink:0; }
+  .stage-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .stage-row:last-child { border-bottom:none; }
+  .stage-icon { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.85rem; flex-shrink:0; }
+  .stage-icon.idle    { background:var(--border); color:var(--muted); }
+  .stage-icon.running { background:#dbeafe; color:#1d4ed8; animation:pulse9 1s infinite; }
+  .stage-icon.done    { background:#dcfce7; color:#166534; }
+  .stage-icon.error   { background:#fee2e2; color:#991b1b; }
+  .stage-label { font-size:.9rem; color:var(--text); }
+  .stage-note  { font-size:.8rem; color:var(--muted); margin-left:auto; }
+  @keyframes pulse9 { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .response-textarea { width:100%; min-height:180px; padding:12px; border:1px solid var(--border-strong); border-radius:8px; font-family:inherit; font-size:.95rem; line-height:1.7; resize:vertical; direction:rtl; background:var(--card); color:var(--text); box-sizing:border-box; }
+  .response-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+  .two-col-qa { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:800px){ .two-col-qa { grid-template-columns:1fr; } }
+  .annotated-response { direction:rtl; font-size:.95rem; line-height:2; padding:14px; background:var(--card); border:1px solid var(--border); border-radius:8px; min-height:60px; }
+  .sub-score-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  .sub-score-table th { text-align:left; color:var(--muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border); }
+  .sub-score-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+  .gr-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+  .gr-toggle-row:last-child { border-bottom:none; }
+  .gr-toggle-label { font-size:.9rem; font-weight:500; }
+  .gr-toggle-desc  { font-size:.8rem; color:var(--muted); margin-top:2px; }
+  .toggle-switch { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#cbd5e1; border-radius:22px; transition:.3s; }
+  .toggle-slider::before { position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; }
+  .toggle-switch input:checked + .toggle-slider { background:var(--accent); }
+  .toggle-switch input:checked + .toggle-slider::before { transform:translateX(18px); }
+  /* ===== End Tabs 8 / 9 / 10 ===== */
 </style>
 </head>
 <body>
@@ -1969,27 +2025,186 @@
   </div>
 
   <div class="view" id="view-tab8">
-    <div class="stub-card">
-      <div class="stub-badge">Planned</div>
-      <h2>Tab 8 — Apply Guardrails</h2>
-      <p>Configures confidence band thresholds, extreme-score triggers, and contradiction rules.</p>
+    <div class="tab-header">
+      <h1>Apply Guardrails</h1>
+      <p class="tab-subtitle">Set confidence thresholds, extreme-score triggers, and contradiction rules. These controls wrap around the scoring engine and add interpretive signals — they do not change the underlying scores.</p>
+    </div>
+
+    <!-- Card 1: Confidence band settings -->
+    <div class="card">
+      <div class="card-title">Confidence Bands</div>
+      <p class="card-desc">Confidence (HIGH / MEDIUM / LOW) is assigned based on response length and annotation verifiability. A LOW-confidence result is still a result — it is flagged so the teacher can review it.</p>
+      <div class="cal-weight-row">
+        <label class="cal-weight-label" for="gr_min_wc_high">Min word count for HIGH confidence</label>
+        <input type="number" id="gr_min_wc_high" class="cal-weight-input" min="20" max="300" step="5" value="80">
+        <span class="cal-weight-unit">words</span>
+      </div>
+      <div class="cal-weight-row">
+        <label class="cal-weight-label" for="gr_min_vpct_high">Min verified annotation % for HIGH confidence</label>
+        <input type="number" id="gr_min_vpct_high" class="cal-weight-input" min="50" max="100" step="5" value="85">
+        <span class="cal-weight-unit">%</span>
+      </div>
+      <div class="cal-weight-row" style="border-bottom:none;">
+        <label class="cal-weight-label" for="gr_verifier_handling">Verifier failure handling</label>
+        <select id="gr_verifier_handling" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-strong); background:var(--card); color:var(--text); font-size:.9rem;">
+          <option value="demote_medium">Demote to MEDIUM</option>
+          <option value="demote_low">Demote to LOW</option>
+          <option value="ignore">Ignore (no effect on confidence)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Card 2: Extreme score thresholds -->
+    <div class="card">
+      <div class="card-title">Extreme Score Thresholds</div>
+      <p class="card-desc">Scores above the high threshold or below the low threshold raise a moderation flag. Wide dimension spreads (e.g. very high accuracy but very low orthography) also trigger a flag.</p>
+      <div class="cal-weight-row">
+        <label class="cal-weight-label" for="gr_extreme_low">Low extreme threshold (flag if overall ≤)</label>
+        <input type="number" id="gr_extreme_low" class="cal-weight-input" min="0" max="50" step="1" value="20">
+      </div>
+      <div class="cal-weight-row">
+        <label class="cal-weight-label" for="gr_extreme_high">High extreme threshold (flag if overall ≥)</label>
+        <input type="number" id="gr_extreme_high" class="cal-weight-input" min="50" max="100" step="1" value="95">
+      </div>
+      <div class="cal-weight-row" style="border-bottom:none;">
+        <label class="cal-weight-label" for="gr_dim_spread">Dimension spread flag threshold (max − min ≥)</label>
+        <input type="number" id="gr_dim_spread" class="cal-weight-input" min="20" max="100" step="5" value="60">
+      </div>
+    </div>
+
+    <!-- Card 3: Contradiction rules -->
+    <div class="card">
+      <div class="card-title">Contradiction Rules</div>
+      <p class="card-desc">Each rule watches for a combination of dimension scores or annotation signals that are statistically unlikely to co-occur in genuine writing. When a rule fires it raises a contradiction flag — it does not change any score.</p>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">High grammar / low orthography</div>
+          <div class="gr-toggle-desc">Language Accuracy ≥ 75 but Orthographic Control ≤ 40</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_grammar_ortho" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">Dialect-dominant but high accuracy</div>
+          <div class="gr-toggle-desc">Style &amp; Register ≤ 40 but Language Accuracy ≥ 75</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_dialect_accuracy" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">High coherence but no connectives</div>
+          <div class="gr-toggle-desc">Organisation &amp; Coherence ≥ 70 but zero cohesive-device annotations found</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_coherence_connectives" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Card 4: Actions -->
+    <div class="card">
+      <div class="card-title">Save &amp; Export</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button id="btn_gr_save" class="btn">Save guardrail config</button>
+        <button id="btn_gr_export" class="btn secondary">Export JSON</button>
+        <button id="btn_gr_import_trigger" class="btn secondary">Import JSON</button>
+        <button id="btn_gr_reset" class="btn secondary">Reset to defaults</button>
+        <input type="file" id="gr_import_file" accept=".json" style="display:none;">
+      </div>
+      <div id="gr_save_status" style="margin-top:10px; font-size:.88rem; color:var(--muted);"></div>
     </div>
   </div>
 
   <div class="view" id="view-tab9">
-    <div class="stub-card">
-      <div class="stub-lock">🔒 Requires Task Object + Calibration + Guardrails</div>
+    <!-- Lock state -->
+    <div id="tab9_lock" class="stub-card" style="display:none;">
+      <div class="stub-lock">🔒 Prerequisites not met</div>
       <h2>Tab 9 — Run Pipeline</h2>
-      <p>Runs all five stages, produces <code>ResultObject</code> with a fresh <code>run_id</code>.</p>
+      <div id="tab9_lock_detail" style="margin-top:12px; font-size:.9rem; color:var(--muted);"></div>
+    </div>
+
+    <!-- Run UI -->
+    <div id="tab9_ui">
+      <div class="tab-header">
+        <h1>Run Pipeline</h1>
+        <p class="tab-subtitle">Runs code annotators, LLM annotators, evidence verification, scoring, and guardrails in sequence. Produces a <code>ResultObject</code> stored in run history.</p>
+      </div>
+
+      <!-- Task context summary -->
+      <div class="card">
+        <div class="card-title">Current Task</div>
+        <div id="tab9_task_detail" style="font-size:.9rem; color:var(--muted);">No task object loaded.</div>
+      </div>
+
+      <!-- Response input -->
+      <div class="card">
+        <div class="card-title">Student Response</div>
+        <p style="font-size:.85rem; color:var(--muted); margin:0 0 10px;">Paste or type the student&#x27;s Arabic response. The pipeline will annotate and score it against the current task object.</p>
+        <textarea id="tab9_response" class="response-textarea" placeholder="اكتب أو الصق الإجابة هنا…" dir="rtl"></textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+          <span id="tab9_wc_display" style="font-size:.82rem; color:var(--muted);">0 words</span>
+          <button id="btn_run9" class="btn" style="min-width:160px;">▶ Run pipeline</button>
+        </div>
+      </div>
+
+      <!-- Pipeline progress -->
+      <div class="card">
+        <div class="card-title">Pipeline Progress</div>
+        <div id="run9_progress">
+          <div class="stage-row" data-stage="code_anno">
+            <div class="stage-icon idle">○</div>
+            <span class="stage-label">1. Code annotators</span>
+            <span class="stage-note" id="run9_note_code_anno"></span>
+          </div>
+          <div class="stage-row" data-stage="llm_anno">
+            <div class="stage-icon idle">○</div>
+            <span class="stage-label">2. LLM annotators</span>
+            <span class="stage-note" id="run9_note_llm_anno"></span>
+          </div>
+          <div class="stage-row" data-stage="verify">
+            <div class="stage-icon idle">○</div>
+            <span class="stage-label">3. Evidence verification</span>
+            <span class="stage-note" id="run9_note_verify"></span>
+          </div>
+          <div class="stage-row" data-stage="score">
+            <div class="stage-icon idle">○</div>
+            <span class="stage-label">4. Score</span>
+            <span class="stage-note" id="run9_note_score"></span>
+          </div>
+          <div class="stage-row" data-stage="guardrails">
+            <div class="stage-icon idle">○</div>
+            <span class="stage-label">5. Apply guardrails</span>
+            <span class="stage-note" id="run9_note_guardrails"></span>
+          </div>
+        </div>
+        <div id="run9_error" style="display:none; margin-top:12px; padding:10px 14px; background:#fee2e2; border-radius:8px; color:#991b1b; font-size:.88rem;"></div>
+      </div>
+
+      <!-- Post-run preview card -->
+      <div id="tab9_preview_card" class="card" style="display:none;">
+        <div class="card-title">Run Complete</div>
+        <div id="tab9_preview_content"></div>
+        <div style="margin-top:14px;">
+          <button id="btn_view_results" class="btn">View full results →</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="view" id="view-tab10">
-    <div class="stub-card">
+    <div id="tab10_empty" class="stub-card">
       <div class="stub-lock">🔒 Requires a completed run</div>
       <h2>Tab 10 — Results</h2>
-      <p>Read-only display of the most recent <code>ResultObject</code>. Run history selector to navigate prior runs.</p>
+      <p>Run the pipeline in Tab 9 to see results here.</p>
     </div>
+    <div id="tab10_content" style="display:none;"></div>
   </div>
 
 </div>
@@ -3090,6 +3305,24 @@ TOPIC: {TOPIC}
   //   ✓ Register prompt: tighter register_lapse definition with anti-examples
   //     (أول شيء، يعني، الحقيقة، طيب are register-neutral, not lapses).
   //
+  // Tier 2.5 — annotation discipline applied (May 22, 2026):
+  //   ✓ Shared ANNOTATION_DISCIPLINE constant injected into the four
+  //     qualitative-judgement prompts (range, cohesion, register, cq).
+  //     Two named failure modes guarded against:
+  //       • LINGUISTIC MICROSCOPE SYNDROME — trivial features inflated
+  //         into "evidence" (e.g. حيوانات as a broken plural).
+  //       • COMMENTARY INFLATION — literary/critical-essay language
+  //         exceeding the actual evidence (e.g. "creates forward momentum").
+  //     Discipline block enforces: salience test, observational language,
+  //     no inferred literary intent.
+  //
+  // Known residual issue (regex precision):
+  //   The cross-family suppression check uses a regex on the accuracy note
+  //   to detect dialect-justified arguments. If the LLM phrases the same
+  //   argument without trigger keywords (e.g. "Same issue as تعبانين..."),
+  //   the rule slips. Fix path: structured `independent_of_dialect: true`
+  //   flag set by the prompt, or a second-pass meta-check. Logged for V2.1.
+  //
   // Tier 3 / 4 — still pending. See list below.
   // ----------------------------------------------------------------
   // UX / surfacing
@@ -3360,6 +3593,25 @@ TOPIC: {TOPIC}
 
   const ANNO_SYS = "You are a strict annotation engine for Arabic (MSA) writing. Always return valid JSON only — no prose, no markdown fences. Quote the response text exactly when anchoring an annotation; do not paraphrase.";
 
+  // Shared discipline block injected into qualitative-judgement prompts
+  // (range, cohesion, register, cq). Guards against two known failure modes:
+  //   • linguistic microscope syndrome — trivial features inflated into "evidence"
+  //   • commentary inflation — literary/critical-essay language exceeding the evidence
+  const ANNOTATION_DISCIPLINE = `ANNOTATION DISCIPLINE — apply to every annotation you consider emitting:
+
+1. SALIENCE TEST. Would a trained human marker consciously notice this feature when reviewing the response? If the answer is "probably not", do NOT annotate. Basic Arabic grammar (e.g. حيوانات as a broken plural, simple SVO sentences, common present-tense verbs) is background, not evidence. A feature must stand out from the response's OWN baseline to merit annotation.
+
+2. OBSERVATIONAL LANGUAGE. Describe what the text DOES, not what it "creates" or "evokes" or "captures."
+   Good verbs: signals, shows, marks, indicates, demonstrates, uses, deploys.
+   AVOID: creates, weaves, captures, evokes, encapsulates, anchors, orchestrates, forward momentum, narrative arc, thematic closure.
+   The annotation is evidence for a marker — NOT a critical essay.
+
+3. NO LITERARY INTENT. Do not infer what the writer was trying to do. Stick to what is observably present in the text.
+   OK: "signals chronological progression"
+   NOT OK: "creates forward momentum across the response"
+
+If in doubt: prefer fewer, sharper annotations over many trivial ones. Quality > quantity. Density is not a positive signal.`;
+
   async function llmAnnotate(family, prompt, response, runId, parser) {
     try {
       const data = await callOpenAI(prompt, null, `anno-${family}`, { max_tokens: 2000, system: ANNO_SYS });
@@ -3426,6 +3678,8 @@ If meaning is clear throughout, return { "issues": [] }.`;
     ).join('\n\n');
     const prompt = `Score how well each task requirement is developed in the student response. Use the development markers as anchors.
 
+${ANNOTATION_DISCIPLINE}
+
 TASK REQUIREMENTS:
 ${reqs}
 
@@ -3454,6 +3708,8 @@ Return JSON only:
 
   function annotateRegisterLLM(response, runId) {
     const prompt = `Identify register findings in this Arabic response. Three subtypes:
+
+${ANNOTATION_DISCIPLINE}
 
 1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form (e.g. حسيت، شفت، بعدين، رحت، رحنا). This is the most common finding in dialect-influenced writing.
 
@@ -3491,6 +3747,8 @@ Return JSON only:
 
   function annotateRangeLLM(response, runId) {
     const prompt = `Identify POSITIVE EVIDENCE of Language Range in this Arabic response.
+
+${ANNOTATION_DISCIPLINE}
 
 Language Range = HOW VARIED, BROAD, OR SOPHISTICATED is the language used?
 This is NOT about formality (Register handles that) or correctness (Accuracy handles that).
@@ -3537,6 +3795,8 @@ Return JSON only:
 
   function annotateCohesionLLM(response, runId) {
     const prompt = `Identify coherence signals in this Arabic response — focus on how IDEAS LINK AND PROGRESS, not on individual function words.
+
+${ANNOTATION_DISCIPLINE}
 
 DO NOT annotate these simple connectives — they are detected deterministically by the code annotator and emitting them again is duplicate work:
 و، ثم، لكن، لذلك، لأن، بسبب، بالإضافة إلى، علاوة على ذلك، من ناحية أخرى، في المقابل، أيضاً، أيضًا، كذلك، إذن، فإن، بينما، حيث، عندما، إذا، لو، كما، مثلاً، مثلًا، أولاً، أولًا، ثانياً، ثانيًا، ثالثاً، ثالثًا، أخيراً، أخيرًا، في النهاية، في الختام، باختصار، إجمالاً.
@@ -4381,6 +4641,771 @@ Return JSON only:
   ['ta', 'sr', 'oc', 'ortho'].forEach(_updateSubTotal);
 
   // ===== End Tab 6 =====
+
+  // ===== Tab 8 — Apply Guardrails =====
+
+  const GR_DEFAULTS = {
+    confidence: {
+      min_word_count_for_high: 80,
+      min_verified_annotation_pct_for_high: 85,
+      verifier_failure_handling: 'demote_medium'
+    },
+    extreme_thresholds: { low: 20, high: 95, dimension_spread: 60 },
+    contradiction_rules: {
+      high_grammar_low_orthography: true,
+      dialect_dominant_high_accuracy: true,
+      high_coherence_no_connectives: true
+    }
+  };
+
+  function _readGrConfig() {
+    return {
+      version: SCHEMA_VERSION,
+      confidence: {
+        min_word_count_for_high:              Number(document.getElementById('gr_min_wc_high').value)   || 80,
+        min_verified_annotation_pct_for_high: Number(document.getElementById('gr_min_vpct_high').value) || 85,
+        verifier_failure_handling:            document.getElementById('gr_verifier_handling').value
+      },
+      extreme_thresholds: {
+        low:              Number(document.getElementById('gr_extreme_low').value)  || 20,
+        high:             Number(document.getElementById('gr_extreme_high').value) || 95,
+        dimension_spread: Number(document.getElementById('gr_dim_spread').value)   || 60
+      },
+      contradiction_rules: {
+        high_grammar_low_orthography:  document.getElementById('gr_rule_grammar_ortho').checked,
+        dialect_dominant_high_accuracy: document.getElementById('gr_rule_dialect_accuracy').checked,
+        high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked
+      }
+    };
+  }
+
+  function _populateGrForm(cfg) {
+    const c = cfg.confidence        || {};
+    const e = cfg.extreme_thresholds || {};
+    const r = cfg.contradiction_rules || {};
+    const set    = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value   = v; };
+    const setChk = (id, v) => { const el = document.getElementById(id); if (el)              el.checked = !!v; };
+    set('gr_min_wc_high',       c.min_word_count_for_high);
+    set('gr_min_vpct_high',     c.min_verified_annotation_pct_for_high);
+    set('gr_verifier_handling', c.verifier_failure_handling);
+    set('gr_extreme_low',       e.low);
+    set('gr_extreme_high',      e.high);
+    set('gr_dim_spread',        e.dimension_spread);
+    setChk('gr_rule_grammar_ortho',          r.high_grammar_low_orthography);
+    setChk('gr_rule_dialect_accuracy',       r.dialect_dominant_high_accuracy);
+    setChk('gr_rule_coherence_connectives',  r.high_coherence_no_connectives);
+  }
+
+  document.getElementById('btn_gr_save').addEventListener('click', () => {
+    state.guardrailConfig = _readGrConfig();
+    document.getElementById('gr_save_status').textContent = 'Saved \u2713 ' + new Date().toLocaleTimeString();
+    refreshLockState();
+    refreshPipelineStatus();
+    showToast('Guardrail config saved.');
+  });
+
+  document.getElementById('btn_gr_export').addEventListener('click', () => {
+    if (!state.guardrailConfig) { showToast('Save guardrail config first.'); return; }
+    const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob([JSON.stringify(state.guardrailConfig, null, 2)], { type: 'application/json' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'guardrails_' + ts + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  document.getElementById('btn_gr_import_trigger').addEventListener('click', () => {
+    document.getElementById('gr_import_file').click();
+  });
+
+  document.getElementById('gr_import_file').addEventListener('change', (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const obj = JSON.parse(evt.target.result);
+        if (!obj.confidence || !obj.extreme_thresholds || !obj.contradiction_rules) {
+          showToast('Import failed — JSON missing required fields.'); return;
+        }
+        _populateGrForm(obj);
+        document.getElementById('gr_save_status').textContent = 'Imported — click Save to apply.';
+        showToast('Guardrail config imported. Click Save to apply.');
+      } catch (err) { showToast('Import failed — invalid JSON.'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('btn_gr_reset').addEventListener('click', () => {
+    _populateGrForm(GR_DEFAULTS);
+    document.getElementById('gr_save_status').textContent = 'Reset to defaults — click Save to apply.';
+    showToast('Guardrail config reset to defaults.');
+  });
+
+  // ===== Shared helpers (scoring + display) =====
+
+  const DIM_LABELS_T9 = {
+    task_achievement:       'Task Achievement',
+    content_quality:        'Content Quality',
+    style_register:         'Style & Register',
+    language_range:         'Language Range',
+    organisation_coherence: 'Organisation & Coherence',
+    language_accuracy:      'Language Accuracy',
+    orthographic_control:   'Orthographic Control'
+  };
+
+  function cefrBand(score) {
+    if (score >= 85) return 'C2';
+    if (score >= 75) return 'C1';
+    if (score >= 63) return 'B2';
+    if (score >= 53) return 'B1';
+    if (score >= 43) return 'A2';
+    if (score >= 30) return 'A1';
+    return 'Pre-A1';
+  }
+
+  function _cefrBadgeHtml(score) {
+    const band = cefrBand(score);
+    const cls  = band === 'Pre-A1' ? 'cefr-pre-a1' : 'cefr-' + band.toLowerCase();
+    return '<span class="cefr-badge ' + cls + '">' + band + '</span>';
+  }
+
+  function _confBadgeHtml(conf) {
+    const cls = 'conf-' + (conf || 'medium').toLowerCase();
+    return '<span class="conf-badge ' + cls + '">' + (conf || 'MEDIUM') + '</span>';
+  }
+
+  // ===== Scoring engine =====
+
+  function computeScoreObject(annotations, taskObj, calibConfig) {
+    const wc_ann    = annotations.find(a => a.family === 'word_count');
+    const wordCount = wc_ann ? (wc_ann.metadata.word_count || 0) : countWords(taskObj.response || '');
+    const sw = calibConfig.sub_metric_weights  || {};
+    const dw = calibConfig.dimension_weights   || {};
+
+    // ── Task Achievement ──────────────────────────────────────
+    let wcc_score = 100;
+    if (wc_ann && !wc_ann.metadata.in_range) {
+      const wc  = wc_ann.metadata.word_count || 0;
+      const min = wc_ann.metadata.min || 1;
+      const max = wc_ann.metadata.max || 1;
+      wcc_score = wc < min
+        ? Math.max(0, Math.round(100 - ((min - wc) / min) * 100))
+        : Math.max(0, Math.round(100 - ((wc - max) / max) * 100));
+    }
+
+    const taskReqs   = Array.isArray(taskObj.requirements) ? taskObj.requirements : [];
+    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'requirement');
+    const matchedIds = new Set(claimAnns.map(a => a.metadata && a.metadata.requirement_id).filter(x => x != null));
+    const ta_score   = taskReqs.length > 0 ? Math.round((matchedIds.size / taskReqs.length) * 100) : 100;
+
+    const ieAnns   = annotations.filter(a => a.family === 'intelligibility' && a.type === 'issue');
+    const ie_score = Math.max(0, 100 - ieAnns.length * 20);
+
+    const taW    = sw.task_achievement || { wcc: 40, ta: 48, ie: 12 };
+    const ta_dim = Math.min(100, Math.round(
+      wcc_score * (taW.wcc / 100) +
+      ta_score  * (taW.ta  / 100) +
+      ie_score  * (taW.ie  / 100)
+    ));
+
+    // ── Content Quality ──────────────────────────────────────
+    const cqAnns = annotations.filter(a => a.family === 'cq');
+    let cq_dim;
+    if (cqAnns.length === 0) {
+      cq_dim = 0;
+    } else {
+      const scores = cqAnns.map(a => (a.metadata && a.metadata.score != null) ? a.metadata.score : 0);
+      const mean   = scores.reduce((s, v) => s + v, 0) / scores.length;
+      cq_dim = Math.min(100, Math.round(mean * (100 / 3)));
+    }
+
+    // ── Style & Register ─────────────────────────────────────
+    const dialectAnns = annotations.filter(a => a.family === 'register' && a.type === 'dialect_marker');
+    const msaAnns     = annotations.filter(a => a.family === 'register' && a.type === 'msa_marker');
+    const lapseAnns   = annotations.filter(a => a.family === 'register' && a.type === 'register_lapse');
+    const totalReg    = dialectAnns.length + msaAnns.length;
+    const dialectPct  = totalReg > 0 ? (dialectAnns.length / totalReg) * 100 : 0;
+
+    const treatment = (calibConfig.dialect && calibConfig.dialect.treatment) || 'formal_msa_penalise';
+    const modThresh = (calibConfig.dialect && calibConfig.dialect.moderate_threshold) || 15;
+
+    let msa_sub;
+    if (treatment === 'dialect_allowed_no_penalty') {
+      msa_sub = 100;
+    } else if (treatment === 'mixed_register_allow') {
+      msa_sub = dialectPct > modThresh ? Math.max(0, Math.round(100 - (dialectPct - modThresh) * 2)) : 100;
+    } else {
+      msa_sub = Math.max(0, Math.round(100 - dialectPct * 2));
+    }
+
+    let dialect_sub = Math.max(0, 100 - lapseAnns.length * 10);
+    if (dialectPct > modThresh && treatment !== 'dialect_allowed_no_penalty') {
+      dialect_sub = Math.max(0, dialect_sub - 20);
+    }
+
+    const srW    = sw.style_register || { msa_consistency: 60, dialect_detection: 40 };
+    const sr_dim = Math.min(100, Math.round(
+      msa_sub     * (srW.msa_consistency   / 100) +
+      dialect_sub * (srW.dialect_detection / 100)
+    ));
+
+    // ── Language Range ───────────────────────────────────────
+    const STRENGTH_MAP = { modest: 10, clear: 25, strong: 40 };
+    const rangeAnns    = annotations.filter(a => a.family === 'range' && a.type !== 'lexical_density');
+    let range_raw = 0;
+    for (const ann of rangeAnns) {
+      range_raw += STRENGTH_MAP[(ann.metadata && ann.metadata.strength)] || 10;
+    }
+    range_raw = Math.min(100, range_raw);
+
+    const ldAnn = annotations.find(a => a.family === 'range' && a.type === 'lexical_density');
+    let lr_dim;
+    if (rangeAnns.length === 0 && ldAnn) {
+      lr_dim = Math.min(100, Math.round(((ldAnn.metadata && ldAnn.metadata.density) || 0) * 100));
+    } else if (ldAnn) {
+      const ld_s = Math.min(100, Math.round(((ldAnn.metadata && ldAnn.metadata.density) || 0) * 100));
+      lr_dim = Math.round(range_raw * 0.8 + ld_s * 0.2);
+    } else {
+      lr_dim = range_raw;
+    }
+
+    // ── Organisation & Coherence ─────────────────────────────
+    const cohAnns     = annotations.filter(a => a.family === 'cohesion');
+    const cohCount    = cohAnns.length;
+    const cohSubtypes = new Set(cohAnns.map(a => (a.metadata && a.metadata.subtype) || a.type).filter(Boolean));
+    const cohSubCount = cohSubtypes.size;
+
+    const COUNT_BAND  = [0, 20, 40, 60, 75, 85, 95];
+    const count_score = COUNT_BAND[Math.min(cohCount, 5)] !== undefined ? COUNT_BAND[Math.min(cohCount, 5)] : 95;
+
+    const SUBTYPE_BAND  = [20, 40, 70, 90];
+    const subtype_score = SUBTYPE_BAND[Math.min(cohSubCount, 3)] !== undefined ? SUBTYPE_BAND[Math.min(cohSubCount, 3)] : 90;
+
+    const ocW    = sw.organisation_coherence || { cohesive_devices: 50, coherence_flow: 50 };
+    const oc_dim = Math.min(100, Math.round(
+      count_score   * (ocW.cohesive_devices / 100) +
+      subtype_score * (ocW.coherence_flow   / 100)
+    ));
+
+    // ── Language Accuracy ────────────────────────────────────
+    const accAnns = annotations.filter(a => a.family === 'accuracy');
+    const la_dim  = Math.max(0, Math.round(100 - (accAnns.length / Math.max(wordCount, 1)) * 400));
+
+    // ── Orthographic Control ─────────────────────────────────
+    const orthoAll  = annotations.filter(a => a.family === 'orthography');
+    const orthoCode = orthoAll.filter(a => a.source === 'code' || a.type === 'common_error');
+    const orthoLLM  = orthoAll.filter(a => a.source === 'llm'  || ['hamza','alif','taa_marbuta','general'].includes(a.type));
+
+    const TQ_BAND        = [100, 90, 75, 60, 45, 30];
+    const tq_score       = TQ_BAND[Math.min(orthoAll.length,  5)] !== undefined ? TQ_BAND[Math.min(orthoAll.length,  5)] : 20;
+    const CED_BAND       = [100, 85, 65, 45];
+    const ced_score      = CED_BAND[Math.min(orthoCode.length, 3)] !== undefined ? CED_BAND[Math.min(orthoCode.length, 3)] : 25;
+    const LLM_ORTHO_BAND = [100, 80, 60, 40];
+    const llm_ortho      = LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)] !== undefined ? LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)] : 20;
+
+    const orthoW    = sw.orthographic_control || { technical_quality: 40, common_error_detection: 30, llm: 30 };
+    const ortho_dim = Math.min(100, Math.round(
+      tq_score  * (orthoW.technical_quality      / 100) +
+      ced_score * (orthoW.common_error_detection / 100) +
+      llm_ortho * (orthoW.llm                    / 100)
+    ));
+
+    // ── Overall ──────────────────────────────────────────────
+    const dimScores = {
+      task_achievement:       ta_dim,
+      content_quality:        cq_dim,
+      style_register:         sr_dim,
+      language_range:         lr_dim,
+      organisation_coherence: oc_dim,
+      language_accuracy:      la_dim,
+      orthographic_control:   ortho_dim
+    };
+
+    let overall = 0, totalW = 0;
+    for (const [dim, score] of Object.entries(dimScores)) {
+      const w = dw[dim] != null ? dw[dim] : 0;
+      overall += score * (w / 100);
+      totalW  += w;
+    }
+    if (totalW > 0) overall = Math.round(overall * (100 / totalW));
+    overall = Math.min(100, Math.max(0, overall));
+
+    return {
+      word_count: wordCount,
+      dimensions: dimScores,
+      sub_scores: {
+        task_achievement:       { wcc: wcc_score, ta: ta_score, ie: ie_score },
+        style_register:         { msa_consistency: msa_sub, dialect_detection: dialect_sub },
+        organisation_coherence: { count_score, subtype_score },
+        orthographic_control:   { tq: tq_score, ced: ced_score, llm: llm_ortho }
+      },
+      overall
+    };
+  }
+
+  // ===== Guardrail engine =====
+
+  function computeGuardrailObject(scoreObj, annotations, guardrailConfig) {
+    const gc = guardrailConfig || {};
+
+    const minWC     = (gc.confidence && gc.confidence.min_word_count_for_high)              || 80;
+    const minVPct   = (gc.confidence && gc.confidence.min_verified_annotation_pct_for_high) || 85;
+    const vHandling = (gc.confidence && gc.confidence.verifier_failure_handling)            || 'demote_medium';
+
+    const failedAnns   = annotations.filter(a => a.verified === false);
+    const verifiedPct  = annotations.length > 0 ? ((annotations.length - failedAnns.length) / annotations.length) * 100 : 100;
+    const verifierFails= failedAnns.length;
+
+    let confidence = 'HIGH';
+    if (scoreObj.word_count < minWC || verifiedPct < minVPct) {
+      confidence = 'LOW';
+    } else if (scoreObj.word_count < minWC * 1.5 || verifiedPct < 92) {
+      confidence = 'MEDIUM';
+    }
+    if (verifierFails > 0 && confidence !== 'LOW') {
+      if (vHandling === 'demote_low' || verifierFails > 2) {
+        confidence = 'LOW';
+      } else if (vHandling === 'demote_medium' && confidence === 'HIGH') {
+        confidence = 'MEDIUM';
+      }
+    }
+
+    const flags       = [];
+    const extremeLow  = (gc.extreme_thresholds && gc.extreme_thresholds.low)              || 20;
+    const extremeHigh = (gc.extreme_thresholds && gc.extreme_thresholds.high)             || 95;
+    const spreadThresh= (gc.extreme_thresholds && gc.extreme_thresholds.dimension_spread) || 60;
+
+    if (scoreObj.overall >= extremeHigh)
+      flags.push({ code: 'EXTREME_HIGH', message: 'Overall score ' + scoreObj.overall + ' is unusually high (\u2265' + extremeHigh + '). Recommend review.' });
+    if (scoreObj.overall <= extremeLow)
+      flags.push({ code: 'EXTREME_LOW',  message: 'Overall score ' + scoreObj.overall + ' is unusually low (\u2264' + extremeLow + '). Recommend review.' });
+
+    const dimVals = Object.values(scoreObj.dimensions);
+    const spread  = Math.max(...dimVals) - Math.min(...dimVals);
+    if (spread >= spreadThresh)
+      flags.push({ code: 'DIMENSION_SPREAD', message: 'Dimension spread of ' + spread + ' points is wide (\u2265' + spreadThresh + '). Check dimension breakdown.' });
+
+    const contradictions = [];
+    const rules = gc.contradiction_rules || {};
+
+    if (rules.high_grammar_low_orthography !== false) {
+      const la = scoreObj.dimensions.language_accuracy;
+      const oc = scoreObj.dimensions.orthographic_control;
+      if (la >= 75 && oc <= 40)
+        contradictions.push({ rule: 'high_grammar_low_orthography',
+          message: 'Language Accuracy (' + la + ') is high but Orthographic Control (' + oc + ') is low.' });
+    }
+    if (rules.dialect_dominant_high_accuracy !== false) {
+      const sr = scoreObj.dimensions.style_register;
+      const la = scoreObj.dimensions.language_accuracy;
+      if (sr <= 40 && la >= 75)
+        contradictions.push({ rule: 'dialect_dominant_high_accuracy',
+          message: 'Style & Register (' + sr + ') suggests dialect dominance but Language Accuracy (' + la + ') is high.' });
+    }
+    if (rules.high_coherence_no_connectives !== false) {
+      const oc_s    = scoreObj.dimensions.organisation_coherence;
+      const cohAnns = annotations.filter(a => a.family === 'cohesion');
+      if (oc_s >= 70 && cohAnns.length === 0)
+        contradictions.push({ rule: 'high_coherence_no_connectives',
+          message: 'Organisation & Coherence (' + oc_s + ') is high but no cohesive-device annotations were found.' });
+    }
+
+    return {
+      confidence,
+      verified_pct:       Math.round(verifiedPct),
+      verifier_failures:  verifierFails,
+      flags,
+      contradictions,
+      moderation_required: confidence === 'LOW' || flags.length > 0 || contradictions.length > 0
+    };
+  }
+
+  // ===== Feedback paragraph =====
+
+  function buildFeedbackParagraph(scoreObj, guardrailObj) {
+    const cefr   = cefrBand(scoreObj.overall);
+    const sorted = Object.entries(scoreObj.dimensions).sort(([,a],[,b]) => b - a);
+    const topKey = sorted[0][0], topVal = sorted[0][1];
+    const botKey = sorted[sorted.length - 1][0], botVal = sorted[sorted.length - 1][1];
+    let fb = 'This response scores ' + scoreObj.overall + '/100 (' + cefr + '). ';
+    fb += 'The strongest area is ' + DIM_LABELS_T9[topKey] + ' (' + topVal + '/100), ';
+    fb += 'while ' + DIM_LABELS_T9[botKey] + ' (' + botVal + '/100) offers the most room for development. ';
+    if (guardrailObj.confidence === 'LOW') {
+      fb += 'Note: this result has LOW confidence \u2014 the response may be short or contain few verifiable annotations. Teacher review is recommended.';
+    } else if (guardrailObj.contradictions.length > 0) {
+      fb += 'The system flagged ' + guardrailObj.contradictions.length + ' internal consistency check(s) \u2014 a teacher should review the dimension breakdown.';
+    } else if (guardrailObj.flags.length > 0) {
+      fb += 'One or more quality flags were raised \u2014 see the guardrail signals section for details.';
+    }
+    return fb;
+  }
+
+  // ===== Tab 9 — Run Pipeline =====
+
+  let _tab9Running = false;
+
+  function setRun9Stage(stage, status, note) {
+    const prog = document.getElementById('run9_progress');
+    if (!prog) return;
+    const row  = prog.querySelector('[data-stage="' + stage + '"]');
+    if (!row)  return;
+    const icon  = row.querySelector('.stage-icon');
+    const noteEl= document.getElementById('run9_note_' + stage);
+    icon.className = 'stage-icon ' + status;
+    const ICONS = { idle: '\u25cb', running: '\u22ef', done: '\u2713', error: '\u2717' };
+    icon.textContent = ICONS[status] || '\u25cb';
+    if (noteEl && note != null) noteEl.textContent = note;
+  }
+
+  function _resetRun9Stages() {
+    ['code_anno','llm_anno','verify','score','guardrails'].forEach(s => setRun9Stage(s, 'idle', ''));
+    const errDiv = document.getElementById('run9_error');
+    if (errDiv) { errDiv.style.display = 'none'; errDiv.textContent = ''; }
+    const prev = document.getElementById('tab9_preview_card');
+    if (prev) prev.style.display = 'none';
+  }
+
+  function refreshTab9Context() {
+    const missing = [];
+    if (!state.taskObject)         missing.push('Task Object (Tab 3)');
+    if (!state.calibrationConfig)  missing.push('Calibration config (Tab 6)');
+    if (!state.guardrailConfig)    missing.push('Guardrail config (Tab 8)');
+
+    const lockDiv = document.getElementById('tab9_lock');
+    const uiDiv   = document.getElementById('tab9_ui');
+    if (!lockDiv || !uiDiv) return;
+
+    if (missing.length > 0) {
+      lockDiv.style.display = '';
+      uiDiv.style.display   = 'none';
+      const detail = document.getElementById('tab9_lock_detail');
+      if (detail) detail.textContent = 'Missing: ' + missing.join(', ') + '.';
+      return;
+    }
+    lockDiv.style.display = 'none';
+    uiDiv.style.display   = '';
+
+    const to     = state.taskObject;
+    const detail = document.getElementById('tab9_task_detail');
+    if (detail) {
+      const reqs = Array.isArray(to.requirements) ? to.requirements.length : 0;
+      detail.innerHTML =
+        '<strong>' + (to.title || to.task_id || 'Untitled task') + '</strong>' +
+        '<div style="margin-top:4px; direction:rtl;">' + ((to.question_text || '').slice(0, 200)) + '</div>' +
+        '<div style="margin-top:6px; color:var(--muted);">Word count target: ' +
+          (to.word_count_min || to.min_words || '?') + '\u2013' + (to.word_count_max || to.max_words || '?') +
+          ' words \u00a0|\u00a0 Requirements: ' + reqs + '</div>';
+    }
+
+    const ta = document.getElementById('tab9_response');
+    if (ta && !ta.value.trim() && to.response) {
+      ta.value = to.response;
+      _updateTab9WC();
+    }
+  }
+
+  function _updateTab9WC() {
+    const ta = document.getElementById('tab9_response');
+    const wc = document.getElementById('tab9_wc_display');
+    if (ta && wc) wc.textContent = countWords(ta.value) + ' words';
+  }
+
+  document.getElementById('tab9_response').addEventListener('input', _updateTab9WC);
+
+  async function runPipeline() {
+    if (_tab9Running) return;
+    const response = document.getElementById('tab9_response').value.trim();
+    if (!response) { showToast('Enter a student response first.'); return; }
+
+    const taskObj  = state.taskObject;
+    const calibCfg = state.calibrationConfig;
+    const grCfg    = state.guardrailConfig;
+    if (!taskObj || !calibCfg || !grCfg) { showToast('Prerequisites not met.'); return; }
+
+    _tab9Running = true;
+    document.getElementById('btn_run9').disabled = true;
+    _resetRun9Stages();
+
+    const runId = makeRunId(taskObj.task_id || 'run');
+    let allAnnotations = [];
+
+    try {
+      // Stage 1: Code annotators
+      setRun9Stage('code_anno', 'running', '');
+      const codeAnns = runCodeAnnotators(response, taskObj, runId);
+      allAnnotations = allAnnotations.concat(codeAnns);
+      setRun9Stage('code_anno', 'done', codeAnns.length + ' annotations');
+
+      // Stage 2: LLM annotators
+      setRun9Stage('llm_anno', 'running', '');
+      const llmAnns = await runLLMAnnotators(response, taskObj, runId);
+      allAnnotations = allAnnotations.concat(llmAnns);
+      setRun9Stage('llm_anno', 'done', llmAnns.length + ' annotations');
+
+      // Stage 3: Evidence verification
+      setRun9Stage('verify', 'running', '');
+      await verifyAnnotations(allAnnotations, response);
+      const failedCount   = allAnnotations.filter(a => a.verified === false).length;
+      const verifiedCount = allAnnotations.length - failedCount;
+      setRun9Stage('verify', 'done',
+        verifiedCount + ' verified' + (failedCount > 0 ? ', ' + failedCount + ' failed' : ''));
+
+      // Stage 4: Score
+      setRun9Stage('score', 'running', '');
+      const scoreObj = computeScoreObject(allAnnotations, taskObj, calibCfg);
+      setRun9Stage('score', 'done', 'Overall: ' + scoreObj.overall + '/100');
+
+      // Stage 5: Apply guardrails
+      setRun9Stage('guardrails', 'running', '');
+      const guardrailObj = computeGuardrailObject(scoreObj, allAnnotations, grCfg);
+      const flagCount    = guardrailObj.flags.length + guardrailObj.contradictions.length;
+      setRun9Stage('guardrails', 'done',
+        guardrailObj.confidence + ' confidence' + (flagCount > 0 ? ', ' + flagCount + ' flag(s)' : ''));
+
+      // Assemble ResultObject
+      const result = {
+        run_id:             runId,
+        timestamp:          new Date().toISOString(),
+        schema_version:     SCHEMA_VERSION,
+        task_object:        JSON.parse(JSON.stringify(taskObj)),
+        calibration_config: JSON.parse(JSON.stringify(calibCfg)),
+        guardrail_config:   JSON.parse(JSON.stringify(grCfg)),
+        response,
+        annotations:        allAnnotations,
+        score_object:       scoreObj,
+        guardrail_object:   guardrailObj,
+        feedback_paragraph: buildFeedbackParagraph(scoreObj, guardrailObj)
+      };
+
+      state.runHistory.unshift(result);
+      if (state.runHistory.length > RUN_HISTORY_CAP) state.runHistory.length = RUN_HISTORY_CAP;
+
+      refreshLockState();
+      _showTab9Preview(result);
+
+    } catch (err) {
+      console.error('Pipeline error:', err);
+      const errDiv = document.getElementById('run9_error');
+      if (errDiv) { errDiv.style.display = ''; errDiv.textContent = 'Pipeline error: ' + err.message; }
+      const prog = document.getElementById('run9_progress');
+      if (prog) {
+        prog.querySelectorAll('.stage-icon.running').forEach(icon => {
+          icon.className = 'stage-icon error';
+          icon.textContent = '\u2717';
+        });
+      }
+    } finally {
+      _tab9Running = false;
+      document.getElementById('btn_run9').disabled = false;
+    }
+  }
+
+  function _showTab9Preview(result) {
+    const so = result.score_object;
+    const go = result.guardrail_object;
+    const pc = document.getElementById('tab9_preview_content');
+    if (!pc) return;
+    pc.innerHTML =
+      '<div class="run-header">' +
+        '<span class="run-id-label">' + result.run_id + '</span>' +
+        '<span class="overall-score-big">' + so.overall + '</span>' +
+        _cefrBadgeHtml(so.overall) +
+        _confBadgeHtml(go.confidence) +
+        (go.moderation_required ? '<span style="font-size:.8rem;color:#f59e0b;font-weight:600;">\u26a0 Moderation recommended</span>' : '') +
+      '</div>' +
+      '<p style="font-size:.9rem; color:var(--muted); margin:0;">' + result.feedback_paragraph + '</p>';
+    const prevCard = document.getElementById('tab9_preview_card');
+    if (prevCard) prevCard.style.display = '';
+  }
+
+  document.getElementById('btn_run9').addEventListener('click', () => runPipeline());
+  document.getElementById('btn_view_results').addEventListener('click', () => switchTab('tab10'));
+
+  // ===== Tab 10 — Results =====
+
+  let _tab10RunIdx = 0;
+
+  function renderTab10(run) {
+    const container = document.getElementById('tab10_content');
+    const empty     = document.getElementById('tab10_empty');
+    if (!container || !run) return;
+    if (empty) empty.style.display = 'none';
+    container.style.display = '';
+
+    const so   = run.score_object;
+    const go   = run.guardrail_object;
+    const anns = run.annotations || [];
+
+    // Run selector
+    let selectorHtml = '';
+    if (state.runHistory.length > 1) {
+      selectorHtml = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">' +
+        '<label style="font-size:.88rem; color:var(--muted);">Run:</label>' +
+        '<select id="tab10_run_selector" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-strong); background:var(--card); color:var(--text); font-size:.88rem;">';
+      state.runHistory.forEach((r, i) => {
+        const sel = i === _tab10RunIdx ? ' selected' : '';
+        selectorHtml += '<option value="' + i + '"' + sel + '>' + r.run_id + ' (' + r.score_object.overall + '/100)</option>';
+      });
+      selectorHtml += '</select></div>';
+    }
+
+    // Guardrail signals
+    let guardrailsHtml = '';
+    if (go.flags.length > 0 || go.contradictions.length > 0) {
+      guardrailsHtml = '<div style="margin-bottom:16px;">';
+      guardrailsHtml += '<div style="font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Guardrail Signals</div>';
+      go.flags.forEach(f => {
+        guardrailsHtml += '<div class="guardrail-flag"><span class="gf-code">' + f.code + '</span><span>' + f.message + '</span></div>';
+      });
+      go.contradictions.forEach(c => {
+        guardrailsHtml += '<div class="guardrail-flag contradiction"><span class="gf-code">' + c.rule + '</span><span>' + c.message + '</span></div>';
+      });
+      guardrailsHtml += '</div>';
+    }
+
+    // Dimension score cards
+    let dimCardsHtml = '<div class="dim-score-grid">';
+    for (const [key, val] of Object.entries(so.dimensions)) {
+      dimCardsHtml +=
+        '<div class="dim-score-card">' +
+          '<div class="dsn">' + (DIM_LABELS_T9[key] || key) + '</div>' +
+          '<div class="dsv">' + val + '</div>' +
+          '<div class="dim-score-bar"><div class="dim-score-bar-fill" style="width:' + val + '%;"></div></div>' +
+        '</div>';
+    }
+    dimCardsHtml += '</div>';
+
+    // Sub-scores table
+    const ss = so.sub_scores || {};
+    let subHtml = '<table class="sub-score-table"><thead><tr><th>Dimension</th><th>Sub-metric</th><th>Score</th></tr></thead><tbody>';
+    const subRows = [
+      ['Task Achievement', [
+        ['Word count check', ss.task_achievement && ss.task_achievement.wcc],
+        ['Claim coverage',   ss.task_achievement && ss.task_achievement.ta],
+        ['Intelligibility',  ss.task_achievement && ss.task_achievement.ie]
+      ]],
+      ['Style & Register', [
+        ['MSA consistency',   ss.style_register && ss.style_register.msa_consistency],
+        ['Dialect detection', ss.style_register && ss.style_register.dialect_detection]
+      ]],
+      ['Organisation & Coherence', [
+        ['Cohesive device count', ss.organisation_coherence && ss.organisation_coherence.count_score],
+        ['Subtype diversity',     ss.organisation_coherence && ss.organisation_coherence.subtype_score]
+      ]],
+      ['Orthographic Control', [
+        ['Technical quality',      ss.orthographic_control && ss.orthographic_control.tq],
+        ['Common error detection', ss.orthographic_control && ss.orthographic_control.ced],
+        ['LLM error detection',    ss.orthographic_control && ss.orthographic_control.llm]
+      ]]
+    ];
+    for (const [dim, rows] of subRows) {
+      rows.forEach(([label, score], i) => {
+        subHtml += '<tr>' +
+          (i === 0 ? '<td rowspan="' + rows.length + '" style="font-weight:600; vertical-align:top;">' + dim + '</td>' : '') +
+          '<td>' + label + '</td>' +
+          '<td>' + (score != null ? score : '\u2014') + '</td>' +
+        '</tr>';
+      });
+    }
+    subHtml += '</tbody></table>';
+
+    // Question + annotated response
+    const qText     = run.task_object && run.task_object.question_text;
+    const questionHtml = qText
+      ? '<div style="direction:rtl; font-size:.95rem; line-height:1.9; padding:14px; background:var(--primary-soft-2); border-radius:8px;">' + qText + '</div>'
+      : '<p style="color:var(--muted); font-size:.9rem;">Question text not stored.</p>';
+    const annotatedHtml = renderAnnotatedText(run.response || '', anns);
+
+    // Assemble
+    container.innerHTML =
+      '<div class="tab-header"><h1>Results</h1></div>' +
+      selectorHtml +
+      '<div class="card">' +
+        '<div class="run-header">' +
+          '<span class="run-id-label">' + run.run_id + '</span>' +
+          '<span class="overall-score-big">' + so.overall + '</span>' +
+          _cefrBadgeHtml(so.overall) +
+          _confBadgeHtml(go.confidence) +
+          '<span style="font-size:.82rem; color:var(--muted);">' + new Date(run.timestamp).toLocaleString() + '</span>' +
+        '</div>' +
+        (go.moderation_required
+          ? '<div style="padding:8px 12px; background:#fff8f0; border-radius:8px; border-left:4px solid #f59e0b; font-size:.88rem; margin-bottom:12px;">\u26a0 Moderation recommended</div>'
+          : '') +
+        guardrailsHtml +
+        '<p style="font-size:.95rem; line-height:1.6; margin:0;">' + run.feedback_paragraph + '</p>' +
+      '</div>' +
+      '<div class="card"><div class="card-title">Dimension Scores</div>' + dimCardsHtml + '</div>' +
+      '<div class="card"><div class="card-title">Sub-metric Scores</div>' + subHtml + '</div>' +
+      '<div class="card">' +
+        '<div class="card-title">Question &amp; Annotated Response</div>' +
+        '<div class="two-col-qa">' +
+          '<div><div style="font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Question</div>' + questionHtml + '</div>' +
+          '<div><div style="font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Annotated Response</div>' +
+            '<div class="annotated-response">' + (annotatedHtml || run.response || '') + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="card-title">Export &amp; Actions</div>' +
+        '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
+          '<button id="btn_t10_export_json" class="btn secondary">Export JSON</button>' +
+          '<button id="btn_t10_export_csv"  class="btn secondary">Export CSV</button>' +
+          '<button id="btn_t10_run_again"   class="btn secondary">Run again \u2192</button>' +
+        '</div>' +
+      '</div>';
+
+    // Bind run selector
+    const sel = document.getElementById('tab10_run_selector');
+    if (sel) sel.addEventListener('change', (e) => {
+      _tab10RunIdx = Number(e.target.value);
+      renderTab10(state.runHistory[_tab10RunIdx]);
+    });
+
+    // Bind export — JSON
+    const btnJson = document.getElementById('btn_t10_export_json');
+    if (btnJson) btnJson.addEventListener('click', () => {
+      const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const blob = new Blob([JSON.stringify(run, null, 2)], { type: 'application/json' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = 'result_' + run.run_id + '_' + ts + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // Bind export — CSV
+    const btnCsv = document.getElementById('btn_t10_export_csv');
+    if (btnCsv) btnCsv.addEventListener('click', () => {
+      const hdrs = ['run_id','timestamp','overall','cefr','confidence'].concat(Object.keys(so.dimensions));
+      const vals = [run.run_id, run.timestamp, so.overall, cefrBand(so.overall), go.confidence]
+        .concat(Object.values(so.dimensions));
+      const csvStr = [hdrs, vals].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+      const blob = new Blob([csvStr], { type: 'text/csv' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = 'result_' + run.run_id + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // Bind run-again
+    const btnAgain = document.getElementById('btn_t10_run_again');
+    if (btnAgain) btnAgain.addEventListener('click', () => switchTab('tab9'));
+  }
+
+  // ===== switchTab extension for Tabs 9 & 10 =====
+  (function () {
+    const _prevSwitch = switchTab;
+    switchTab = function (tabId) {
+      _prevSwitch(tabId);
+      if (tabId === 'tab9')  refreshTab9Context();
+      if (tabId === 'tab10') {
+        if (state.runHistory && state.runHistory.length > 0) {
+          renderTab10(state.runHistory[_tab10RunIdx]);
+        }
+      }
+    };
+  })();
+
+  // ===== End Tabs 8 / 9 / 10 =====
 
   // ===== Boot =====
   refreshLockState();
