@@ -3574,14 +3574,56 @@ TOPIC: {TOPIC}
 
   // register (code-side): basic dialect markers (small list).
   // Dialect lists vary by variety — this is a starter set. Expand per dialect later.
+  // Code-side dialect detection — bare-token lookup with whitespace/punctuation boundaries.
+  // V2.1 follow-up: add cliticised/prefix patterns (e.g. ف- prefix on nouns, كنـ-/كيـ continuous prefix)
+  // which can't be matched as bare tokens. For v0.3 we rely on the LLM register prompt to catch
+  // those cliticised dialect forms.
   const DIALECT_MARKERS = [
-    { word: 'مش', note: 'Egyptian/Levantine negation' },
-    { word: 'هاي', note: 'Levantine demonstrative' },
-    { word: 'هون', note: 'Levantine "here"' },
-    { word: 'كده', note: 'Egyptian "like this"' },
+    // ===== Levantine / general =====
+    { word: 'مش',     note: 'Egyptian/Levantine negation' },
+    { word: 'هاي',    note: 'Levantine demonstrative' },
+    { word: 'هون',    note: 'Levantine "here"' },
+    { word: 'هلق',    note: 'Levantine "now"' },
+    { word: 'كتير',   note: 'Levantine "a lot"' },
+    { word: 'شو',     note: 'Levantine "what"' },
+    // ===== Egyptian =====
+    { word: 'كده',    note: 'Egyptian "like this"' },
     { word: 'دلوقتي', note: 'Egyptian "now"' },
-    { word: 'إيه', note: 'colloquial "what"' },
-    { word: 'بتاع', note: 'Egyptian possessive' }
+    { word: 'إيه',    note: 'colloquial "what"' },
+    { word: 'بتاع',   note: 'Egyptian possessive' },
+    { word: 'اوي',    note: 'Egyptian intensifier' },
+    // ===== Gulf =====
+    { word: 'وايد',   note: 'Gulf "a lot"' },
+    { word: 'شلون',   note: 'Gulf/Iraqi "how"' },
+    { word: 'يبا',    note: 'Gulf address particle' },
+    // ===== Maghrebi / Darija (added Tier 3) =====
+    { word: 'ديال',   note: 'Maghrebi/Darija possessive particle (MSA: ـه / of)' },
+    { word: 'باش',    note: 'Maghrebi purpose marker (MSA: لكي / كي)' },
+    { word: 'بزاف',   note: 'Maghrebi "a lot" (MSA: كثيراً)' },
+    { word: 'شوية',   note: 'general dialect "a little" (MSA: قليلاً)' },
+    { word: 'ملي',    note: 'Maghrebi temporal "when" (MSA: عندما / حين)' },
+    { word: 'فاش',    note: 'Maghrebi "when/while" (MSA: متى)' },
+    { word: 'فين',    note: 'Maghrebi/dialect "where" (MSA: أين)' },
+    { word: 'كلشي',   note: 'Maghrebi "everything" (MSA: كل شيء)' },
+    { word: 'تما',    note: 'Maghrebi "there" (MSA: هناك)' },
+    { word: 'خويا',   note: 'Maghrebi "my brother" (MSA: أخي)' },
+    { word: 'خوي',    note: 'Maghrebi/general dialect "my brother"' },
+    { word: 'حوايج',  note: 'Maghrebi/dialect "things" (MSA: أشياء)' },
+    { word: 'حاجة',   note: 'colloquial "thing" used as dialect filler (MSA: شيء)' },
+    { word: 'كيطل',   note: 'Maghrebi "overlooks/faces" (MSA: يُطل)' },
+    { word: 'زوين',   note: 'Maghrebi "nice/beautiful" (MSA: جميل / لطيف)' },
+    { word: 'زوينة',  note: 'Maghrebi "nice/beautiful" feminine' },
+    { word: 'الكافي', note: 'Maghrebi "the cafe" (MSA: المقهى)' },
+    { word: 'مبسوط',  note: 'colloquial "happy/content" (MSA: سعيد / مسرور)' },
+    { word: 'كنوقفو', note: 'Maghrebi continuous-prefix verb "we stop"' },
+    { word: 'كنهدرو', note: 'Maghrebi continuous-prefix verb "we talk"' },
+    { word: 'نهزوهم', note: 'Maghrebi conjugation pattern' },
+    { word: 'هاد',    note: 'Maghrebi/general dialect demonstrative "this" (MSA: هذا)' },
+    // ===== Cross-dialect items that are non-MSA in formal writing =====
+    { word: 'حسيت',   note: 'colloquial past "I felt" (MSA: شعرتُ)' },
+    { word: 'شفت',    note: 'colloquial past "I saw" (MSA: رأيتُ)' },
+    { word: 'بعدين',  note: 'colloquial sequence "later" (MSA: لاحقاً / فيما بعد)' },
+    { word: 'اللي',   note: 'colloquial relative pronoun (MSA: الذي / التي)' }
   ];
   function annotateRegisterCode(response, runId) {
     const out = [];
@@ -3682,6 +3724,15 @@ TOPIC: {TOPIC}
 3. NO LITERARY INTENT. Do not infer what the writer was trying to do. Stick to what is observably present in the text.
    OK: "signals chronological progression"
    NOT OK: "creates forward momentum across the response"
+
+4. CONSTRUCT PURITY SYMMETRY — DIALECT IS REGISTER EVIDENCE ONLY.
+   Dialectal forms cannot independently serve as positive evidence for language range, cohesion, or grammatical sophistication. They may APPEAR in the text, but they cannot be the REASON for a positive annotation in those families.
+   The system must not mistake linguistic DISTINCTIVENESS for linguistic SOPHISTICATION. Regional vocabulary is regional, not advanced. Specificity is not the same as sophistication.
+   This applies across ALL Arabic dialect families: Levantine, Gulf, Egyptian, Maghrebi/Darija, Iraqi, Sudanese.
+   Concrete tests:
+   - If a phrase is only notable because it is dialect (e.g. كيطل "overlooks" — Moroccan verb, حتى قبل ما — Darija subordinator, ملي — Darija "when", فالليل — contracted Darija "in the night", من بعد — Darija sequence marker), do NOT annotate it as range or cohesion evidence. The register family will handle it.
+   - Range, cohesion, and accuracy annotations should cite forms that would be natural in MSA writing. If the cited form is dialect, drop the annotation.
+   - The mirror of the existing "do not penalize dialect" rule: ALSO do not reward dialect. Construct purity is symmetric.
 
 If in doubt: prefer fewer, sharper annotations over many trivial ones. Quality > quantity. Density is not a positive signal.`;
 
@@ -3784,9 +3835,24 @@ Return JSON only:
 
 ${ANNOTATION_DISCIPLINE}
 
-1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form (e.g. حسيت، شفت، بعدين، رحت، رحنا). This is the most common finding in dialect-influenced writing.
+COVERAGE — dialect detection here must cover ALL Arabic dialect families, not only Gulf/Levantine. The task is judged against MSA, and any non-MSA token is a register finding regardless of which dialect family it comes from:
+- Levantine (e.g. هاي، هون، شو، كتير، هلق، عم + verb).
+- Gulf (e.g. شفت، حسيت، رحت، أبغى، يبا، شلون، وايد، حق as a preposition).
+- Egyptian (e.g. مش، كده، دلوقتي، إيه، بتاع، اوي).
+- Maghrebi / Darija (e.g. ديال، باش، بزاف، شوية، ملي، كلشي، تما، خويا، حوايج، فاش، فين، كيطل، زوين، الكافي، الحوايج، بسط، حسيت براسي، contracted prepositions فال-/فمـ-، continuous prefix كنـ-).
+- Iraqi (e.g. هواي، شكو، ماكو، آني، اني).
+- Sudanese (e.g. شنو، داير، كيف).
 
-2. msa_marker — formally correct phrasing worth noting positively as evidence of register awareness (e.g. الأسبوع الماضي used as a written time expression).
+1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form. Annotate EVERY non-MSA token or phrase you can identify, regardless of dialect family. In a heavily dialect response (e.g. near-pure Darija), expect MANY dialect_marker findings — do not stop at two or three.
+
+Examples worth surfacing:
+- Lexical: خويا (MSA: أخي), بزاف (MSA: كثيراً), حوايج (MSA: أشياء), زوين (MSA: جميل), كلشي (MSA: كل شيء), حسيت (MSA: شعرتُ), شفت (MSA: رأيتُ), كيطل (MSA: يُطل).
+- Particles: ديال (MSA: ـ of/possessive ـه), باش (MSA: لكي/كي), ملي (MSA: عندما/حين), فاش (MSA: متى/عندما), هاد (MSA: هذا).
+- Contracted prepositions: فالليل/فالصباح/فمطعم/فالمدينة — dialect contractions of في + noun.
+- Continuous-prefix verbs: كنوقفو، كنهدرو، كيطل — the كنـ/كيـ continuous prefix is dialect.
+- Relative pronoun اللي where MSA would use الذي/التي.
+
+2. msa_marker — formally correct MSA phrasing worth noting positively as evidence of register awareness (e.g. الأسبوع الماضي used as a written time expression). Reserve for genuinely MSA forms only.
 
 3. register_lapse — RESERVE FOR CLEAR cases only. Use ONLY when phrasing is so informal that an MSA writer would clearly avoid it in a written task, AND it is not already a dialect marker.
 
@@ -3823,26 +3889,32 @@ Return JSON only:
 
 ${ANNOTATION_DISCIPLINE}
 
-Language Range = HOW VARIED, BROAD, OR SOPHISTICATED is the language used?
-This is NOT about formality (Register handles that) or correctness (Accuracy handles that).
-Dialectal language can still show strong range. Formal language can still show weak range. Do not conflate.
+Language Range = HOW VARIED, BROAD, OR SOPHISTICATED IS MSA USE in this response?
+This is NOT about formality alone (Register handles that) or correctness (Accuracy handles that).
+Range is measured against the MSA construct. Dialect forms do NOT score positively toward range — see Construct Purity Symmetry in the discipline rules above. Formal language can still show weak range; that's fine to report.
 
 Annotate evidence across these subtypes:
-- vocabulary: lexical variety — uncommon precise words, varied semantic fields, descriptive choices, idiomatic expressions. Variety counts regardless of whether the words are MSA or dialect.
-- morphology: morphological variety — different verb patterns/forms across the response, derived nouns, broken vs sound plurals, varied participles. Variety of FORMS = range. ERRORS in forms are NOT range — they are accuracy.
-- sentence_complexity: structural variety — subordinate clauses, relative clauses with الذي/التي, conditionals with إذا/لو, varied sentence length, varied sentence types (nominal/verbal).
-- descriptive_control: vivid or precise description, modifiers used purposefully, semantic precision.
+- vocabulary: MSA lexical variety — uncommon precise MSA words, varied semantic fields, MSA descriptive choices. Dialect lexemes (e.g. كيطل، زوين، حوايج، خويا، بزاف) DO NOT count, regardless of how vivid they feel.
+- morphology: MSA morphological variety — different verb patterns/forms across the response, derived nouns, broken vs sound plurals, varied participles. Variety of MSA FORMS = range. ERRORS in forms are NOT range — they are accuracy.
+- sentence_complexity: structural variety in MSA — subordinate clauses, relative clauses with الذي/التي, conditionals with إذا/لو, varied sentence length, varied sentence types (nominal/verbal). Dialect subordinators (e.g. حتى قبل ما، باش، ملي) DO NOT count.
+- descriptive_control: vivid or precise MSA description, modifiers used purposefully, semantic precision in MSA register.
 - elaboration: ideas extended beyond a topic mention into developed observations.
 
-DO NOT flag any of the following as range — they cause construct leakage:
+DO NOT flag any of the following as range — they cause construct leakage in either direction:
 - "this word is dialect" — Register, not Range.
 - "this construction is colloquial" — Register or Accuracy, not Range.
 - "missing MSA equivalent" — Register, not Range.
-- "the word is colloquial so range is lower" — this is the exact leakage to avoid.
+- "the word is colloquial so range is lower" — this is the original leakage to avoid.
+- "the word is regional/specific so range is higher" — this is the INVERSE leakage and is equally wrong. Distinctiveness is not sophistication.
 - Errors in form (agreement, conjugation) — Accuracy.
 - Missing prepositions — Register or Accuracy.
 
-If a subtype shows no notable evidence in the response, do NOT invent it. Quality > quantity. It is acceptable to return zero findings for a subtype, or zero findings overall if the response is genuinely flat.
+POSITIVE EVIDENCE TEST — before emitting any range annotation, ask:
+1. Is the cited form natural MSA, or is it dialect? If dialect, DROP IT.
+2. Is the variety / precision being demonstrated in the MSA register, or only in the dialect form? If only in dialect, DROP IT.
+3. Would a marker assessing MSA range agree this counts? If no, DROP IT.
+
+If a subtype shows no notable evidence in the response, do NOT invent it. Quality > quantity. It is acceptable to return zero findings for a subtype, or zero findings overall if the response is genuinely flat OR predominantly dialect (in which case range evidence will legitimately be sparse).
 
 Frame every note POSITIVELY — describe what the writer is doing that demonstrates range, not what they failed to do.
 
@@ -3867,21 +3939,36 @@ Return JSON only:
   }
 
   function annotateCohesionLLM(response, runId) {
-    const prompt = `Identify coherence signals in this Arabic response — focus on how IDEAS LINK AND PROGRESS, not on individual function words.
+    const prompt = `Identify MSA coherence signals in this Arabic response — focus on how IDEAS LINK AND PROGRESS in formal written Arabic, not on individual function words.
 
 ${ANNOTATION_DISCIPLINE}
 
-DO NOT annotate these simple connectives — they are detected deterministically by the code annotator and emitting them again is duplicate work:
+DO NOT annotate these simple MSA connectives — they are detected deterministically by the code annotator and emitting them again is duplicate work:
 و، ثم، لكن، لذلك، لأن، بسبب، بالإضافة إلى، علاوة على ذلك، من ناحية أخرى، في المقابل، أيضاً، أيضًا، كذلك، إذن، فإن، بينما، حيث، عندما، إذا، لو، كما، مثلاً، مثلًا، أولاً، أولًا، ثانياً، ثانيًا، ثالثاً، ثالثًا، أخيراً، أخيرًا، في النهاية، في الختام، باختصار، إجمالاً.
 
-DO annotate (these require judgement, not lookup):
-- Multi-word transitions that move between ideas (e.g. "من ناحية أخرى" used to pivot an argument)
-- Discourse markers that frame or close a passage (e.g. "الأسبوع الماضي" as a narrative frame-setter)
-- Contrastive pairings that create cohesion ACROSS the whole response
-- Temporal sequences expressed through multi-word phrases (e.g. "بعد العصر", "في الليل")
-- Coherence devices that operate at the paragraph or response level, not the word level
+DO NOT annotate dialect-form cohesion devices — per the Construct Purity Symmetry rule above, dialect cohesion does not contribute positive evidence to Organisation & Coherence. Examples to DROP, not annotate:
+- ملي (Darija "when") — dialect temporal connective; do not annotate as discourse_marker or transition.
+- باش (Darija/Maghrebi "in order to") — dialect purpose connective.
+- فاش (Darija "when/while") — dialect.
+- من بعد (Darija sequence marker for "then/after that") — DO NOT credit. The MSA equivalent is بعد ذلك or ثم.
+- Dialect-contracted prepositional forms with prefixed ف- (e.g. فالليل, فالصباح, فمطعم, فالمدينة) — these are dialect contractions of في + noun. The MSA forms (في الليل, في الصباح) would be code-detected; the contracted forms should NOT be credited.
+- اللي as a relative pronoun — dialect; the MSA form is الذي/التي.
+- هاد / هاديك as demonstratives — dialect.
+- Dialect sequencing adverbs (بعدين، أول حاجة) used in narrative — register, not cohesion.
 
-If the only cohesion devices in the response are bare connectives from the skip list above, return { "cohesion_findings": [] }.
+DO annotate (these require judgement, not lookup, and must be MSA-natural forms):
+- Multi-word MSA transitions that move between ideas (e.g. "من ناحية أخرى" used to pivot an argument).
+- MSA discourse markers that frame or close a passage (e.g. "الأسبوع الماضي" as a narrative frame-setter; "في ذلك اليوم" as a temporal anchor).
+- Contrastive pairings that create cohesion ACROSS the whole response.
+- Temporal sequences expressed through multi-word MSA phrases (e.g. "بعد ذلك", "في تلك اللحظة").
+- Coherence devices that operate at the paragraph or response level, not the word level.
+
+POSITIVE EVIDENCE TEST — before emitting any cohesion annotation, ask:
+1. Is the cited form natural MSA, or is it dialect? If dialect, DROP IT.
+2. Is the cohesion being achieved through MSA register, or only because the dialect form happens to carry the function? If the latter, DROP IT.
+3. Is it on the skip-list above? If yes, DROP IT.
+
+If the only cohesion devices in the response are bare connectives from the skip list, or are dialect-form, return { "cohesion_findings": [] }. Zero findings is the correct answer for a near-pure-dialect response.
 
 RESPONSE:
 ${response}
