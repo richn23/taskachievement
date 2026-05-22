@@ -1101,6 +1101,66 @@
   .toggle-switch input:checked + .toggle-slider { background:var(--accent); }
   .toggle-switch input:checked + .toggle-slider::before { transform:translateX(18px); }
   /* ===== End Tabs 8 / 9 / 10 ===== */
+
+  /* ===== Tab 11 — Student Reporting ===== */
+  .report-mode-toggle { display:inline-flex; background:var(--primary-soft-2); border-radius:10px; padding:4px; gap:4px; margin-bottom:18px; }
+  .report-mode-toggle button { border:none; background:transparent; padding:8px 18px; font-size:.9rem; font-weight:600; color:var(--muted); border-radius:7px; cursor:pointer; transition: background .15s, color .15s; }
+  .report-mode-toggle button.active { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  .report-mode-toggle button:hover:not(.active) { color:var(--text); }
+
+  .learner-hero { display:flex; flex-wrap:wrap; gap:18px; align-items:center; padding:22px 24px; background:linear-gradient(135deg, var(--primary-soft-2), var(--card)); border-radius:12px; border:1px solid var(--border); margin-bottom:18px; }
+  .learner-hero-score { font-size:3.2rem; font-weight:800; color:var(--accent); line-height:1; }
+  .learner-hero-meta { display:flex; flex-direction:column; gap:6px; }
+  .learner-hero-label { font-size:.78rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  .learner-hero-text { font-size:1.05rem; color:var(--text); line-height:1.5; max-width:560px; }
+
+  .lr-dim-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
+  .lr-dim-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:8px; }
+  .lr-dim-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .lr-dim-card-name { font-size:.82rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .lr-dim-card-score { font-size:1.4rem; font-weight:700; color:var(--text); line-height:1; }
+  .lr-dim-card-strength { font-size:.92rem; color:var(--text); line-height:1.5; }
+  .lr-dim-card-strength.positive { color:#166534; }
+  .lr-dim-card-strength.intervention { color:#92400e; }
+  .lr-dim-bar { height:5px; border-radius:3px; background:var(--border); }
+  .lr-dim-bar-fill { height:100%; border-radius:3px; background:var(--accent); transition:width .4s ease; }
+
+  .lr-evidence-chip { display:inline-flex; align-items:center; gap:6px; background:var(--primary-soft-2); border-radius:14px; padding:3px 10px; font-size:.8rem; color:var(--text); margin:3px 4px 0 0; }
+  .lr-evidence-chip.intervention { background:#fef3c7; color:#92400e; }
+  .lr-evidence-chip.positive { background:#dcfce7; color:#166534; }
+
+  .lr-next-steps { display:flex; flex-direction:column; gap:10px; }
+  .lr-next-step { display:flex; gap:10px; align-items:flex-start; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:8px; }
+  .lr-next-step-dim { font-size:.72rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; min-width:120px; padding-top:2px; }
+  .lr-next-step-text { font-size:.92rem; line-height:1.5; color:var(--text); }
+
+  .tr-dim-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  .tr-dim-table th { text-align:left; color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:2px solid var(--border-strong); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+  .tr-dim-table td { padding:10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .tr-dim-table .tr-dim-name { font-weight:600; color:var(--text); }
+  .tr-dim-table .tr-score-cell { font-weight:700; color:var(--text); font-size:1rem; }
+  .tr-note-pill { display:inline-block; background:var(--primary-soft-2); color:var(--text); font-size:.76rem; padding:2px 8px; border-radius:10px; margin:1px 3px 1px 0; }
+  .tr-note-pill.warning { background:#fef3c7; color:#92400e; }
+  .tr-note-pill.positive { background:#dcfce7; color:#166534; }
+
+  .tr-comment-area { width:100%; min-height:90px; padding:10px 12px; border:1px solid var(--border-strong); border-radius:8px; font-family:inherit; font-size:.92rem; line-height:1.5; resize:vertical; background:var(--card); color:var(--text); box-sizing:border-box; }
+  .tr-comment-area:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+  .tr-comment-status { font-size:.78rem; color:var(--muted); margin-top:4px; }
+
+  .tr-anno-list { display:flex; flex-direction:column; gap:6px; max-height:420px; overflow-y:auto; padding:4px; }
+  .tr-anno-row { display:grid; grid-template-columns:auto 1fr auto; gap:10px; padding:8px 10px; background:var(--card); border:1px solid var(--border); border-radius:6px; font-size:.85rem; align-items:center; }
+  .tr-anno-row.rejected { opacity:.6; }
+  .tr-anno-fam { font-family:monospace; font-size:.78rem; color:var(--muted); }
+  .tr-anno-status { font-size:.75rem; padding:2px 8px; border-radius:8px; font-weight:600; flex-shrink:0; }
+  .tr-anno-status.verified  { background:#dcfce7; color:#166534; }
+  .tr-anno-status.rejected  { background:#fee2e2; color:#991b1b; }
+  .tr-anno-text { font-family:monospace; color:var(--text); }
+
+  .conf-mini { display:inline-block; padding:2px 8px; border-radius:8px; font-size:.72rem; font-weight:600; }
+  .conf-mini.HIGH   { background:#dcfce7; color:#166534; }
+  .conf-mini.MEDIUM { background:#fef9c3; color:#854d0e; }
+  .conf-mini.LOW    { background:#fee2e2; color:#991b1b; }
+  /* ===== End Tab 11 ===== */
 </style>
 </head>
 <body>
@@ -1160,6 +1220,7 @@
     <button class="tab" data-tab="tab8"><span class="tab-num">8</span>Apply Guardrails</button>
     <button class="tab locked" data-tab="tab9" data-requires="task+calibration+guardrails"><span class="tab-num">9</span>Run Pipeline<span class="lock-icon">🔒</span></button>
     <button class="tab locked" data-tab="tab10" data-requires="run"><span class="tab-num">10</span>Results<span class="lock-icon">🔒</span></button>
+    <button class="tab locked" data-tab="tab11" data-requires="run"><span class="tab-num">11</span>Student Reporting<span class="lock-icon">🔒</span></button>
   </div>
 
   <!-- ===== Tab 1 — Question Requirements ===== -->
@@ -2207,6 +2268,15 @@
     <div id="tab10_content" style="display:none;"></div>
   </div>
 
+  <div class="view" id="view-tab11">
+    <div id="tab11_empty" class="stub-card">
+      <div class="stub-lock">🔒 Requires a completed run</div>
+      <h2>Tab 11 — Student Reporting</h2>
+      <p>Run the pipeline in Tab 9 to generate a learner and teacher report.</p>
+    </div>
+    <div id="tab11_content" style="display:none;"></div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2249,6 +2319,7 @@
       case 'tab4':  return !!state.taskObject;
       case 'tab9':  return !!(state.taskObject && state.calibrationConfig && state.guardrailConfig);
       case 'tab10': return state.runHistory.length > 0;
+      case 'tab11': return state.runHistory.length > 0;
       default:      return true;
     }
   }
@@ -2258,6 +2329,7 @@
       case 'tab4':  return 'Locked — save a Task Object in Tab 2 first.';
       case 'tab9':  return 'Locked — needs a Task Object (Tab 2), saved Calibration (Tab 6), and saved Guardrails (Tab 8).';
       case 'tab10': return 'Locked — run the pipeline at least once.';
+      case 'tab11': return 'Locked — run the pipeline at least once.';
       default:      return '';
     }
   }
@@ -5011,8 +5083,38 @@ Return JSON only:
           message: 'Organisation & Coherence (' + oc_s + ') is high but no cohesive-device annotations were found.' });
     }
 
+    // Per-dimension confidence — added v0.3 Tab 11 build.
+    // Inherits from the global confidence but DEMOTES per dimension if:
+    //   - 0 verified annotations support that dimension AND it's not code-driven, OR
+    //   - any verifier failure landed on a family that maps to that dimension.
+    // Code-driven dimensions (task_achievement, orthographic_control) inherit the global
+    // baseline because their evidence comes from deterministic components, not the LLM.
+    const confidence_per_dimension = {};
+    const codeDrivenDims = new Set(['task_achievement', 'orthographic_control']);
+    const dimToFamilies = {
+      task_achievement:       ['word_count', 'claim', 'intelligibility'],
+      content_quality:        ['cq'],
+      style_register:         ['register'],
+      language_range:         ['range'],
+      organisation_coherence: ['cohesion'],
+      language_accuracy:      ['accuracy'],
+      orthographic_control:   ['orthography']
+    };
+    const _demote = (c) => c === 'HIGH' ? 'MEDIUM' : (c === 'MEDIUM' ? 'LOW' : 'LOW');
+    for (const dim of Object.keys(scoreObj.dimensions)) {
+      const fams = dimToFamilies[dim] || [];
+      const dimAnns        = annotations.filter(a => fams.includes(a.family));
+      const dimVerified    = dimAnns.filter(a => a.verified !== false);
+      const dimVerifierFails = dimAnns.filter(a => a.verified === false).length;
+      let dimConf = confidence;
+      if (dimVerifierFails > 0)                                  dimConf = _demote(dimConf);
+      if (dimVerified.length === 0 && !codeDrivenDims.has(dim))  dimConf = _demote(dimConf);
+      confidence_per_dimension[dim] = dimConf;
+    }
+
     return {
       confidence,
+      confidence_per_dimension,
       verified_pct:       Math.round(verifiedPct),
       verifier_failures:  verifierFails,
       flags,
@@ -5391,7 +5493,7 @@ Return JSON only:
     if (btnAgain) btnAgain.addEventListener('click', () => switchTab('tab9'));
   }
 
-  // ===== switchTab extension for Tabs 9 & 10 =====
+  // ===== switchTab extension for Tabs 9 / 10 / 11 =====
   (function () {
     const _prevSwitch = switchTab;
     switchTab = function (tabId) {
@@ -5402,8 +5504,624 @@ Return JSON only:
           renderTab10(state.runHistory[_tab10RunIdx]);
         }
       }
+      if (tabId === 'tab11') {
+        if (state.runHistory && state.runHistory.length > 0) {
+          renderTab11(state.runHistory[_tab11RunIdx]);
+        }
+      }
     };
   })();
+
+  // =====================================================================
+  // Tab 11 — Student Reporting (v0.3)
+  // =====================================================================
+  // Two views — Learner and Teacher — backed by the same ResultObject.
+  // Every learner/teacher-facing string traces back to FEEDBACK_MAP or
+  // NEXT_STEPS_BY_LEVEL. No LLM in the report path.
+  // =====================================================================
+
+  // ===== FEEDBACK_MAP =====
+  // Keyed by annotation type. CQ is keyed by score (0/1/2/3) via by_score.
+  const FEEDBACK_MAP = {
+    "word_count:in_range": { feedback_key: "word_count_in_range", valence: "positive", dimension: "task_achievement", short_label: "Word count met", learner_message: "Your response is the right length for this task.", teacher_message: "Word count within the task's specified min–max range.", next_step_action: null, cefr_variants: null },
+    "word_count:under":    { feedback_key: "word_count_under", valence: "intervention", dimension: "task_achievement", short_label: "Response too short", learner_message: "Your response is shorter than the task asks for. Add more detail to develop your ideas.", teacher_message: "Word count below the task minimum. Student likely under-developed one or more requirements.", next_step_action: "Aim to write closer to the suggested word range. Develop each of the task points with at least one extra sentence.", cefr_variants: { A1: "Try to write at least one or two more short sentences for each part of the task.", A2: "Add a reason or an example to each idea so your response reaches the suggested length.", B1: "Develop each idea with explanation and one concrete example.", B2: "Extend each idea with comparison, qualification, or a specific case.", C1: "Build out each idea with evaluation and counter-evidence to reach the upper word band." } },
+    "word_count:over":     { feedback_key: "word_count_over", valence: "intervention", dimension: "task_achievement", short_label: "Response too long", learner_message: "Your response is longer than the task asks for. Aim to be more concise next time.", teacher_message: "Word count exceeds the task maximum. Check whether content is on-topic and not repetitive.", next_step_action: "Edit your response to remove repetition and keep only ideas that directly answer the task.", cefr_variants: null },
+    "claim:requirement":   { feedback_key: "task_requirement_addressed", valence: "positive", dimension: "task_achievement", short_label: "Addressed the task", learner_message: "You addressed this part of the task directly in your writing.", teacher_message: "Verified text span links to a stated task requirement.", next_step_action: null, cefr_variants: null },
+    "intelligibility:issue": { feedback_key: "meaning_unclear", valence: "intervention", dimension: "task_achievement", short_label: "Meaning unclear here", learner_message: "The meaning of this part is hard to follow. Try rewriting it more clearly.", teacher_message: "Sentence flagged for unclear meaning — broken syntax, missing referent, or untranslatable fragment.", next_step_action: "Rewrite this sentence so a reader can understand it without re-reading. Use a clear subject and verb.", cefr_variants: { A1: "Use one short, simple sentence to say what you mean.", A2: "Make sure each sentence has a subject and a verb that match.", B1: "Check that each sentence has a clear referent — what or who you are talking about.", B2: "Re-read the sentence aloud; if you stumble, rebuild it with simpler structure first.", C1: "Tighten the syntax — your meaning is in there but the sentence needs clearer signposting." } },
+
+    "cq:requirement": {
+      feedback_key: "content_development", dimension: "content_quality",
+      by_score: {
+        0: { valence: "intervention", short_label: "Idea missing",                learner_message: "You haven't addressed this part of the task yet. Add a sentence about it.", teacher_message: "Requirement scored 0 — absent or completely off-topic. No verified evidence found.", next_step_action: "Write at least one sentence that names this topic before the next response.", cefr_variants: null },
+        1: { valence: "intervention", short_label: "Idea mentioned, not developed", learner_message: "You mentioned this idea but didn't explain or give an example. Add a reason or a detail.", teacher_message: "Requirement scored 1 — mentioned without development. Topic is named but no reason, cause, or example.", next_step_action: "Add a 'because' clause or a specific example to push this idea to the next level.", cefr_variants: { A1: "Add one more short sentence that gives a reason — use لأن.", A2: "Use لأن or لكن to add a reason or a contrast.", B1: "Develop the idea with an explanation and one concrete example.", B2: "Develop with comparison or a specific case the reader can picture.", C1: "Develop with evaluation — strengths, limits, or qualifications of the idea." } },
+        2: { valence: "positive",     short_label: "Idea developed",              learner_message: "You developed this idea with a reason or explanation. Good progress.", teacher_message: "Requirement scored 2 — developed with explanation. Reaches the 'developed' rung.", next_step_action: "Add one concrete specific (a name, a place, a time, or an example) to push this idea to extended.", cefr_variants: null },
+        3: { valence: "positive",     short_label: "Idea extended",               learner_message: "You extended this idea with a clear example or specific detail. Excellent.", teacher_message: "Requirement scored 3 — extended with concrete specific. Reaches the highest rung.", next_step_action: null, cefr_variants: null }
+      }
+    },
+
+    "register:dialect_marker": { feedback_key: "dialect_in_formal_writing", valence: "intervention", dimension: "style_register", short_label: "Spoken Arabic used", learner_message: "This is natural spoken Arabic, but the task asks for written (formal) Arabic. Try the standard form.", teacher_message: "Verified dialect marker. Register is informal where the task expected MSA.", next_step_action: "Replace spoken forms with their written equivalents (e.g. حسيت → شعرتُ، شفت → رأيتُ، بعدين → ثم).", cefr_variants: { A1: "Practise the standard written form of common verbs (ذهبتُ، رأيتُ، أكلتُ).", A2: "Build a short list of spoken-vs-written verb pairs you use most often.", B1: "Notice when you switch between spoken and written forms; aim to stay in written Arabic across the whole response.", B2: "Audit your response for register consistency before submitting.", C1: "Refine register precision — formal Arabic should feel deliberate, not avoided." } },
+    "register:msa_marker":     { feedback_key: "msa_usage_correct", valence: "positive", dimension: "style_register", short_label: "Formal Arabic used well", learner_message: "You used the formal written form correctly here.", teacher_message: "Verified MSA marker. Evidence of register awareness.", next_step_action: null, cefr_variants: null },
+    "register:register_lapse": { feedback_key: "register_lapse", valence: "intervention", dimension: "style_register", short_label: "Informal phrasing", learner_message: "This phrasing is more informal than the task asks for.", teacher_message: "Verified register lapse outside of dialect markers — informal phrasing in a context that expected formal MSA.", next_step_action: "Reread your response and check that every sentence sounds written, not spoken.", cefr_variants: null },
+
+    "range:vocabulary":          { feedback_key: "vocabulary_variety", valence: "positive", dimension: "language_range", short_label: "Varied vocabulary", learner_message: "You used varied or precise word choices here.", teacher_message: "Verified positive evidence of lexical variety; strength field carried on the annotation.", next_step_action: null, cefr_variants: null },
+    "range:morphology":          { feedback_key: "morphology_variety", valence: "positive", dimension: "language_range", short_label: "Varied word forms", learner_message: "You used different forms of words (verb patterns, plurals, participles) across your writing.", teacher_message: "Verified positive evidence of morphological variety.", next_step_action: null, cefr_variants: null },
+    "range:sentence_complexity": { feedback_key: "sentence_complexity", valence: "positive", dimension: "language_range", short_label: "Complex sentence used", learner_message: "You built a longer sentence with linked clauses here.", teacher_message: "Verified positive evidence of structural variety — subordination, relative clauses, or conditionals.", next_step_action: null, cefr_variants: null },
+    "range:descriptive_control": { feedback_key: "descriptive_control", valence: "positive", dimension: "language_range", short_label: "Precise description", learner_message: "You added precise description here, not just a general statement.", teacher_message: "Verified positive evidence of purposeful descriptive control.", next_step_action: null, cefr_variants: null },
+    "range:elaboration":         { feedback_key: "idea_elaboration", valence: "positive", dimension: "language_range", short_label: "Idea elaborated", learner_message: "You extended an idea beyond simply mentioning it.", teacher_message: "Verified positive evidence of elaboration — idea extended into developed observation or reflection.", next_step_action: null, cefr_variants: null },
+    "range:lexical_density":     { feedback_key: "lexical_density_metric", valence: "diagnostic", dimension: "language_range", short_label: "Vocabulary density", learner_message: null, teacher_message: "Code-derived lexical density (unique tokens / total tokens). Informational only.", next_step_action: null, cefr_variants: null },
+
+    "cohesion:connective":       { feedback_key: "connective_used", valence: "positive", dimension: "organisation_coherence", short_label: "Linking word used", learner_message: "You used a linking word to connect ideas (e.g. لأن، لكن، ثم).", teacher_message: "Verified connective. Code-source connective annotation.", next_step_action: null, cefr_variants: null },
+    "cohesion:transition":       { feedback_key: "transition_used", valence: "positive", dimension: "organisation_coherence", short_label: "Transition used", learner_message: "You used a phrase that moves the reader from one idea to the next.", teacher_message: "Verified multi-word transition. LLM-source cohesion annotation.", next_step_action: null, cefr_variants: null },
+    "cohesion:discourse_marker": { feedback_key: "discourse_marker_used", valence: "positive", dimension: "organisation_coherence", short_label: "Frame-setter used", learner_message: "You used a phrase that helps the reader follow the structure of your writing.", teacher_message: "Verified discourse marker — operates at paragraph or response level.", next_step_action: null, cefr_variants: null },
+
+    "accuracy:agreement":          { feedback_key: "grammar_agreement", valence: "intervention", dimension: "language_accuracy", short_label: "Agreement check", learner_message: "The form here doesn't match the subject. Check that gender and number agree.", teacher_message: "Verified agreement error in gender, number, or person.", next_step_action: "Re-read this sentence and check that the verb or adjective matches its subject.", cefr_variants: { A1: "Practise matching simple singular forms (he/she/it).", A2: "Practise plural agreement — masculine plural vs feminine plural endings.", B1: "Check agreement across longer sentences with multiple clauses.", B2: "Audit agreement in your final read-through.", C1: "Refine agreement in complex constructions including dual and broken plurals." } },
+    "accuracy:conjugation":        { feedback_key: "grammar_conjugation", valence: "intervention", dimension: "language_accuracy", short_label: "Verb form check", learner_message: "The verb form here doesn't match the tense or subject. Check your conjugation.", teacher_message: "Verified conjugation error.", next_step_action: "Review the past-tense forms for first-person singular and plural (تُ / نا).", cefr_variants: { A1: "Practise the past tense first-person singular (e.g. ذهبتُ، رأيتُ).", A2: "Practise past-tense plural forms and the difference from singular.", B1: "Practise switching between past and present consistently.", B2: "Refine modal and perfect forms.", C1: "Refine aspectual nuance and rare verb forms." } },
+    "accuracy:dual":               { feedback_key: "grammar_dual", valence: "intervention", dimension: "language_accuracy", short_label: "Dual form check", learner_message: "The dual form (المثنى) needs attention here.", teacher_message: "Verified dual form error.", next_step_action: "Review dual forms for nouns, verbs, and adjectives (-ان / -ين endings).", cefr_variants: null },
+    "accuracy:word_order":         { feedback_key: "grammar_word_order", valence: "intervention", dimension: "language_accuracy", short_label: "Word order check", learner_message: "The order of words in this sentence sounds unusual. Try rearranging.", teacher_message: "Verified word order error in MSA construction.", next_step_action: "Check verb-subject-object order; in MSA, verbal sentences usually begin with the verb.", cefr_variants: null },
+    "accuracy:sentence_formation": { feedback_key: "grammar_sentence_formation", valence: "intervention", dimension: "language_accuracy", short_label: "Sentence structure", learner_message: "This sentence isn't fully formed in written Arabic. Rebuild it with a clear structure.", teacher_message: "Verified sentence formation error — broken construction or missing required element.", next_step_action: "Rewrite using a clear nominal or verbal sentence pattern.", cefr_variants: null },
+    "accuracy:other":              { feedback_key: "grammar_other", valence: "intervention", dimension: "language_accuracy", short_label: "Grammar check", learner_message: "There's a grammar issue here. Re-read carefully.", teacher_message: "Verified grammar error outside the specific subtypes above.", next_step_action: "Re-read this sentence to find the issue, then rewrite it.", cefr_variants: null },
+
+    "orthography:hamza":        { feedback_key: "spelling_hamza", valence: "intervention", dimension: "orthographic_control", short_label: "Hamza spelling", learner_message: "This word's hamza needs attention. Check whether it sits on أ، إ، ؤ، or ئ.", teacher_message: "Verified hamza placement error.", next_step_action: "Review hamza placement rules — initial أ vs إ, and medial seat selection.", cefr_variants: { A1: "Practise common words with initial hamza (أنا، إلى، أكل).", A2: "Practise medial hamza in common verbs and nouns.", B1: "Refine hamza placement in derived forms and broken plurals.", B2: "Audit hamza usage across your final draft.", C1: "Refine hamza in complex morphology including verbal nouns." } },
+    "orthography:alif":         { feedback_key: "spelling_alif", valence: "intervention", dimension: "orthographic_control", short_label: "Alif spelling", learner_message: "This word's alif form needs attention (ا، آ، or ى).", teacher_message: "Verified alif form error.", next_step_action: "Review when to write ى (alif maqsura) at the end of words vs ا.", cefr_variants: null },
+    "orthography:taa_marbuta":  { feedback_key: "spelling_taa_marbuta", valence: "intervention", dimension: "orthographic_control", short_label: "Taa marbuta check", learner_message: "Check the ending ة vs ت vs ه here.", teacher_message: "Verified taa marbuta error.", next_step_action: "Review ة vs ت ending — taa marbuta closes feminine singular nouns; full ت is used elsewhere.", cefr_variants: null },
+    "orthography:general":      { feedback_key: "spelling_general", valence: "intervention", dimension: "orthographic_control", short_label: "Spelling check", learner_message: "This word has a spelling issue.", teacher_message: "Verified general spelling error not in hamza/alif/taa-marbuta subtypes.", next_step_action: "Reread your response for spelling consistency.", cefr_variants: null }
+  };
+
+  // ===== NEXT_STEPS_BY_LEVEL =====
+  const NEXT_STEPS_BY_LEVEL = {
+    A1: [
+      { dimension: "task_achievement",       focus: "Practise writing short, complete sentences that answer the task directly." },
+      { dimension: "language_accuracy",      focus: "Master present-tense first-person verbs (أنا أذهب، أنا آكل) and singular agreement." },
+      { dimension: "orthographic_control",   focus: "Practise common words with initial hamza (أنا، إلى، أكل) and ة at the end of feminine nouns." },
+      { dimension: "language_range",         focus: "Build a small set of go-to nouns and verbs you can reuse confidently." },
+      { dimension: "organisation_coherence", focus: "Connect two simple sentences with و or ثم." }
+    ],
+    A2: [
+      { dimension: "organisation_coherence", focus: "Combine ideas using لأن (because), لكن (but), بعد ذلك (after that), and أيضاً (also)." },
+      { dimension: "language_accuracy",      focus: "Master past-tense first-person forms (ذهبتُ، رأيتُ) and basic plural agreement." },
+      { dimension: "content_quality",        focus: "Add a reason or one example to each idea you mention." },
+      { dimension: "style_register",         focus: "Begin to notice when a verb is spoken vs written; practise the written form." },
+      { dimension: "orthographic_control",   focus: "Practise medial hamza in common verbs (سأل، قرأ) and the alif maqsura ى at word ends." }
+    ],
+    B1: [
+      { dimension: "content_quality",        focus: "Develop every idea with an explanation AND a concrete example." },
+      { dimension: "style_register",         focus: "Stay in written Arabic across the whole response. Replace spoken verbs as you write." },
+      { dimension: "language_range",         focus: "Use a wider range of connectives beyond و / ثم (e.g. لأن، بسبب، بالإضافة إلى)." },
+      { dimension: "organisation_coherence", focus: "Open your response with a temporal frame-setter (e.g. الأسبوع الماضي، في السنة الماضية)." },
+      { dimension: "language_accuracy",      focus: "Check agreement across longer sentences with multiple clauses." }
+    ],
+    B2: [
+      { dimension: "language_range",         focus: "Vary sentence structures — mix short declaratives with longer sentences that use subordination." },
+      { dimension: "content_quality",        focus: "Develop ideas with comparison, qualification, or a specific case the reader can picture." },
+      { dimension: "style_register",         focus: "Audit your final draft for register consistency. No spoken-only verbs in a formal piece." },
+      { dimension: "organisation_coherence", focus: "Use contrastive pairings (X but Y) and conditional structures (إذا) to add depth to your reasoning." },
+      { dimension: "orthographic_control",   focus: "Refine hamza placement in derived forms and broken plurals." }
+    ],
+    C1: [
+      { dimension: "style_register",         focus: "Refine register precision — formal Arabic should feel deliberate, not avoided." },
+      { dimension: "content_quality",        focus: "Develop ideas with evaluation — strengths, limits, counter-evidence." },
+      { dimension: "language_range",         focus: "Choose precise vocabulary and morphological forms purposefully, not just correctly." },
+      { dimension: "organisation_coherence", focus: "Structure paragraphs so each has a clear function — set-up, development, evaluation, closure." },
+      { dimension: "language_accuracy",      focus: "Refine complex constructions including dual, broken plurals, and rare verb forms." }
+    ],
+    C2: [
+      { dimension: "style_register",         focus: "Maintain native-like register control across genres and tasks." },
+      { dimension: "content_quality",        focus: "Develop ideas with nuance, hedge, and qualified evaluation." },
+      { dimension: "language_range",         focus: "Use the full range of MSA — varied morphology, sentence types, and discourse devices." },
+      { dimension: "organisation_coherence", focus: "Structure responses with rhetorical purpose — each section advances the argument." }
+    ]
+  };
+  NEXT_STEPS_BY_LEVEL["Pre-A1"] = NEXT_STEPS_BY_LEVEL.A1;
+  NEXT_STEPS_BY_LEVEL["A2+"]    = NEXT_STEPS_BY_LEVEL.A2;
+  NEXT_STEPS_BY_LEVEL["B1+"]    = NEXT_STEPS_BY_LEVEL.B1;
+  NEXT_STEPS_BY_LEVEL["B2+"]    = NEXT_STEPS_BY_LEVEL.B2;
+
+  // ===== FAMILY_SUMMARY_RULES =====
+  // Each rule reads verified annotations + optional context and emits a short label.
+  const FAMILY_SUMMARY_RULES = [
+    { id: "claim_stable",                family: "claim",       label: "stable",                       trigger: (a) => a.filter(x => x.family === 'claim').length >= 3 },
+    { id: "claim_thin",                  family: "claim",       label: "thin coverage",                trigger: (a) => a.filter(x => x.family === 'claim').length < 2 },
+    { id: "cq_limited_elaboration",      family: "cq",          label: "limited elaboration",
+      trigger: (a) => {
+        const cq = a.filter(x => x.family === 'cq');
+        if (cq.length === 0) return false;
+        const mean = cq.reduce((s,x) => s + ((x.metadata && x.metadata.score) || 0), 0) / cq.length;
+        return mean < 1.5;
+      } },
+    { id: "cq_developed",                family: "cq",          label: "developed",
+      trigger: (a) => {
+        const cq = a.filter(x => x.family === 'cq');
+        if (cq.length === 0) return false;
+        const mean = cq.reduce((s,x) => s + ((x.metadata && x.metadata.score) || 0), 0) / cq.length;
+        return mean >= 2.0;
+      } },
+    { id: "register_dialect_heavy",      family: "register",    label: "dialect-heavy",
+      trigger: (a, ctx) => {
+        const d = a.filter(x => x.family === 'register' && x.type === 'register:dialect_marker').length;
+        const wc = (ctx && ctx.word_count) || 1;
+        return (d / wc) >= 0.10;
+      } },
+    { id: "register_msa_consistent",     family: "register",    label: "MSA-consistent",
+      trigger: (a, ctx) => {
+        const d = a.filter(x => x.family === 'register' && x.type === 'register:dialect_marker').length;
+        const wc = (ctx && ctx.word_count) || 1;
+        return (d / wc) < 0.03;
+      } },
+    { id: "accuracy_leakage_suppressed", family: "accuracy",    label: "leakage suppression triggered",
+      trigger: (a, ctx, allAnnos) => (allAnnos || a).some(x => x.family === 'accuracy' && x.rejection_status === 'excluded_construct_leakage') },
+    { id: "accuracy_low_density",        family: "accuracy",    label: "low evidence density",         trigger: (a) => a.filter(x => x.family === 'accuracy').length === 0 },
+    { id: "cohesion_thin",               family: "cohesion",    label: "thin cohesion",                trigger: (a) => a.filter(x => x.family === 'cohesion').length < 2 },
+    { id: "cohesion_varied",             family: "cohesion",    label: "varied",
+      trigger: (a) => {
+        const subs = new Set(a.filter(x => x.family === 'cohesion').map(x => (x.metadata && x.metadata.subtype) || x.type.split(':')[1]));
+        return subs.size >= 3;
+      } },
+    { id: "orthography_clean",           family: "orthography", label: "clean",                        trigger: (a) => a.filter(x => x.family === 'orthography').length === 0 },
+    { id: "orthography_repeated_hamza",  family: "orthography", label: "hamza errors repeated",        trigger: (a) => a.filter(x => x.family === 'orthography' && x.type === 'orthography:hamza').length >= 2 },
+    { id: "range_modest_only",           family: "range",       label: "modest evidence only",
+      trigger: (a) => {
+        const r = a.filter(x => x.family === 'range' && x.metadata && x.metadata.strength);
+        if (r.length === 0) return false;
+        return r.every(x => x.metadata.strength === 'modest');
+      } },
+    { id: "range_strong_present",        family: "range",       label: "strong evidence present",
+      trigger: (a) => a.some(x => x.family === 'range' && x.metadata && x.metadata.strength === 'strong') }
+  ];
+
+  // ===== Lookup helpers =====
+  function getFeedbackForAnnotation(annotation) {
+    if (!annotation) return null;
+    const entry = FEEDBACK_MAP[annotation.type];
+    if (!entry) return null;
+    if (entry.by_score && annotation.metadata && annotation.metadata.score !== undefined) {
+      const sub = entry.by_score[annotation.metadata.score];
+      if (!sub) return null;
+      return Object.assign({ feedback_key: entry.feedback_key, dimension: entry.dimension }, sub);
+    }
+    return entry;
+  }
+  function getNextStepsForLevel(cefr_band, weakest_dimensions) {
+    const steps = NEXT_STEPS_BY_LEVEL[cefr_band] || NEXT_STEPS_BY_LEVEL.B1;
+    if (!weakest_dimensions || weakest_dimensions.length === 0) return steps;
+    const weakSet = new Set(weakest_dimensions);
+    const first = steps.filter(s => weakSet.has(s.dimension));
+    const rest  = steps.filter(s => !weakSet.has(s.dimension));
+    return first.concat(rest);
+  }
+  function summariseAnnotationFamilies(verifiedAnnos, allAnnos, ctx) {
+    const out = {};
+    FAMILY_SUMMARY_RULES.forEach(rule => {
+      try {
+        if (rule.trigger(verifiedAnnos, ctx, allAnnos)) {
+          out[rule.family] = out[rule.family] || [];
+          out[rule.family].push(rule.label);
+        }
+      } catch (err) {
+        console.warn('[FAMILY_SUMMARY_RULES] ' + rule.id + ' threw:', err);
+      }
+    });
+    return out;
+  }
+
+  // ===== HTML helpers =====
+  function _esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function _confMiniBadge(level) {
+    const c = (level || 'MEDIUM').toUpperCase();
+    return '<span class="conf-mini ' + c + '">' + c + '</span>';
+  }
+
+  // ===== Tab 11 state =====
+  let _tab11RunIdx = 0;
+  let _tab11Mode   = 'learner';  // 'learner' | 'teacher'
+
+  // ===== Tab 11 main renderer =====
+  function renderTab11(run) {
+    const container = document.getElementById('tab11_content');
+    const empty     = document.getElementById('tab11_empty');
+    if (!container || !run) return;
+    if (empty) empty.style.display = 'none';
+    container.style.display = '';
+
+    // Run selector — reuse the Tab 10 pattern
+    let selectorHtml = '';
+    if (state.runHistory.length > 1) {
+      selectorHtml = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">' +
+        '<label style="font-size:.88rem; color:var(--muted);">Run:</label>' +
+        '<select id="tab11_run_selector" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border-strong); background:var(--card); color:var(--text); font-size:.88rem;">';
+      state.runHistory.forEach((r, i) => {
+        const sel = i === _tab11RunIdx ? ' selected' : '';
+        selectorHtml += '<option value="' + i + '"' + sel + '>' + _esc(r.run_id) + ' (' + r.score_object.overall + '/100)</option>';
+      });
+      selectorHtml += '</select></div>';
+    }
+
+    const toggleHtml =
+      '<div class="report-mode-toggle" id="tab11_mode_toggle">' +
+        '<button data-mode="learner" class="' + (_tab11Mode === 'learner' ? 'active' : '') + '">Learner Report</button>' +
+        '<button data-mode="teacher" class="' + (_tab11Mode === 'teacher' ? 'active' : '') + '">Teacher Report</button>' +
+      '</div>';
+
+    const bodyHtml = (_tab11Mode === 'learner')
+      ? renderLearnerReport(run)
+      : renderTeacherReport(run);
+
+    container.innerHTML =
+      '<div class="tab-header"><h1>Student Reporting</h1></div>' +
+      selectorHtml +
+      toggleHtml +
+      '<div id="tab11_body">' + bodyHtml + '</div>';
+
+    // Bind run selector
+    const sel = document.getElementById('tab11_run_selector');
+    if (sel) sel.addEventListener('change', (e) => {
+      _tab11RunIdx = Number(e.target.value);
+      renderTab11(state.runHistory[_tab11RunIdx]);
+    });
+
+    // Bind mode toggle
+    const tog = document.getElementById('tab11_mode_toggle');
+    if (tog) tog.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-mode]');
+      if (!btn) return;
+      _tab11Mode = btn.dataset.mode;
+      renderTab11(state.runHistory[_tab11RunIdx]);
+    });
+
+    // Bind teacher-only handlers
+    if (_tab11Mode === 'teacher') bindTeacherReportHandlers(run);
+  }
+
+  // ===== Learner Report =====
+  function renderLearnerReport(run) {
+    const so = run.score_object;
+    const go = run.guardrail_object || {};
+    const annotations    = run.annotations || [];
+    const verifiedAnnos  = annotations.filter(a => a.verified !== false);
+    const cefr           = cefrBand(so.overall);
+    const overall_text   = _learnerOverallSentence(so, cefr);
+
+    // Hero
+    const heroHtml =
+      '<div class="learner-hero">' +
+        '<div class="learner-hero-score">' + so.overall + '</div>' +
+        '<div class="learner-hero-meta">' +
+          '<span class="learner-hero-label">Your level</span>' +
+          _cefrBadgeHtml(so.overall) +
+        '</div>' +
+        '<div class="learner-hero-text">' + _esc(overall_text) + '</div>' +
+      '</div>';
+
+    // Dimension cards
+    let dimCardsHtml = '<div class="lr-dim-grid">';
+    for (const [key, val] of Object.entries(so.dimensions)) {
+      const evidence = _pickLearnerEvidence(verifiedAnnos, key);
+      const headline = _strengthHeadline(verifiedAnnos, key, val);
+      const headlineCls = headline.valence === 'positive' ? 'positive' :
+                          headline.valence === 'intervention' ? 'intervention' : '';
+      let chipsHtml = '';
+      if (evidence.length > 0) {
+        chipsHtml = '<div style="margin-top:6px;">' +
+          evidence.map(e => '<span class="lr-evidence-chip ' + e.valence + '">' + _esc(e.short_label) + '</span>').join('') +
+          '</div>';
+      }
+      dimCardsHtml +=
+        '<div class="lr-dim-card">' +
+          '<div class="lr-dim-card-head">' +
+            '<span class="lr-dim-card-name">' + (DIM_LABELS_T9[key] || key) + '</span>' +
+            '<span class="lr-dim-card-score">' + val + '</span>' +
+          '</div>' +
+          '<div class="lr-dim-bar"><div class="lr-dim-bar-fill" style="width:' + val + '%;"></div></div>' +
+          '<div class="lr-dim-card-strength ' + headlineCls + '">' + _esc(headline.text) + '</div>' +
+          chipsHtml +
+        '</div>';
+    }
+    dimCardsHtml += '</div>';
+
+    // Next steps — priorities driven by weakest dimensions
+    const weakestDims = Object.entries(so.dimensions).sort(([,a],[,b]) => a - b).slice(0, 2).map(([k]) => k);
+    const steps       = getNextStepsForLevel(cefr, weakestDims).slice(0, 4);
+    let stepsHtml = '<div class="lr-next-steps">';
+    steps.forEach(s => {
+      stepsHtml +=
+        '<div class="lr-next-step">' +
+          '<span class="lr-next-step-dim">' + (DIM_LABELS_T9[s.dimension] || s.dimension) + '</span>' +
+          '<span class="lr-next-step-text">' + _esc(s.focus) + '</span>' +
+        '</div>';
+    });
+    stepsHtml += '</div>';
+
+    // Specific things noticed in THIS response — pull from FEEDBACK_MAP
+    let noticedHtml = '';
+    const noticedEntries = _collectLearnerNoticed(verifiedAnnos, cefr);
+    if (noticedEntries.length > 0) {
+      noticedHtml = '<div class="card"><div class="card-title">What I noticed in your writing</div>' +
+        '<div style="display:flex; flex-direction:column; gap:10px;">' +
+        noticedEntries.map(n =>
+          '<div style="padding:10px 14px; border-left:3px solid ' + (n.valence === 'positive' ? '#16a34a' : '#f59e0b') + '; background:var(--card); border-radius:6px;">' +
+            '<div style="font-size:.88rem; font-weight:600; color:var(--text); margin-bottom:2px;">' + _esc(n.short_label) + '</div>' +
+            '<div style="font-size:.88rem; color:var(--muted); line-height:1.5;">' + _esc(n.learner_message) + '</div>' +
+            (n.next_step ? '<div style="font-size:.85rem; color:var(--text); margin-top:6px;"><strong>Try next:</strong> ' + _esc(n.next_step) + '</div>' : '') +
+          '</div>'
+        ).join('') +
+        '</div></div>';
+    }
+
+    return heroHtml +
+      '<div class="card"><div class="card-title">Where you stand on each dimension</div>' + dimCardsHtml + '</div>' +
+      noticedHtml +
+      '<div class="card"><div class="card-title">Your next steps</div>' + stepsHtml +
+        '<p style="font-size:.82rem; color:var(--muted); margin-top:14px; margin-bottom:0;">Priorities chosen for your level (' + _esc(cefr) + ') and weakest dimensions.</p>' +
+      '</div>';
+  }
+
+  // Learner: short overall sentence — fact-based, no LLM
+  function _learnerOverallSentence(so, cefr) {
+    const top = Object.entries(so.dimensions).sort(([,a],[,b]) => b - a)[0];
+    const bot = Object.entries(so.dimensions).sort(([,a],[,b]) => a - b)[0];
+    return 'Your overall level is ' + cefr + '. Your strongest area is ' + (DIM_LABELS_T9[top[0]] || top[0]) +
+      '. The area with most room to grow is ' + (DIM_LABELS_T9[bot[0]] || bot[0]) + '.';
+  }
+
+  // Learner: per-dimension headline — facts only
+  function _strengthHeadline(verifiedAnnos, dim, score) {
+    const dimToFam = {
+      task_achievement: ['word_count','claim','intelligibility'],
+      content_quality: ['cq'],
+      style_register: ['register'],
+      language_range: ['range'],
+      organisation_coherence: ['cohesion'],
+      language_accuracy: ['accuracy'],
+      orthographic_control: ['orthography']
+    };
+    const fams = dimToFam[dim] || [];
+    const dimAnns = verifiedAnnos.filter(a => fams.includes(a.family));
+    if (score >= 75) return { text: 'Strong evidence on this dimension.', valence: 'positive' };
+    if (score >= 55) return { text: 'Developing — some evidence of strength.', valence: 'positive' };
+    if (dimAnns.length === 0 && dim !== 'task_achievement' && dim !== 'orthographic_control')
+      return { text: 'Not enough evidence in this response.', valence: 'intervention' };
+    return { text: 'Most room to grow here.', valence: 'intervention' };
+  }
+
+  // Learner: top 3 evidence chips per dimension
+  function _pickLearnerEvidence(verifiedAnnos, dim) {
+    const dimToFam = {
+      task_achievement: ['word_count','claim','intelligibility'],
+      content_quality: ['cq'],
+      style_register: ['register'],
+      language_range: ['range'],
+      organisation_coherence: ['cohesion'],
+      language_accuracy: ['accuracy'],
+      orthographic_control: ['orthography']
+    };
+    const fams = dimToFam[dim] || [];
+    const items = [];
+    verifiedAnnos.filter(a => fams.includes(a.family)).forEach(a => {
+      const fb = getFeedbackForAnnotation(a);
+      if (!fb || !fb.short_label || fb.valence === 'diagnostic') return;
+      // Dedupe by short_label
+      if (!items.some(it => it.short_label === fb.short_label)) {
+        items.push({ short_label: fb.short_label, valence: fb.valence });
+      }
+    });
+    return items.slice(0, 3);
+  }
+
+  // Learner: collect deduped "noticed" entries with CEFR-aware next steps
+  function _collectLearnerNoticed(verifiedAnnos, cefr) {
+    const out = [];
+    const seen = new Set();
+    verifiedAnnos.forEach(a => {
+      const fb = getFeedbackForAnnotation(a);
+      if (!fb || fb.valence === 'diagnostic' || !fb.learner_message) return;
+      if (seen.has(fb.feedback_key)) return;
+      seen.add(fb.feedback_key);
+      let nextStep = fb.next_step_action;
+      if (fb.cefr_variants && fb.cefr_variants[cefr]) nextStep = fb.cefr_variants[cefr];
+      out.push({ short_label: fb.short_label, learner_message: fb.learner_message, valence: fb.valence, next_step: nextStep });
+    });
+    // Sort: interventions first, then positives, cap to 6 to avoid overwhelm
+    return out.sort((a,b) => (a.valence === 'intervention' ? 0 : 1) - (b.valence === 'intervention' ? 0 : 1)).slice(0, 6);
+  }
+
+  // ===== Teacher Report =====
+  function renderTeacherReport(run) {
+    const so = run.score_object;
+    const go = run.guardrail_object || {};
+    const annotations   = run.annotations || [];
+    const verifiedAnnos = annotations.filter(a => a.verified !== false);
+    const rejectedAnnos = annotations.filter(a => a.verified === false);
+    const wc            = so.word_count || (run.response ? run.response.trim().split(/\s+/).length : 0);
+    const familyNotes   = summariseAnnotationFamilies(verifiedAnnos, annotations, { word_count: wc });
+    const confPerDim    = go.confidence_per_dimension || {};
+    const overallConf   = go.confidence || 'MEDIUM';
+
+    // Header strip
+    const headerHtml =
+      '<div class="run-header">' +
+        '<span class="run-id-label">' + _esc(run.run_id) + '</span>' +
+        '<span class="overall-score-big">' + so.overall + '</span>' +
+        _cefrBadgeHtml(so.overall) +
+        _confBadgeHtml(overallConf) +
+        (go.moderation_required ? '<span style="font-size:.82rem; padding:3px 10px; border-radius:10px; background:#fff8f0; color:#92400e; font-weight:600;">⚠ Moderation recommended</span>' : '') +
+        '<span style="font-size:.82rem; color:var(--muted);">' + new Date(run.timestamp).toLocaleString() + '</span>' +
+      '</div>';
+
+    // Per-dimension table — score, confidence, notes, intervention count
+    const familyToDim = {
+      word_count: 'task_achievement', claim: 'task_achievement', intelligibility: 'task_achievement',
+      cq: 'content_quality', register: 'style_register', range: 'language_range',
+      cohesion: 'organisation_coherence', accuracy: 'language_accuracy', orthography: 'orthographic_control'
+    };
+    let dimRowsHtml = '';
+    for (const [dim, score] of Object.entries(so.dimensions)) {
+      const interventions = verifiedAnnos.filter(a => {
+        const fam = a.family;
+        const fb  = getFeedbackForAnnotation(a);
+        return familyToDim[fam] === dim && fb && fb.valence === 'intervention';
+      }).length;
+      const positives = verifiedAnnos.filter(a => {
+        const fam = a.family;
+        const fb  = getFeedbackForAnnotation(a);
+        return familyToDim[fam] === dim && fb && fb.valence === 'positive';
+      }).length;
+      const fams = Object.entries(familyToDim).filter(([,d]) => d === dim).map(([f]) => f);
+      const notes = [];
+      fams.forEach(f => { if (familyNotes[f]) notes.push.apply(notes, familyNotes[f]); });
+      const notesHtml = notes.length > 0
+        ? notes.map(n => {
+            const cls = /thin|low|leakage|heavy|errors repeated/.test(n) ? 'warning' :
+                        /clean|stable|developed|consistent|strong|varied/.test(n) ? 'positive' : '';
+            return '<span class="tr-note-pill ' + cls + '">' + _esc(n) + '</span>';
+          }).join('')
+        : '<span style="color:var(--muted); font-size:.8rem;">—</span>';
+      dimRowsHtml +=
+        '<tr>' +
+          '<td class="tr-dim-name">' + (DIM_LABELS_T9[dim] || dim) + '</td>' +
+          '<td class="tr-score-cell">' + score + '</td>' +
+          '<td>' + _confMiniBadge(confPerDim[dim] || overallConf) + '</td>' +
+          '<td>' + notesHtml + '</td>' +
+          '<td style="text-align:center;">' + positives + ' / ' + interventions + '</td>' +
+        '</tr>';
+    }
+    const dimTableHtml =
+      '<table class="tr-dim-table">' +
+        '<thead><tr>' +
+          '<th>Dimension</th><th>Score</th><th>Confidence</th><th>Notes</th><th>+ / ⚠</th>' +
+        '</tr></thead>' +
+        '<tbody>' + dimRowsHtml + '</tbody>' +
+      '</table>';
+
+    // Suppression / leakage flags from the annotation set
+    const suppressed = rejectedAnnos.filter(a => a.rejection_status && a.rejection_status !== 'invalid_schema');
+    let suppressedHtml = '';
+    if (suppressed.length > 0) {
+      suppressedHtml = '<div class="card"><div class="card-title">Suppressed / rejected annotations <span style="font-weight:400; color:var(--muted); font-size:.85rem;">(' + suppressed.length + ')</span></div>' +
+        '<div class="tr-anno-list">' +
+        suppressed.map(a =>
+          '<div class="tr-anno-row rejected">' +
+            '<span class="tr-anno-fam">' + _esc(a.family || '?') + ':' + _esc((a.type || '').split(':')[1] || '') + '</span>' +
+            '<span class="tr-anno-text">' + _esc(a.text || '') + '</span>' +
+            '<span class="tr-anno-status rejected" title="' + _esc(a.failure_reason || a.rejection_status) + '">' + _esc(a.rejection_status || 'rejected') + '</span>' +
+          '</div>'
+        ).join('') +
+        '</div></div>';
+    }
+
+    // Full verified annotation list — collapsible-friendly
+    let verifiedListHtml = '<div class="card"><div class="card-title">Verified annotations <span style="font-weight:400; color:var(--muted); font-size:.85rem;">(' + verifiedAnnos.length + ')</span></div>';
+    if (verifiedAnnos.length === 0) {
+      verifiedListHtml += '<p style="color:var(--muted); font-size:.9rem; margin:0;">No verified annotations.</p>';
+    } else {
+      verifiedListHtml += '<div class="tr-anno-list">';
+      verifiedAnnos.forEach(a => {
+        const fb = getFeedbackForAnnotation(a) || {};
+        verifiedListHtml +=
+          '<div class="tr-anno-row">' +
+            '<span class="tr-anno-fam">' + _esc(a.family || '?') + ':' + _esc((a.type || '').split(':')[1] || '') + '</span>' +
+            '<span class="tr-anno-text">' + _esc(a.text || '') + (fb.teacher_message ? '<span style="color:var(--muted); font-size:.78rem; margin-left:8px;">' + _esc(fb.teacher_message) + '</span>' : '') + '</span>' +
+            '<span class="tr-anno-status verified">verified</span>' +
+          '</div>';
+      });
+      verifiedListHtml += '</div>';
+    }
+    verifiedListHtml += '</div>';
+
+    // Teacher comment (localStorage-backed, keyed by run_id)
+    const commentKey   = 'aze_teacher_comment_' + run.run_id;
+    const savedComment = _safeLocalStorageGet(commentKey) || '';
+    const commentHtml =
+      '<div class="card">' +
+        '<div class="card-title">Teacher comment <span style="font-weight:400; color:var(--muted); font-size:.85rem;">(saved on this device, per run)</span></div>' +
+        '<textarea id="tab11_teacher_comment" class="tr-comment-area" placeholder="Notes to support moderation or feedback to the student…">' + _esc(savedComment) + '</textarea>' +
+        '<div class="tr-comment-status" id="tab11_comment_status">' + (savedComment ? 'Loaded saved comment.' : 'Auto-saves on edit.') + '</div>' +
+      '</div>';
+
+    // Export
+    const exportHtml =
+      '<div class="card">' +
+        '<div class="card-title">Export</div>' +
+        '<div style="display:flex; gap:10px; flex-wrap:wrap;">' +
+          '<button id="btn_t11_export_report" class="btn secondary">Export Teacher Report (JSON)</button>' +
+        '</div>' +
+      '</div>';
+
+    return headerHtml +
+      '<div class="card"><div class="card-title">Dimensions — score, confidence, evidence</div>' + dimTableHtml +
+        '<p style="font-size:.78rem; color:var(--muted); margin-top:12px; margin-bottom:0;"><strong>Confidence</strong> reflects evidence strength for that dimension. <strong>+ / ⚠</strong> counts verified positive vs intervention annotations.</p>' +
+      '</div>' +
+      verifiedListHtml +
+      suppressedHtml +
+      commentHtml +
+      exportHtml;
+  }
+
+  function bindTeacherReportHandlers(run) {
+    // Comment auto-save (localStorage, keyed by run_id)
+    const ta     = document.getElementById('tab11_teacher_comment');
+    const status = document.getElementById('tab11_comment_status');
+    if (ta) {
+      let saveTimer = null;
+      ta.addEventListener('input', () => {
+        if (status) status.textContent = 'Saving…';
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          _safeLocalStorageSet('aze_teacher_comment_' + run.run_id, ta.value);
+          if (status) status.textContent = 'Saved.';
+        }, 350);
+      });
+    }
+    // Export teacher report
+    const btn = document.getElementById('btn_t11_export_report');
+    if (btn) btn.addEventListener('click', () => {
+      const report = _buildTeacherReportExport(run);
+      const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = 'teacher_report_' + run.run_id + '_' + ts + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  }
+
+  function _buildTeacherReportExport(run) {
+    const so = run.score_object;
+    const go = run.guardrail_object || {};
+    const annotations   = run.annotations || [];
+    const verifiedAnnos = annotations.filter(a => a.verified !== false);
+    const wc          = so.word_count || (run.response ? run.response.trim().split(/\s+/).length : 0);
+    const familyNotes = summariseAnnotationFamilies(verifiedAnnos, annotations, { word_count: wc });
+    const comment     = _safeLocalStorageGet('aze_teacher_comment_' + run.run_id) || '';
+    return {
+      version: (typeof SCHEMA_VERSION !== 'undefined' ? SCHEMA_VERSION : 'v0.3'),
+      report_type: 'teacher',
+      generated_at: new Date().toISOString(),
+      run_id: run.run_id,
+      overall: so.overall,
+      cefr: cefrBand(so.overall),
+      confidence: go.confidence || 'MEDIUM',
+      confidence_per_dimension: go.confidence_per_dimension || null,
+      dimensions: so.dimensions,
+      family_notes: familyNotes,
+      moderation_required: !!go.moderation_required,
+      flags: go.flags || [],
+      contradictions: go.contradictions || [],
+      teacher_comment: comment,
+      verified_annotation_count: verifiedAnnos.length,
+      rejected_annotation_count: annotations.length - verifiedAnnos.length
+    };
+  }
+
+  // ===== localStorage helpers (safe for sandboxed previews) =====
+  function _safeLocalStorageGet(k) {
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  }
+  function _safeLocalStorageSet(k, v) {
+    try { localStorage.setItem(k, v); return true; } catch (e) { return false; }
+  }
+  // ===== End Tab 11 =====
 
   // ===== End Tabs 8 / 9 / 10 =====
 
