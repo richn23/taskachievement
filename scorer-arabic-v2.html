@@ -5054,8 +5054,9 @@ Return JSON only:
       ? ((wcAnn.metadata && wcAnn.metadata.word_count) || 0)
       : countWords(responseText);
 
-    const dialectAnns       = activeAnns.filter(a => a.family === 'register' && a.type === 'dialect_marker');
-    const msaAnns           = activeAnns.filter(a => a.family === 'register' && a.type === 'msa_marker');
+    // Match prefixed types (register:dialect_marker, register:msa_marker) per Tier 4A — annotator emits family:subtype.
+    const dialectAnns       = activeAnns.filter(a => a.family === 'register' && a.type === 'register:dialect_marker');
+    const msaAnns           = activeAnns.filter(a => a.family === 'register' && a.type === 'register:msa_marker');
     const dialect_marker_count = dialectAnns.length;
     const msa_marker_count     = msaAnns.length;
     const dialect_density      = word_count > 0 ? dialect_marker_count / word_count : 0;
@@ -5090,9 +5091,9 @@ Return JSON only:
     const _msa_past_re = /[ع-ي]+تُ/gu;
     const msa_past_tense_count = (responseText.match(_msa_past_re) || []).length;
 
-    // formal_lexis_count: LLM-identified range:vocabulary annotations
+    // formal_lexis_count: LLM-identified range:vocabulary annotations (prefixed type per Tier 4A)
     const formal_lexis_count = activeAnns.filter(
-      a => a.family === 'range' && a.type === 'vocabulary'
+      a => a.family === 'range' && a.type === 'range:vocabulary'
     ).length;
 
     let construct_attempt_score =
@@ -5199,7 +5200,7 @@ Return JSON only:
           annotation_id: ann.id || null, family: ann.family, type: ann.type, text: ann.text || '',
           interpreted_as: 'neutral_diagnostic', polarity: 'neutral',
           applies_to: [], excluded_from: [],
-          reason: 'Annotation type '' + key + '' not in polarity registry — recorded as neutral diagnostic.'
+          reason: 'Annotation type "' + key + '" not in polarity registry — recorded as neutral diagnostic.'
         });
         continue;
       }
