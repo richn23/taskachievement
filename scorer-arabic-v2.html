@@ -1910,16 +1910,16 @@
         <summary>Task Achievement sub-metrics</summary>
         <div class="sub-weights-body">
           <div class="cal-weight-row">
-            <span class="cal-weight-label">Word Count Compliance (WCC)</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_wcc"   min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+            <span class="cal-weight-label">Word Count Compliance (tolerance-band)</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_wcc"   min="0" max="100" step="0.1" value="20" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-weight-row">
-            <span class="cal-weight-label">Task Requirements (TA)</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ta"    min="0" max="100" step="0.1" value="48" /><span class="cal-weight-unit">%</span>
+            <span class="cal-weight-label">Requirement + task-type pass-rate</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ta"    min="0" max="100" step="0.1" value="50" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-weight-row">
-            <span class="cal-weight-label">Intelligibility &amp; Effect (IE)</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ie"    min="0" max="100" step="0.1" value="12" /><span class="cal-weight-unit">%</span>
+            <span class="cal-weight-label">Intelligibility &amp; Effect (holistic)</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ta" id="sw_ta_ie"    min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_ta">100.0%</span></div>
           <div id="sub_err_ta" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
@@ -3748,50 +3748,191 @@ If in doubt: prefer fewer, sharper annotations over many trivial ones. Quality >
   }
 
   function annotateClaim(response, taskObj, runId) {
-    const reqs = (taskObj.task_requirements || []).map((r, i) => `${i}. ${r}`).join('\n');
-    const prompt = `Given a student's Arabic response and a list of task requirements, find sentences in the response that address each requirement.
+    // Augmented requirements: task_requirements + 1 additional_development + task_type_requirements
+    const augmentedRequirements = [
+      ...((taskObj.task_requirements      || []).map(r => ({ label: r, source: 'task_requirement' }))),
+      { label: 'Additional on-topic development', source: 'additional_development' },
+      ...((taskObj.task_type_requirements || []).map(r => ({ label: r, source: 'task_type_requirement' })))
+    ];
+    const reqsBlock = augmentedRequirements
+      .map((r, i) => `${i}. [${r.source}] ${r.label}`)
+      .join('\n');
 
-TASK REQUIREMENTS:
-${reqs}
+    const prompt = `You are a writing assessment engine. Score the student response for task achievement coverage. Return JSON only.
+
+${ANNOTATION_DISCIPLINE}
+
+<definition:pass_criteria>
+A requirement is PASS only when the response contains a sentence that satisfies BOTH conditions simultaneously:
+
+Condition 1 — TOPIC NAMED. The sentence explicitly names what the requirement asks about.
+Condition 2 — SPECIFIC DETAIL PRESENT. The sentence includes at least one concrete specific: a name, place, time, number, reason, or example.
+
+If either condition is missing → FAIL.
+A sentence that mentions the topic but gives no specific detail → FAIL.
+</definition:pass_criteria>
+
+<definition:specificity>
+Concrete specific = a person's name, a place name, a time (clock or date), a number, a named object, a reason ("because…"), or a concrete example.
+
+These are NOT specific:
+- Vague quantifiers ("many", "a lot", "very")
+- Generic statements ("it is good", "it helps me")
+- Topic repetition without added detail
+</definition:specificity>
+
+<calibration:examples>
+PASS — "I wake up at 6:30 and have toast."   (action + time + named food)
+FAIL — "I do many things in the morning."   (topic present, no specific detail)
+PASS — "I like it because it helps me relax."   (explicit reason)
+FAIL — "I like it a lot."   (sentiment only, no reason)
+PASS — "Last weekend we went to Lake Como."   (named place + time)
+FAIL — "We went to a beautiful place."   (no named place)
+</calibration:examples>
+
+<rule:additional_development>
+The "Additional on-topic development" requirement credits ONLY a semantically distinct developed point not already credited to the listed requirements. The point must be supported by a verbatim sentence quoted from the response. If no such additional point exists, mark FAIL with empty evidence. Do not invent or infer extra events, places, or details.
+</rule:additional_development>
+
+<rule:anti_inference>
+A travel/narrative response may legitimately omit common essay components. Do NOT infer castle visits, museum visits, markets, tour guides, last-day reflections, weather descriptions, food details, or companion activities beyond what the student actually wrote.
+
+Score what is on the page. Genre conventions are irrelevant — only the actual response text matters.
+</rule:anti_inference>
+
+<evidence_rule>
+Every quoted phrase must appear verbatim in the response. Do not normalise orthography (hamza, alif, taa marbuta). Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score.
+</evidence_rule>
+
+<output_format>
+Return exactly:
+{
+  "checks": [
+    { "requirement_id": NUMBER, "source": STRING, "result": "PASS" | "FAIL", "evidence": "verbatim sentence from response if PASS, empty string if FAIL" }
+  ]
+}
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+REQUIREMENTS:
+${reqsBlock}
 
 RESPONSE:
-${response}
+${response}`;
 
-For each match, return:
-- requirement_id: integer (0-indexed)
-- text: the EXACT sentence from the response (copy verbatim, no paraphrase)
-- evidence_type: "direct" or "implied"
-
-Return JSON only:
-{ "claims": [ { "requirement_id": 0, "text": "...", "evidence_type": "direct" }, ... ] }`;
     return llmAnnotate('claim', prompt, response, runId, data => {
-      return (data.claims || []).map(c => ({
-        type: 'claim:requirement',
-        text: c.text,
-        metadata: { requirement_id: c.requirement_id, requirement_text: (taskObj.task_requirements || [])[c.requirement_id], evidence_type: c.evidence_type }
-      }));
+      return (data.checks || [])
+        .filter(c => c.result === 'PASS')
+        .map(c => ({
+          type: 'claim:requirement',
+          text: c.evidence || '',
+          metadata: {
+            requirement_id:     c.requirement_id,
+            requirement_source: c.source || 'task_requirement',
+            evidence:           c.evidence || ''
+          }
+        }));
     });
   }
 
-  function annotateIntelligibility(response, runId) {
-    const prompt = `Identify sentences in this Arabic response where meaning is unclear — broken syntax, missing referents, untranslatable fragments.
+  function annotateIntelligibilityEffect(response, runId) {
+    const prompt = `You are a writing assessment engine. Judge intelligibility and communicative effect of an Arabic written response. Return JSON only.
 
-RESPONSE:
-${response}
+${ANNOTATION_DISCIPLINE}
 
-For each unclear sentence return:
-- text: the EXACT sentence (verbatim)
-- issue: short reason in English
+<definition:scope>
+Score ONLY:
+1. How clearly the reader can understand the text (intelligibility).
+2. How effectively the text communicates and leaves an impression (effect).
 
-Return JSON only:
-{ "issues": [ { "text": "...", "issue": "..." }, ... ] }
-If meaning is clear throughout, return { "issues": [] }.`;
+OUT OF SCOPE — must not influence the score:
+- Whether the student answered the question (Task Achievement pass-rate handles that).
+- Whether ideas were developed (Content Quality handles that).
+- Grammar and spelling errors that do NOT obscure meaning (Language Accuracy / Orthographic Control handle those).
+- Vocabulary range, sentence complexity, or stylistic richness (Language Range handles that).
+- Register or dialect appropriateness (Style & Register handles that).
+</definition:scope>
+
+<rule:no_construct_leakage>
+Intelligibility & Effect evaluates communicative readability and impact ONLY. Do not let observations about grammar, register, accuracy, range, or content development influence your score. If the only thing you can say about a response is "it has grammar errors" or "it uses dialect", those are NOT intel-and-effect findings.
+</rule:no_construct_leakage>
+
+<scoring:bands>
+Score 0–100. Use the full range.
+
+  0–20    Unintelligible. Reader cannot extract meaning. Fragments only; no complete sentences.
+  21–40   Barely intelligible. A few isolated facts may be extracted. Errors severely impede meaning throughout.
+  41–60   Partially intelligible. General idea comes through but errors cause confusion at multiple points.
+  61–75   Mostly intelligible. Core message reaches the reader. Some communicative effect; no strong or memorable impression.
+  76–90   Clear and effective. Text leaves a real impression. Errors present but do not impede meaning.
+  91–100  Fluent and compelling. Engages, informs, and leaves a vivid impression. All three qualities must be present.
+</scoring:bands>
+
+<rule:hard_caps>
+These caps override band placement. Check before assigning final score.
+  → Single broken sentence (entire response): cap at 5.
+  → Dot-separated lists with no complete sentences: cap at 25.
+  → Errors that obscure meaning at multiple points: cap at 44.
+</rule:hard_caps>
+
+<rule:upper_thresholds>
+These are GATES — a score may not cross them unless the condition is fully met.
+  → Score ≥ 76 requires a real impression. Understandability alone is not enough.
+  → Score ≥ 91 requires ALL THREE: fluent AND engaging AND vivid. Meeting only one or two → score must stay ≤ 90.
+</rule:upper_thresholds>
+
+<rule:observability>
+Do not infer emotional impact, vividness, or communicative strength unless specific textual evidence supports it. If you cannot point to a specific phrase in the response that demonstrates the band-relevant quality, you cannot place the response in that band. Higher bands require positive evidence, not absence of problems.
+</rule:observability>
+
+<rule:absence_is_not_excellence>
+A response with no intelligibility problems does NOT automatically qualify for upper bands. Bands 76+ require positive communicative effect — a real impression on the reader, grounded in specific phrases. Default a clean-but-flat response to band 61–75, not 91+.
+</rule:absence_is_not_excellence>
+
+<grounding>
+The score MUST be grounded in specific evidence from the response. Cite verbatim phrases that justify your band placement in the "grounded_in" array. These phrases must appear in the response exactly as quoted (no normalisation of orthography, no paraphrasing).
+
+If you cannot cite at least one verbatim phrase that justifies the band, you cannot award that band.
+</grounding>
+
+<output_format>
+Return exactly:
+{
+  "intelligibility_effect_score": NUMBER,
+  "band": STRING,
+  "reason": STRING,
+  "grounded_in": [STRING, ...]
+}
+
+band must be one of: "unintelligible", "barely_intelligible", "partial", "mostly_intelligible", "clear_and_effective", "fluent_and_compelling"
+reason must be one short sentence (≤ 30 words).
+No extra keys. No explanation. No markdown fences.
+</output_format>
+
+<inputs>
+<response>${response}</response>
+</inputs>`;
+
     return llmAnnotate('intelligibility', prompt, response, runId, data => {
-      return (data.issues || []).map(i => ({
-        type: 'intelligibility:issue',
-        text: i.text,
-        metadata: { issue: i.issue }
-      }));
+      const score = (typeof data?.intelligibility_effect_score === 'number')
+        ? Math.max(0, Math.min(100, Math.round(data.intelligibility_effect_score)))
+        : null;
+      if (score == null) return [];   // failed/malformed call — no annotation emitted
+      return [{
+        type: 'intelligibility:effect_score',
+        text: (data?.grounded_in && data.grounded_in[0]) || '(holistic judgement — see grounded_in)',
+        metadata: {
+          score,
+          band:        data?.band        || 'unspecified',
+          reason:      data?.reason      || '',
+          grounded_in: Array.isArray(data?.grounded_in) ? data.grounded_in : []
+        }
+      }];
     });
   }
 
@@ -4079,7 +4220,7 @@ Return JSON only:
     // Throttle handles concurrency in callOpenAI; we kick all 8 off and Promise.all them.
     const families = await Promise.all([
       annotateClaim(response, taskObj, runId),
-      annotateIntelligibility(response, runId),
+      annotateIntelligibilityEffect(response, runId),
       annotateCQ(response, taskObj, runId),
       annotateRegisterLLM(response, runId),
       annotateRangeLLM(response, runId),
@@ -4564,7 +4705,7 @@ Return JSON only:
   };
 
   const SUB_DEFAULTS = {
-    ta:    { wcc: 40, ta: 48, ie: 12 },
+    ta:    { wcc: 20, ta: 50, ie: 30 },  // Tier 4C: tolerance-band / augmented pass-rate / holistic IE
     sr:    { msa: 60, dialect: 40 },
     oc:    { cohesive: 50, flow: 50 },
     ortho: { tq: 40, ced: 30, llm: 30 }
@@ -4970,7 +5111,7 @@ Return JSON only:
    *
    * Canonical annotation types consumed:
    *   word_count:in_range | word_count:under | word_count:over
-   *   claim:requirement | intelligibility:issue
+   *   claim:requirement | intelligibility:effect_score  (intelligibility:issue retired v0.3.2)
    *   cq:requirement_N  — dynamic polarity keyed on metadata.score (see engine)
    *   register:dialect_marker | register:msa_marker | register:register_lapse
    *   range:vocabulary | range:morphology | range:sentence_complexity |
@@ -4987,7 +5128,8 @@ Return JSON only:
     'word_count:under':         { applies_to: ['task_achievement'], polarity: 'negative' },
     'word_count:over':          { applies_to: ['task_achievement'], polarity: 'negative' },
     'claim:requirement':        { applies_to: ['task_achievement'], polarity: 'positive' },
-    'intelligibility:issue':    { applies_to: ['task_achievement'], polarity: 'negative' },
+    // 'intelligibility:issue' retired in v0.3.2 — replaced by holistic annotateIntelligibilityEffect.
+    'intelligibility:effect_score': { applies_to: ['task_achievement'], polarity: 'positive' },
     // ----- content_quality (score-keyed, polarity computed dynamically) -----
     // cq:requirement_N: score >= 2 → positive; score < 2 → negative; score missing → neutral
     // ----- style_register -----
@@ -5143,7 +5285,11 @@ Return JSON only:
     const interpreted_annotations = [];
 
     for (const ann of activeAnns) {
-      const key = ann.family + ':' + ann.type;
+      // The annotation pipeline already emits prefixed types ('register:dialect_marker',
+      // 'range:vocabulary', etc.). CC's original `ann.family + ':' + ann.type` produced
+      // a DOUBLE prefix ('register:register:dialect_marker') that never matched the
+      // POLARITY_REGISTRY. The type IS the canonical key.
+      const key = ann.type;
 
       // ── cq: family — dynamic polarity from metadata.score ──
       if (ann.family === 'cq') {
@@ -5378,6 +5524,30 @@ Return JSON only:
 
   // ===== Scoring engine =====
 
+  // wordComplianceTolerance — Tier 4C tolerance-band WCC formula.
+  // Returns 100 for in-range; 85-95 for within 10% tolerance (linear fade);
+  // proportional decay for further under/over.
+  function wordComplianceTolerance(wc, min, max) {
+    if (wc >= min && wc <= max) return 100;
+    const isUnder = wc < min;
+    const edge    = isUnder ? min : max;
+    const tolEdge = isUnder ? Math.floor(min * 0.9) : Math.ceil(max * 1.1);
+    const inTolerance = isUnder ? (wc >= tolEdge) : (wc <= tolEdge);
+    if (inTolerance) {
+      const dist = Math.abs(wc - edge);
+      const span = Math.abs(tolEdge - edge);
+      const pos  = 1 - (dist / span);
+      return Math.round(85 + 10 * pos);
+    }
+    const midpoint = (min + max) / 2;
+    if (isUnder) {
+      return Math.max(0, Math.round((wc / midpoint) * 100));
+    } else {
+      const over = wc - max;
+      return Math.max(0, Math.round(100 - (over / midpoint) * 100));
+    }
+  }
+
   function computeScoreObject(annotations, taskObj, calibConfig) {
     const wc_ann    = annotations.find(a => a.family === 'word_count');
     const wordCount = wc_ann ? (wc_ann.metadata.word_count || 0) : countWords(taskObj.response || '');
@@ -5385,27 +5555,30 @@ Return JSON only:
     const dw = calibConfig.dimension_weights   || {};
 
     // ── Task Achievement ──────────────────────────────────────
-    let wcc_score = 100;
-    if (wc_ann && !wc_ann.metadata.in_range) {
-      const wc  = wc_ann.metadata.word_count || 0;
-      const min = wc_ann.metadata.min || 1;
-      const max = wc_ann.metadata.max || 1;
-      wcc_score = wc < min
-        ? Math.max(0, Math.round(100 - ((min - wc) / min) * 100))
-        : Math.max(0, Math.round(100 - ((wc - max) / max) * 100));
-    }
+    // Tier 4C: tolerance-band WCC + augmented pass-rate (task_requirements +
+    //   additional_development + task_type_requirements) + holistic intel &
+    //   effect score from annotation metadata. Weights 20 / 50 / 30.
+    const _taMin    = wc_ann ? (wc_ann.metadata.min || 1) : (taskObj.min_words || 1);
+    const _taMax    = wc_ann ? (wc_ann.metadata.max || 1) : (taskObj.max_words || 1);
+    const wcc_score = wordComplianceTolerance(wordCount, _taMin, _taMax);
 
-    // Tier 4A: task object stores requirements under `task_requirements` (with underscore prefix).
-    // Annotation types use the prefixed form `family:subtype` — match that, not the bare suffix.
-    const taskReqs   = Array.isArray(taskObj.task_requirements) ? taskObj.task_requirements : [];
-    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
-    const matchedIds = new Set(claimAnns.map(a => a.metadata && a.metadata.requirement_id).filter(x => x != null));
-    const ta_score   = taskReqs.length > 0 ? Math.round((matchedIds.size / taskReqs.length) * 100) : 100;
+    // Pass-rate: N task_requirements + 1 additional_development + M task_type_requirements
+    const coreReqs  = (taskObj.task_requirements      || []).length;
+    const typeReqs  = (taskObj.task_type_requirements || []).length;
+    const totalReqs = coreReqs + 1 + typeReqs;   // +1 = "Additional on-topic development"
+    // FAIL items don't emit annotations — PASS count = annotation count.
+    // Annotation types use the prefixed form family:subtype (convention reminder — do not use bare suffix).
+    const claimAnns = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
+    const passes    = claimAnns.length;
+    const ta_score  = totalReqs > 0 ? Math.round((passes / totalReqs) * 100) : 100;
 
-    const ieAnns   = annotations.filter(a => a.family === 'intelligibility' && a.type === 'intelligibility:issue');
-    const ie_score = Math.max(0, 100 - ieAnns.length * 20);
+    // Intel & Effect — single holistic annotation; score lives on metadata.score.
+    const ieAnn    = annotations.find(a => a.family === 'intelligibility' && a.type === 'intelligibility:effect_score');
+    const ie_score = (ieAnn && ieAnn.metadata && typeof ieAnn.metadata.score === 'number')
+      ? Math.max(0, Math.min(100, ieAnn.metadata.score))
+      : 50;   // missing / failed call → midpoint default
 
-    const taW    = sw.task_achievement || { wcc: 40, ta: 48, ie: 12 };
+    const taW    = sw.task_achievement || { wcc: 20, ta: 50, ie: 30 };
     const ta_dim = Math.min(100, Math.round(
       wcc_score * (taW.wcc / 100) +
       ta_score  * (taW.ta  / 100) +
