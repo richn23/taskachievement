@@ -6910,22 +6910,39 @@ Return JSON only:
       srLapseAnns.length,
       sr_consistency
     );
+    // No-MSA-markers ceiling: a response scoring above 65 without any positive
+    // MSA register evidence is over-rewarded for merely avoiding dialect.
+    // Applied when msa_marker_count === 0 and the response is not msa_dominant.
+    let sr_derived_score            = sr_scored.derived_score;
+    let sr_msa_marker_ceiling_applied = false;
+    if (global_profile.msa_marker_count === 0
+        && global_profile.dominant_register !== 'msa_dominant'
+        && sr_derived_score > 65) {
+      sr_derived_score              = 65;
+      sr_msa_marker_ceiling_applied = true;
+    }
+    // Consolidate cap_reason (lapse cap and/or marker ceiling may both apply).
+    let _sr_cap_reason = sr_scored.lapse_cap_applied
+      ? 'Register lapse(s) detected — score capped at 92'
+      : null;
+    if (sr_msa_marker_ceiling_applied) {
+      _sr_cap_reason = 'No positive MSA register evidence detected — score capped at 65';
+    }
     Object.assign(dp.style_register, {
-      target_register:        'formal_msa',
-      dominant_register:      global_profile.dominant_register,
-      dialect_density:        global_profile.dialect_density,
-      msa_evidence_density:   global_profile.msa_evidence_density,
-      register_lapse_count:   srLapseAnns.length,
-      register_consistency:   sr_consistency,
-      consistency_borderline: sr_borderline,
-      task_appropriateness:   sr_task_appropriateness,
-      profile_band:           sr_scored.band_name,
-      derived_score:          sr_scored.derived_score,
-      lapse_cap_applied:      sr_scored.lapse_cap_applied,
-      cap_reason:             sr_scored.lapse_cap_applied
-                                ? 'Register lapse(s) detected — score capped at 92'
-                                : null,
-      confidence:             'HIGH',
+      target_register:            'formal_msa',
+      dominant_register:          global_profile.dominant_register,
+      dialect_density:            global_profile.dialect_density,
+      msa_evidence_density:       global_profile.msa_evidence_density,
+      register_lapse_count:       srLapseAnns.length,
+      register_consistency:       sr_consistency,
+      consistency_borderline:     sr_borderline,
+      task_appropriateness:       sr_task_appropriateness,
+      profile_band:               sr_scored.band_name,
+      derived_score:              sr_derived_score,
+      lapse_cap_applied:          sr_scored.lapse_cap_applied,
+      msa_marker_ceiling_applied: sr_msa_marker_ceiling_applied,
+      cap_reason:                 _sr_cap_reason,
+      confidence:                 'HIGH',
       evidence_summary: {
         dialect_markers:   srDialectAnns.length,
         msa_markers:       srMsaAnns.length,
@@ -7029,7 +7046,7 @@ Return JSON only:
           && global_profile.construct_attempt_score < 70
           && !global_profile.construct_avoidance) {
         const _deficit   = 70 - global_profile.construct_attempt_score;
-        const _discount  = Math.min(20, Math.round(_deficit * 0.4));
+        const _discount  = Math.min(20, Math.round(_deficit * 0.6));
         la_derived_score           = Math.max(0, la_derived_score - _discount);
         la_volume_discount_applied = true;
         la_volume_discount_factor  = _discount;
@@ -7171,43 +7188,8 @@ Return JSON only:
     const cfBand  = cfAnn && cfAnn.metadata ? (cfAnn.metadata.band || null) : null;
     const cfCap   = cfAnn && cfAnn.metadata ? (cfAnn.metadata.cap_applied || null) : null;
 
-    // ── Dialect sequencing connectors — contribute to coherence flow ONLY.
-    // Do NOT affect formal cohesive devices score, categories, or distinct_types.
-    // Listed as a named constant for easy future extension.
-    // Ordered within each variety by length descending; final sort enforces greedy
-    // longest-match-first so shorter phrases cannot match inside longer ones.
-    const DIALECT_SEQUENCING_CONNECTORS = [
-      // Gulf Arabic (Emirati / Khaleeji)
-      'أول شيء', 'بعد ما', 'في الليل', 'في الصبح', 'في العصر', 'بالليل',
-      'أول شي', 'بعدين', 'عقب', 'لما',
-      // Moroccan Darija
-      'من بعد العصر', 'أول حاجة', 'فالصباح', 'فالليل', 'فالعصر',
-      'من بعد', 'ملي'
-      // Note: باش excluded — purpose connector, too broad to credit as sequencing.
-    ];
-    const _sortedDialectConns = DIALECT_SEQUENCING_CONNECTORS
-      .slice()
-      .sort((a, b) => b.length - a.length);
-    const _dialectFound  = [];
-    let   _dialectRemain = response;
-    for (const conn of _sortedDialectConns) {
-      const _esc = conn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const _re  = new RegExp('(?:^|[\\s،,.])'  + _esc + '(?=[\\s،,.]|$)', 'g');
-      if (_re.test(_dialectRemain)) {
-        _dialectFound.push(conn);
-        // Consume matched span to prevent shorter phrases re-matching the same text.
-        _dialectRemain = _dialectRemain.replace(
-          new RegExp('(?:^|[\\s،,.])'  + _esc + '(?=[\\s،,.]|$)', 'g'), ' '
-        );
-      }
-    }
-    const _dialectSeqCount = _dialectFound.length;
-    const _dialectBonus    = Math.min(20, _dialectSeqCount * 5);
-
-    const cd_oc     = cohDet != null ? cohDet.score : 50;
-    const cf_oc_raw = (typeof cfScore === 'number') ? cfScore : 50;
-    // Dialect sequencing bonus applied to coherence flow sub-score only.
-    const cf_oc     = _dialectSeqCount > 0 ? Math.min(100, cf_oc_raw + _dialectBonus) : cf_oc_raw;
+    const cd_oc = cohDet != null ? cohDet.score : 50;
+    const cf_oc = (typeof cfScore === 'number') ? cfScore : 50;
     const _ocDerived = Math.round(cd_oc * 0.30 + cf_oc * 0.70);
 
     // D8 confidence
@@ -7227,15 +7209,11 @@ Return JSON only:
         distinct_types: cohDet ? (cohDet.distinct_types || 0) : 0,
         per_100_words:  cohDet ? (cohDet.arabic_connectives_per_100_words || null) : null
       },
-      coherence_flow_score:                cf_oc,
-      coherence_flow_score_raw:            cf_oc_raw,
-      coherence_flow_band:                 cfBand,
-      coherence_flow_cap_applied:          cfCap,
-      dialect_sequencing_detected:         _dialectFound,
-      dialect_sequencing_count:            _dialectSeqCount,
-      dialect_sequencing_coherence_bonus:  _dialectBonus > 0 ? _dialectBonus : 0,
-      derived_score:                       _ocDerived,
-      confidence:                          _ocConf,
+      coherence_flow_score:       cf_oc,
+      coherence_flow_band:        cfBand,
+      coherence_flow_cap_applied: cfCap,
+      derived_score:              _ocDerived,
+      confidence:                 _ocConf,
       evidence_summary: {
         device_count:               activeAnns.filter(a => a.type === 'cohesion:device').length,
         category_count:             cohDet ? (cohDet.connective_category_count || 0) : 0,
