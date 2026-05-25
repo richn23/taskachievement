@@ -3782,12 +3782,12 @@ These are NOT specific:
 </definition:specificity>
 
 <calibration:examples>
-PASS — "I wake up at 6:30 and have toast."   (action + time + named food)
-FAIL — "I do many things in the morning."   (topic present, no specific detail)
-PASS — "I like it because it helps me relax."   (explicit reason)
-FAIL — "I like it a lot."   (sentiment only, no reason)
-PASS — "Last weekend we went to Lake Como."   (named place + time)
-FAIL — "We went to a beautiful place."   (no named place)
+Arabic narrative (PASS) — "ذهبت إلى شفشاون الأسبوع الماضي ورأيت المباني الزرقاء الجميلة." [named place + time + specific visual detail]
+Arabic narrative (FAIL) — "زرت مكاناً جميلاً في شمال المغرب." [no named place, no concrete detail]
+Arabic descriptive (PASS) — "أقضي عطلتي كل صيف في شاطئ الصويرة مع أسرتي." [named place + season + specific companion]
+Arabic descriptive (FAIL) — "أستمتع كثيراً بقضاء وقتي في الطبيعة." [vague, no named place or specific]
+Arabic transactional (PASS) — "أكتب إليك لأعتذر عن غيابي يوم الثلاثاء بسبب مرضي." [reason named + day named]
+Arabic transactional (FAIL) — "أكتب لأشرح وضعي الصعب." [topic vague, no specific reason or date]
 </calibration:examples>
 
 <rule:additional_development>
@@ -3893,6 +3893,22 @@ Do not infer emotional impact, vividness, or communicative strength unless speci
 <rule:absence_is_not_excellence>
 A response with no intelligibility problems does NOT automatically qualify for upper bands. Bands 76+ require positive communicative effect — a real impression on the reader, grounded in specific phrases. Default a clean-but-flat response to band 61–75, not 91+.
 </rule:absence_is_not_excellence>
+
+<calibration:arabic_bands>
+These Arabic exemplars anchor band placement. Score the actual response; do not template from these.
+
+Band 41–60 (PARTIALLY INTELLIGIBLE):
+"انا رحت للمدينة وشفت ناس كتير وعندهم حاجات كتير وكان تمام."
+→ General idea extractable but dialect interference, vague references, no structure. Score: 52.
+
+Band 61–75 (MOSTLY INTELLIGIBLE — core message reaches reader, no strong impression):
+"ذهبت إلى مدينة جميلة. رأيت أشياء كثيرة وأكلت طعاماً لذيذاً. كان السفر ممتعاً جداً."
+→ Three facts stated. Core message clear but no specific detail and no memorable impression. Score: 68.
+
+Band 76–90 (CLEAR AND EFFECTIVE — leaves a real impression):
+"شفشاون مدينة ترتدي اللون الأزرق من أقدامها إلى رأسها. ضيق الأزقة وصوت الماء يجعلانك تنسى الوقت."
+→ Sensory specificity and distinctive image leave a real impression. Score: 83.
+</calibration:arabic_bands>
 
 <grounding>
 The score MUST be grounded in specific evidence from the response. Cite verbatim phrases that justify your band placement in the "grounded_in" array. These phrases must appear in the response exactly as quoted (no normalisation of orthography, no paraphrasing).
@@ -5524,31 +5540,35 @@ Return JSON only:
 
   // ===== Scoring engine =====
 
-  // wordComplianceTolerance — Tier 4C tolerance-band WCC formula.
-  // Returns 100 for in-range; 85-95 for within 10% tolerance (linear fade);
-  // proportional decay for further under/over.
-  function wordComplianceTolerance(wc, min, max) {
+  // wordCompliance — Tier 4C piecewise-continuous WCC formula (D1, 01-dimension-task-achievement.md).
+  // Three regions: inside range → 100; tolerance band (±10%) → linear 100→85 (anchored);
+  // beyond tolerance → linear 85→0 (anchored at tolEdge). No cliffs at either join.
+  // Acceptance tests: (120,120,180)=100; (119,120,180)=99; (108,120,180)=85; (107,120,180)=84.
+  function wordCompliance(wc, min, max) {
     if (wc >= min && wc <= max) return 100;
-    const isUnder = wc < min;
-    const edge    = isUnder ? min : max;
-    const tolEdge = isUnder ? Math.floor(min * 0.9) : Math.ceil(max * 1.1);
-    const inTolerance = isUnder ? (wc >= tolEdge) : (wc <= tolEdge);
-    if (inTolerance) {
+    const isUnder  = wc < min;
+    const edge     = isUnder ? min : max;
+    const tolEdge  = isUnder ? Math.floor(min * 0.9) : Math.ceil(max * 1.1);
+    const inTol    = isUnder ? (wc >= tolEdge) : (wc <= tolEdge);
+    const midpoint = (min + max) / 2;
+    if (inTol) {
+      // Anchored: 100 at `edge`, 85 at `tolEdge`. Linear.
       const dist = Math.abs(wc - edge);
       const span = Math.abs(tolEdge - edge);
-      const pos  = 1 - (dist / span);
-      return Math.round(85 + 10 * pos);
+      return Math.round(100 - 15 * (dist / span));
     }
-    const midpoint = (min + max) / 2;
+    // Beyond tolerance: anchored 85 at tolEdge, 0 at wc=0 (under) or 0 at 2×midpoint (over).
     if (isUnder) {
-      return Math.max(0, Math.round((wc / midpoint) * 100));
+      const ratio = wc / tolEdge;
+      return Math.max(0, Math.round(85 * ratio));
     } else {
-      const over = wc - max;
-      return Math.max(0, Math.round(100 - (over / midpoint) * 100));
+      const farEdge = 2 * midpoint;
+      const ratio   = Math.max(0, (farEdge - wc) / (farEdge - tolEdge));
+      return Math.max(0, Math.round(85 * ratio));
     }
   }
 
-  function computeScoreObject(annotations, taskObj, calibConfig) {
+  function computeScoreObject(annotations, taskObj, calibConfig, interpretObj = null) {
     const wc_ann    = annotations.find(a => a.family === 'word_count');
     const wordCount = wc_ann ? (wc_ann.metadata.word_count || 0) : countWords(taskObj.response || '');
     const sw = calibConfig.sub_metric_weights  || {};
@@ -5560,30 +5580,60 @@ Return JSON only:
     //   effect score from annotation metadata. Weights 20 / 50 / 30.
     const _taMin    = wc_ann ? (wc_ann.metadata.min || 1) : (taskObj.min_words || 1);
     const _taMax    = wc_ann ? (wc_ann.metadata.max || 1) : (taskObj.max_words || 1);
-    const wcc_score = wordComplianceTolerance(wordCount, _taMin, _taMax);
+    const wcc_score = wordCompliance(wordCount, _taMin, _taMax);
 
-    // Pass-rate: N task_requirements + 1 additional_development + M task_type_requirements
-    const coreReqs  = (taskObj.task_requirements      || []).length;
-    const typeReqs  = (taskObj.task_type_requirements || []).length;
-    const totalReqs = coreReqs + 1 + typeReqs;   // +1 = "Additional on-topic development"
-    // FAIL items don't emit annotations — PASS count = annotation count.
-    // Annotation types use the prefixed form family:subtype (convention reminder — do not use bare suffix).
-    const claimAnns = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
-    const passes    = claimAnns.length;
-    const ta_score  = totalReqs > 0 ? Math.round((passes / totalReqs) * 100) : 100;
+    // Weighted pass-rate (D3): core task_requirement 1.0 / additional_development 1.0 / task_type_requirement 0.5.
+    // Annotation types use the prefixed form family:subtype — 'claim:requirement' not bare 'requirement'.
+    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
+    const passed     = new Set(
+      claimAnns.map(a => (a.metadata.requirement_source || 'task_requirement') + ':' + a.metadata.requirement_id)
+    );
+    const buildCheck = (id, source, weight) => ({ pass: passed.has(source + ':' + id), weight });
+    const coreChecks = (taskObj.task_requirements      || []).map((_, i) => buildCheck(i, 'task_requirement',      1.0));
+    const addlCheck  = [buildCheck(0, 'additional_development', 1.0)];
+    const typeChecks = (taskObj.task_type_requirements || []).map((_, i) => buildCheck(i, 'task_type_requirement', 0.5));
+    const allChecks  = [...coreChecks, ...addlCheck, ...typeChecks];
+    const weightedPasses = allChecks.filter(c => c.pass).reduce((s, c) => s + c.weight, 0);
+    const weightedTotal  = allChecks.reduce((s, c) => s + c.weight, 0);
+    const ta_score       = weightedTotal > 0 ? Math.round((weightedPasses / weightedTotal) * 100) : 100;
+    // Format breakdown signal (D3): teacher sees yellow flag even if score doesn't dip much.
+    const format_breakdown = typeChecks.length > 0 && typeChecks.every(c => !c.pass);
 
-    // Intel & Effect — single holistic annotation; score lives on metadata.score.
-    const ieAnn    = annotations.find(a => a.family === 'intelligibility' && a.type === 'intelligibility:effect_score');
-    const ie_score = (ieAnn && ieAnn.metadata && typeof ieAnn.metadata.score === 'number')
-      ? Math.max(0, Math.min(100, ieAnn.metadata.score))
-      : 50;   // missing / failed call → midpoint default
+    // Intel & Effect — no silent-50 fallback (D4a). If IE annotation absent/null, renormalise
+    // WCC + pass-rate to 100% and flag confidence LOW so teacher sees partial measurement.
+    const ieAnn   = annotations.find(a => a.family === 'intelligibility' && a.type === 'intelligibility:effect_score');
+    const ieValid = ieAnn && ieAnn.metadata && typeof ieAnn.metadata.score === 'number';
 
-    const taW    = sw.task_achievement || { wcc: 20, ta: 50, ie: 30 };
-    const ta_dim = Math.min(100, Math.round(
-      wcc_score * (taW.wcc / 100) +
-      ta_score  * (taW.ta  / 100) +
-      ie_score  * (taW.ie  / 100)
-    ));
+    const taW = sw.task_achievement || { wcc: 20, ta: 50, ie: 30 };
+    let ta_dim, ie_status, ta_confidence;
+    if (ieValid) {
+      const ie_score = Math.max(0, Math.min(100, ieAnn.metadata.score));
+      ta_dim         = Math.min(100, Math.round(
+        wcc_score * (taW.wcc / 100) +
+        ta_score  * (taW.ta  / 100) +
+        ie_score  * (taW.ie  / 100)
+      ));
+      ie_status     = 'present';
+      ta_confidence = 'HIGH';
+    } else {
+      // Renormalise surviving sub-metrics (WCC + pass-rate) to 100%.
+      const wccW = taW.wcc, taRW = taW.ta;
+      const surviving = wccW + taRW;
+      ta_dim         = surviving > 0
+        ? Math.min(100, Math.round(wcc_score * (wccW / surviving) + ta_score * (taRW / surviving)))
+        : 0;
+      ie_status     = 'missing';
+      ta_confidence = 'LOW';
+    }
+
+    // §2.5: write derived_score + status fields back to interpretation engine dp (if threaded through).
+    if (interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.task_achievement) {
+      const dpta        = interpretObj.dimension_profiles.task_achievement;
+      dpta.derived_score    = ta_dim;
+      dpta.ie_status        = ie_status;
+      dpta.format_breakdown = format_breakdown;
+      dpta.confidence       = ta_confidence;
+    }
 
     // ── Content Quality ──────────────────────────────────────
     const cqAnns = annotations.filter(a => a.family === 'cq');
@@ -5983,7 +6033,7 @@ Return JSON only:
 
       // Stage 4: Score
       setRun9Stage('score', 'running', '');
-      const scoreObj = computeScoreObject(allAnnotations, taskObj, calibCfg);
+      const scoreObj = computeScoreObject(allAnnotations, taskObj, calibCfg, interpretObj);
       setRun9Stage('score', 'done', 'Overall: ' + scoreObj.overall + '/100');
 
       // Stage 5: Apply guardrails
