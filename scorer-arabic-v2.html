@@ -1970,11 +1970,11 @@
         <div class="sub-weights-body">
           <div class="cal-weight-row">
             <span class="cal-weight-label">Cohesive Devices</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_cohesive" min="0" max="100" step="0.1" value="50" /><span class="cal-weight-unit">%</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_cohesive" min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-weight-row">
             <span class="cal-weight-label">Coherence &amp; Flow</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_flow"     min="0" max="100" step="0.1" value="50" /><span class="cal-weight-unit">%</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="oc" id="sw_oc_flow"     min="0" max="100" step="0.1" value="70" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_oc">100.0%</span></div>
           <div id="sub_err_oc" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
@@ -2197,6 +2197,16 @@
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="gr_rule_orth_det_llm_split" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">Cohesive Devices / Flow split — OC</div>
+          <div class="gr-toggle-desc">Cohesive Devices score and Coherence &amp; Flow score disagree by &gt;40 points — flag for teacher review (severity depends on task type)</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_coh_dev_flow_split" checked>
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -3582,26 +3592,177 @@ TOPIC: {TOPIC}
     'أولاً', 'أولًا', 'ثانياً', 'ثانيًا', 'ثالثاً', 'ثالثًا', 'أخيراً', 'أخيرًا',
     'في النهاية', 'في الختام', 'باختصار', 'إجمالاً'
   ];
+  // ============================================================
+  // computeArabicCohesiveDevices — ported verbatim from V1
+  // (V1 lines 3058–3180). Deterministic connective tally.
+  // ============================================================
+function computeArabicCohesiveDevices(response) {
+  const CONNECTIVES = {
+    sequencing:   ["أولاً", "ثانياً", "ثالثاً", "ثم", "بعد ذلك", "في البداية", "في المرحلة التالية", "أخيراً"],
+    addition:     ["و", "كما", "أيضاً", "كذلك", "بالإضافة إلى ذلك", "فضلاً عن ذلك", "علاوة على ذلك"],
+    contrast:     ["لكن", "ولكن", "بينما", "في حين أن", "على الرغم من", "من ناحية أخرى", "بالمقابل"],
+    cause_effect: ["لأن", "بسبب", "لذلك", "لذا", "نتيجة لذلك", "بناءً على ذلك", "وبالتالي"],
+    example:      ["مثل", "كمثال", "على سبيل المثال", "بما في ذلك"],
+    conclusion:   ["في النهاية", "في الختام", "خلاصة القول", "مما سبق", "وبهذا", "وفي المحصلة"]
+  };
+
+  // Strip Arabic diacritics (tashkeel)
+  const TASHKEEL = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+  const stripDiacritics = s => (s || "").replace(TASHKEEL, "");
+  const stripPunct = s => s.replace(/^[\u060C-\u061B،؟.,!?"'(){}\[\]]+|[\u060C-\u061B،؟.,!?"'(){}\[\]]+$/g, "");
+
+  const normalized = stripDiacritics(response);
+  const rawTokens = normalized.split(/\s+/).filter(t => t.length > 0);
+  const word_count = rawTokens.length;
+
+  if (word_count < 30) {
+    return {
+      score: null,
+      word_count,
+      reason: `Response too short (${word_count} words; need \u2265 30) for cohesive devices analysis.`,
+      arabic_connectives_per_100_words: null,
+      connective_category_count: null,
+      connective_diversity_score: null,
+      distinct_types: 0,
+      category_breakdown: {}
+    };
+  }
+
+  const tokens = rawTokens.map(t => stripPunct(t));
+  const used = new Array(tokens.length).fill(false);
+
+  // Arabic clitic prefixes commonly attached to connectives:
+  //   و (and), ف (so/then). Allowed on FIRST token of a connective only.
+  // Example: "وأيضاً" (and also) should match the connective "أيضاً".
+  const CLITIC_PREFIXES = ["و", "ف"];
+  function firstTokenMatches(respTok, targetTok) {
+    if (respTok === targetTok) return true;
+    for (const p of CLITIC_PREFIXES) {
+      if (respTok.length > p.length && respTok.startsWith(p) && respTok.slice(p.length) === targetTok) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Build flat list, sorted longest-token-count first so multi-word connectives win
+  const allConn = [];
+  for (const [cat, list] of Object.entries(CONNECTIVES)) {
+    for (const c of list) {
+      const conn_tokens = stripDiacritics(c).split(/\s+/);
+      allConn.push({ cat, conn: c, conn_tokens });
+    }
+  }
+  allConn.sort((a, b) => b.conn_tokens.length - a.conn_tokens.length);
+
+  // Tally
+  const types_found = new Set();
+  const categories_found = new Set();
+  let total_occurrences_excl_waw = 0;
+  const category_breakdown = {};
+
+  for (const { cat, conn, conn_tokens } of allConn) {
+    let occ = 0;
+    for (let i = 0; i <= tokens.length - conn_tokens.length; i++) {
+      let conflict = false;
+      for (let k = 0; k < conn_tokens.length; k++) {
+        if (used[i + k]) { conflict = true; break; }
+      }
+      if (conflict) continue;
+      let match = true;
+      for (let j = 0; j < conn_tokens.length; j++) {
+        // First token of a multi-word connective may carry a و/ف clitic prefix;
+        // subsequent tokens must match exactly.
+        if (j === 0) {
+          if (!firstTokenMatches(tokens[i + j], conn_tokens[j])) { match = false; break; }
+        } else {
+          if (tokens[i + j] !== conn_tokens[j]) { match = false; break; }
+        }
+      }
+      if (match) {
+        occ++;
+        for (let j = 0; j < conn_tokens.length; j++) used[i + j] = true;
+        i += conn_tokens.length - 1;
+      }
+    }
+    if (occ > 0) {
+      types_found.add(conn);
+      categories_found.add(cat);
+      if (conn !== "و") total_occurrences_excl_waw += occ;
+      if (!category_breakdown[cat]) category_breakdown[cat] = [];
+      category_breakdown[cat].push({ conn, count: occ });
+    }
+  }
+
+  const distinct_types = types_found.size;
+  const arabic_connectives_per_100_words = Math.round((total_occurrences_excl_waw / word_count) * 1000) / 10;
+  const connective_category_count = categories_found.size;
+  const connective_diversity_score = Math.min(100, Math.round((distinct_types / 10) * 100));
+
+  // Scoring rebalanced (V1 — anti-gaming):
+  // 60% category spread (using different KINDS of connectives)
+  // 40% distinct types (variety of specific connectives)
+  // 0% raw frequency — prevents stuffing "أولاً ثم بعد ذلك كذلك لذلك" mechanically
+  const score = Math.round(
+    (connective_category_count / 6) * 100 * 0.60 +
+    connective_diversity_score * 0.40
+  );
+
+  return {
+    score,
+    word_count,
+    arabic_connectives_per_100_words,
+    connective_category_count,
+    connective_diversity_score,
+    distinct_types,
+    category_breakdown,
+    reason: `${distinct_types} distinct connective${distinct_types === 1 ? "" : "s"} across ${connective_category_count} of 6 categories. Frequency: ${arabic_connectives_per_100_words} per 100 words.`
+  };
+}
+
+
+  // annotateCohesionCode (Tier 4H): wraps computeArabicCohesiveDevices.
+  // Emits per-match cohesion:device annotations + cohesion:deterministic_snapshot sentinel.
   function annotateCohesionCode(response, runId) {
+    const det = computeArabicCohesiveDevices(response);
+    if (det.score === null) return [];   // 30-word floor
+
+    const findSpan = (text) => {
+      const idx = response.indexOf(text);
+      return idx >= 0 ? { start: idx, end: idx + text.length } : { start: 0, end: 0 };
+    };
+
     const out = [];
-    ARABIC_CONNECTIVES.forEach(conn => {
-      // word-ish boundary: whitespace/punctuation/start/end of string
-      const re = new RegExp(`(?:^|[\\s.،,;؛])(${conn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[\\s.،,;؛]|$)`, 'g');
-      let m;
-      while ((m = re.exec(response)) !== null) {
-        const start = m.index + (m[0].length - m[1].length);
-        const end = start + m[1].length;
+    for (const [cat, matches] of Object.entries(det.category_breakdown || {})) {
+      for (const m of matches) {
         out.push(makeAnnotation({
           family: 'cohesion',
-          type: 'cohesion:connective',
+          type: 'cohesion:device',
           source: 'code',
-          text: m[1],
-          span: { start, end },
-          metadata: { connective: conn },
+          text: m.conn,
+          span: findSpan(m.conn),
+          metadata: {
+            category: cat,
+            base_form: m.conn,
+            has_clitic_prefix: false,
+            occurrences_in_response: m.count
+          },
           runId
         }));
       }
-    });
+    }
+
+    // Sentinel: full det object for interpretation engine (TQ/CED/category_breakdown)
+    out.push(makeAnnotation({
+      family: 'cohesion',
+      type: 'cohesion:deterministic_snapshot',
+      source: 'code',
+      text: '',
+      span: { start: 0, end: 0 },
+      metadata: { snapshot: det },
+      runId
+    }));
+
     return out;
   }
 
@@ -4501,6 +4662,147 @@ Return JSON only:
     });
   }
 
+  // ── annotateCoherenceFlow (Tier 4H) ──────────────────────────────────────────
+  // Holistic coherence & flow LLM annotator.  Emits cohesion:coherence_flow_score.
+  // Built on V1 coherenceFlowPrompt (lines 4111-4203) with V2 output schema.
+  async function annotateCoherenceFlow(response, taskObj, runId) {
+    const TASHKEEL = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+    const wc = (response || '').replace(TASHKEEL, '').trim().split(/\s+/).filter(x => x).length;
+    const q  = taskObj || {};
+    const prompt = `You are a structured scoring engine for an Arabic writing assessment.
+Score Coherence & Flow only. Return JSON only.
+
+<core_principle>
+Evaluate how clearly ideas progress and link together across the response.
+Score ONLY: logical progression, paragraph flow, idea linking, and progression clarity.
+</core_principle>
+
+<focus_on>
+- Logical progression: does each idea follow naturally from the previous one?
+- Paragraph flow: do paragraphs cohere internally and connect to each other?
+- Idea linking: are ideas connected explicitly or by clear implication?
+- Progression clarity: can the reader follow the line of reasoning without effort?
+</focus_on>
+
+<out_of_scope>
+Handled by other metrics; do NOT let these influence the score:
+- Vividness, engagement, style, fluency — handled by Style & Register and Intelligibility & Effect
+- Grammatical accuracy — handled by Language Accuracy
+- Vocabulary range — handled by Language Range
+- Specific cohesive-device usage — handled by Arabic Cohesive Devices
+- Task completion, idea quality — handled by Task Achievement and Content Quality
+- Punctuation, spelling
+</out_of_scope>
+
+<scoring:bands>
+0–20   No logical progression. Ideas appear in random order with no detectable structure.
+21–40  Weak progression. Several jumps or abrupt shifts the reader must reconstruct.
+41–60  Some progression. Order broadly works but has gaps or unclear links between ideas.
+61–80  Clear progression. Ideas link logically across the response with minor unevenness.
+81–100 Strong progression. Each idea builds on the previous; paragraphs flow naturally.
+</scoring:bands>
+
+<ceiling_blockers>
+What prevents 81+:
+- One or two abrupt topic shifts the reader has to reconstruct: cap at 45.
+- Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 60.
+- Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 55.
+A score of 81+ requires logical progression across the WHOLE response — ideas build on each other, paragraphs have clear internal coherence and connect to each other, the reader follows without effort.
+
+A score of 85+ requires organisation that feels natural and mature — ideas develop with purpose, paragraphs serve a clear function, the structure feels intentional rather than mechanical.
+</ceiling_blockers>
+
+<rule:hard_caps>
+→ Response under 30 words: return { "score": null, "reason": "response too short to score" }
+→ No Arabic script: return { "score": null, "reason": "no Arabic script detected" }
+→ Ideas in random order with no detectable progression: cap at 25.
+</rule:hard_caps>
+
+<evidence_rule>
+Every Arabic phrase quoted in your justification or evidence field must appear verbatim in the response between the <response> tags. Quote what is actually written, not what should have been written. Do not normalise hamza, alif, taa marbuta, or any orthographic form. Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+
+If the student wrote الى, quote الى — not إلى.
+If the student wrote ذالك, quote ذالك — not ذلك.
+If the student wrote انا, quote انا — not أنا.
+
+The orthographic forms in your quote should match the student's original orthography. A separate Orthographic Control metric handles the question of whether those forms are correct.
+
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score and is automatically flagged downstream.
+</evidence_rule>
+
+<zero_permission>
+If you cannot find specific evidence of progression, state that plainly and score accordingly. Do not infer connective relationships that are not present in the text. Quote only words and phrases that appear verbatim in the response.
+</zero_permission>
+
+<anti_inference_examples>
+A travel-narrative response may legitimately omit common travel-essay components. Do NOT infer:
+- castle visits (قلعة) if the response does not mention one
+- museum visits (متحف) if not mentioned
+- markets (سوق) if not mentioned
+- tour guides (مرشد سياحي) if not mentioned
+- last-day reflections, farewells, or returns if not mentioned
+- weather descriptions if not mentioned
+- food details beyond what the student wrote
+- companion activities beyond what the student wrote
+
+Score what is on the page. The genre conventions of a "complete" travel essay are irrelevant — only the actual student text matters.
+</anti_inference_examples>
+
+<output_format>
+Return exactly:
+{
+  "coherence_flow_score": NUMBER | null,
+  "band": "strong_progression" | "clear_progression" | "some_progression" | "weak_progression" | "no_progression",
+  "justification": "2-3 sentences. Quote 1-2 verbatim Arabic phrases.",
+  "grounded_in": ["verbatim phrase 1"],
+  "cap_applied": null | "sequencing_only" | "arbitrary_paragraphs" | "topic_shifts"
+}
+No extra keys. No markdown fences.
+</output_format>
+
+GROUNDING:
+Score MUST cite verbatim Arabic phrases from the response in the "grounded_in" array.
+Phrases must appear in the response exactly as quoted. No normalisation of hamza/alif/taa marbuta. No paraphrase.
+
+GROUNDED_IN EVIDENCE TYPES — cite examples from MULTIPLE categories, not just one.
+A coherence judgement grounded entirely in temporal markers is undersupported.
+
+1. TEMPORAL / SEQUENCING — markers that order events in time.
+2. CAUSAL DEVELOPMENT — markers that link cause to effect, premise to conclusion.
+   Required for clear/strong progression in argumentative/explanatory tasks.
+3. THEMATIC CONTINUITY — reuse or development of a topic across paragraphs.
+4. REFERENTIAL LINKAGE — pronouns, demonstratives binding sentences to earlier content.
+
+For scores >= 61, grounded_in SHOULD contain evidence from at least two of these four categories.
+For scores >= 81, grounded_in SHOULD contain evidence from at least three categories AND demonstrate paragraph-level cohesion.
+
+CONSTRUCT PURITY:
+Dialect-form connectives (\u0645\u0644\u064a\u060c \u0628\u0627\u0634\u060c \u0641\u0627\u0634\u060c \u0645\u0646 \u0628\u0639\u062f\u060c etc.) cannot serve as evidence of formal coherence control. They may carry meaning but do NOT qualify as "MSA coherence control" evidence. Distinguish: "response IS coherent" (judge holistically) vs "grounded_in shows MSA evidence" (MSA forms only).
+A pure-dialect response with strong logical progression may land 51–65 based on holistic judgement; above 65 requires MSA-form evidence in grounded_in.
+
+<inputs>
+<word_count>${wc}</word_count>
+<expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
+<response>${response}</response>
+</inputs>\`;
+    return llmAnnotate('cohesion', prompt, response, runId, data => {
+      return [{
+        family: 'cohesion',
+        type:   'cohesion:coherence_flow_score',
+        source: 'llm',
+        text:   '',
+        span:   { start: 0, end: response.length },
+        metadata: {
+          score:        (typeof data.coherence_flow_score === 'number') ? data.coherence_flow_score : null,
+          band:         data.band        || null,
+          justification:data.justification || '',
+          grounded_in:  data.grounded_in  || [],
+          cap_applied:  data.cap_applied  || null
+        }
+      }];
+    });
+  }
+
   function annotateCohesionLLM(response, runId) {
     const prompt = `Identify MSA coherence signals in this Arabic response — focus on how IDEAS LINK AND PROGRESS in formal written Arabic, not on individual function words.
 
@@ -4545,7 +4847,7 @@ Return JSON only:
 { "cohesion_findings": [ { "text": "...", "subtype": "...", "note": "..." }, ... ] }`;
     return llmAnnotate('cohesion', prompt, response, runId, data => {
       return (data.cohesion_findings || []).map(c => ({
-        type: `cohesion:${c.subtype || 'finding'}`,
+        type: 'cohesion:llm_observation',
         text: c.text,
         metadata: { subtype: c.subtype, note: c.note }
       }));
@@ -4710,6 +5012,7 @@ Return JSON only:
       _runAnnotatorWithStatus('register',        () => annotateRegisterLLM(response, runId)),
       _runAnnotatorWithStatus('range',           () => annotateRangeLLM(response, runId)),
       _runAnnotatorWithStatus('cohesion',        () => annotateCohesionLLM(response, runId)),
+      _runAnnotatorWithStatus('coherence_flow',  () => annotateCoherenceFlow(response, taskObj, runId)),
       _runAnnotatorWithStatus('accuracy',        () => annotateAccuracy(response, runId)),
       _runAnnotatorWithStatus('orthography',     () => annotateOrthographyLLM(response, runId))
     ]);
@@ -5194,7 +5497,7 @@ Return JSON only:
   const SUB_DEFAULTS = {
     ta:    { wcc: 20, ta: 50, ie: 30 },  // Tier 4C: tolerance-band / augmented pass-rate / holistic IE
     sr:    { msa: 60, dialect: 40 },
-    oc:    { cohesive: 50, flow: 50 },
+    oc:    { cohesive: 30, flow: 70 },
     ortho: { tq: 40, ced: 30, llm: 30 }
   };
 
@@ -5445,7 +5748,8 @@ Return JSON only:
       high_grammar_low_orthography: true,
       dialect_dominant_high_accuracy: true,
       high_coherence_no_connectives: true,
-      orth_det_llm_split: true
+      orth_det_llm_split: true,
+      coh_dev_flow_split: true
     }
   };
 
@@ -5466,7 +5770,8 @@ Return JSON only:
         high_grammar_low_orthography:  document.getElementById('gr_rule_grammar_ortho').checked,
         dialect_dominant_high_accuracy: document.getElementById('gr_rule_dialect_accuracy').checked,
         high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked,
-        orth_det_llm_split:             document.getElementById('gr_rule_orth_det_llm_split').checked
+        orth_det_llm_split:             document.getElementById('gr_rule_orth_det_llm_split').checked,
+        coh_dev_flow_split:              document.getElementById('gr_rule_coh_dev_flow_split').checked
       }
     };
   }
@@ -5487,6 +5792,7 @@ Return JSON only:
     setChk('gr_rule_dialect_accuracy',       r.dialect_dominant_high_accuracy);
     setChk('gr_rule_coherence_connectives',  r.high_coherence_no_connectives);
     setChk('gr_rule_orth_det_llm_split',     r.orth_det_llm_split);
+    setChk('gr_rule_coh_dev_flow_split',      r.coh_dev_flow_split);
   }
 
   document.getElementById('btn_gr_save').addEventListener('click', () => {
@@ -5635,9 +5941,15 @@ Return JSON only:
     'range:elaboration':         { applies_to: ['language_range'], polarity: 'positive' },
     'range:lexical_density':     { applies_to: ['language_range'], polarity: 'neutral' },
     // ----- organisation_coherence -----
-    'cohesion:connective':       { applies_to: ['organisation_coherence'], polarity: 'positive' },
-    'cohesion:transition':       { applies_to: ['organisation_coherence'], polarity: 'positive' },
-    'cohesion:discourse_marker': { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    // Tier 4H: per-match device + holistic flow. Old bare types retired.
+    'cohesion:device':                 { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    'cohesion:deterministic_snapshot': { applies_to: ['organisation_coherence'], polarity: 'neutral_diagnostic' },
+    'cohesion:coherence_flow_score':   { applies_to: ['organisation_coherence'], polarity: 'positive' },
+    'cohesion:llm_observation':        { applies_to: ['organisation_coherence'], polarity: 'neutral_diagnostic' },
+    // Legacy types retired Tier 4H (kept for audit; no longer driver):
+    'cohesion:connective':             { applies_to: ['organisation_coherence'], polarity: 'neutral_diagnostic' },
+    'cohesion:transition':             { applies_to: ['organisation_coherence'], polarity: 'neutral_diagnostic' },
+    'cohesion:discourse_marker':       { applies_to: ['organisation_coherence'], polarity: 'neutral_diagnostic' },
     // ----- language_accuracy -----
     'accuracy:agreement':          { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:conjugation':        { applies_to: ['language_accuracy'], polarity: 'negative' },
@@ -6291,7 +6603,53 @@ Return JSON only:
       }
     });
 
-    // ── 3. cap_directives ─────────────────────────────────────────────────
+    // ── 2e. Organisation & Coherence profile (Tier 4H) ────────────────────────
+    // D1/D2: read deterministic snapshot + holistic coherence flow LLM score.
+    const cohSnap = activeAnns.find(a => a.type === 'cohesion:deterministic_snapshot');
+    const cohDet  = cohSnap && cohSnap.metadata && cohSnap.metadata.snapshot
+                    ? cohSnap.metadata.snapshot : null;
+
+    const cfAnn   = activeAnns.find(a => a.type === 'cohesion:coherence_flow_score');
+    const cfScore = cfAnn && cfAnn.metadata && typeof cfAnn.metadata.score === 'number'
+                    ? cfAnn.metadata.score : null;
+    const cfBand  = cfAnn && cfAnn.metadata ? (cfAnn.metadata.band || null) : null;
+    const cfCap   = cfAnn && cfAnn.metadata ? (cfAnn.metadata.cap_applied || null) : null;
+
+    const cd_oc = cohDet != null ? cohDet.score : 50;
+    const cf_oc = (typeof cfScore === 'number') ? cfScore : 50;
+    const _ocDerived = Math.round(cd_oc * 0.30 + cf_oc * 0.70);
+
+    // D8 confidence
+    let _ocConf;
+    if (word_count < 30) {
+      _ocConf = 'UNMEASURABLE';
+    } else if ((word_count >= 30 && word_count <= 60) || (cohDet && cohDet.distinct_types === 0) || cfScore === null) {
+      _ocConf = 'MEDIUM';
+    } else {
+      _ocConf = 'HIGH';
+    }
+
+    Object.assign(dp.organisation_coherence, {
+      cohesive_devices_score:     cd_oc,
+      cohesive_devices_breakdown: {
+        categories:    cohDet ? (cohDet.connective_category_count || 0) : 0,
+        distinct_types: cohDet ? (cohDet.distinct_types || 0) : 0,
+        per_100_words:  cohDet ? (cohDet.arabic_connectives_per_100_words || null) : null
+      },
+      coherence_flow_score:       cf_oc,
+      coherence_flow_band:        cfBand,
+      coherence_flow_cap_applied: cfCap,
+      derived_score:              _ocDerived,
+      confidence:                 _ocConf,
+      evidence_summary: {
+        device_count:               activeAnns.filter(a => a.type === 'cohesion:device').length,
+        category_count:             cohDet ? (cohDet.connective_category_count || 0) : 0,
+        distinct_types:             cohDet ? (cohDet.distinct_types || 0) : 0,
+        coherence_flow_grounded_in: cfAnn && cfAnn.metadata ? (cfAnn.metadata.grounded_in || []) : []
+      }
+    });
+
+        // ── 3. cap_directives ─────────────────────────────────────────────────
     const cap_directives = [];
 
     if (global_profile.dialect_density >= 0.10) {
@@ -6591,22 +6949,32 @@ Return JSON only:
     }
 
     // ── Organisation & Coherence ─────────────────────────────
-    const cohAnns     = annotations.filter(a => a.family === 'cohesion');
-    const cohCount    = cohAnns.length;
-    const cohSubtypes = new Set(cohAnns.map(a => (a.metadata && a.metadata.subtype) || a.type).filter(Boolean));
-    const cohSubCount = cohSubtypes.size;
+    // Tier 4H: reads derived_score from InterpretationObject.
+    const ocProfile = interpretObj
+      && interpretObj.dimension_profiles
+      && interpretObj.dimension_profiles.organisation_coherence;
 
-    const COUNT_BAND  = [0, 20, 40, 60, 75, 85, 95];
-    const count_score = COUNT_BAND[Math.min(cohCount, 5)] !== undefined ? COUNT_BAND[Math.min(cohCount, 5)] : 95;
-
-    const SUBTYPE_BAND  = [20, 40, 70, 90];
-    const subtype_score = SUBTYPE_BAND[Math.min(cohSubCount, 3)] !== undefined ? SUBTYPE_BAND[Math.min(cohSubCount, 3)] : 90;
-
-    const ocW    = sw.organisation_coherence || { cohesive_devices: 50, coherence_flow: 50 };
-    const oc_dim = Math.min(100, Math.round(
-      count_score   * (ocW.cohesive_devices / 100) +
-      subtype_score * (ocW.coherence_flow   / 100)
-    ));
+    let oc_dim, count_score, subtype_score;
+    if (ocProfile && typeof ocProfile.derived_score === 'number') {
+      oc_dim       = ocProfile.derived_score;
+      count_score   = ocProfile.cohesive_devices_score != null ? ocProfile.cohesive_devices_score : 50;
+      subtype_score = ocProfile.coherence_flow_score   != null ? ocProfile.coherence_flow_score   : 50;
+    } else {
+      // Legacy fallback — count-banding (pre-Tier-4H or interpretObj unavailable).
+      const cohAnns     = annotations.filter(a => a.family === 'cohesion');
+      const cohCount    = cohAnns.length;
+      const cohSubtypes = new Set(cohAnns.map(a => (a.metadata && a.metadata.subtype) || a.type).filter(Boolean));
+      const cohSubCount = cohSubtypes.size;
+      const COUNT_BAND  = [0, 20, 40, 60, 75, 85, 95];
+      const SUBTYPE_BAND = [20, 40, 70, 90];
+      count_score   = COUNT_BAND[Math.min(cohCount, 5)]    !== undefined ? COUNT_BAND[Math.min(cohCount, 5)]    : 95;
+      subtype_score = SUBTYPE_BAND[Math.min(cohSubCount, 3)] !== undefined ? SUBTYPE_BAND[Math.min(cohSubCount, 3)] : 90;
+      const ocW    = sw.organisation_coherence || { cohesive_devices: 30, coherence_flow: 70 };
+      oc_dim = Math.min(100, Math.round(
+        count_score   * (ocW.cohesive_devices / 100) +
+        subtype_score * (ocW.coherence_flow   / 100)
+      ));
+    }
 
     // ── Language Accuracy ────────────────────────────────────
     // Tier 4F: reads derived_score from InterpretationObject (D8).
@@ -6691,7 +7059,7 @@ Return JSON only:
 
   // ===== Guardrail engine =====
 
-  function computeGuardrailObject(scoreObj, annotations, guardrailConfig, interpretObj) {
+  function computeGuardrailObject(scoreObj, annotations, guardrailConfig, interpretObj, taskObject) {
     const gc = guardrailConfig || {};
 
     const minWC     = (gc.confidence && gc.confidence.min_word_count_for_high)              || 80;
@@ -6777,7 +7145,36 @@ Return JSON only:
       }
     }
 
-    // Per-dimension confidence — added v0.3 Tab 11 build.
+    // Tier 4H (D8a): coh_dev_flow_split — task-type-aware severity.
+    if (rules.coh_dev_flow_split !== false) {
+      const _ocp = interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.organisation_coherence;
+      if (_ocp && typeof _ocp.cohesive_devices_score === 'number' && typeof _ocp.coherence_flow_score === 'number') {
+        const cd = _ocp.cohesive_devices_score;
+        const cf = _ocp.coherence_flow_score;
+        const split = Math.abs(cd - cf);
+        if (split > 40) {
+          const NARRATIVE_LIKE_TYPES = new Set(['narrative', 'email', 'account', 'recount', 'description']);
+          const taskType = (taskObject && taskObject.task_type) || 'unknown';
+          const isNarrativeLike = NARRATIVE_LIKE_TYPES.has(taskType);
+          const severity = isNarrativeLike ? 'WARNING' : 'MODERATE';
+          contradictions.push({
+            rule:      'coh_dev_flow_split',
+            severity,
+            dimension: 'organisation_coherence',
+            message:   'Cohesive Devices (' + cd + ') and Coherence & Flow (' + cf + ') disagree by ' + split + ' pts' +
+                       (isNarrativeLike
+                         ? ' — ' + taskType + ' task type, narrative-genre split is often normal, treat as warning.'
+                         : ' — review which view is correct.'),
+            data: { cd, cf, split, task_type: taskType, severity_basis: isNarrativeLike ? 'narrative_genre' : 'default' }
+          });
+          if (severity === 'MODERATE') {
+            confidence_per_dimension.organisation_coherence = 'MEDIUM';
+          }
+        }
+      }
+    }
+
+        // Per-dimension confidence — added v0.3 Tab 11 build.
     // Inherits from the global confidence but DEMOTES per dimension if:
     //   - 0 verified annotations support that dimension AND it's not code-driven, OR
     //   - any verifier failure landed on a family that maps to that dimension.
@@ -6973,7 +7370,7 @@ Return JSON only:
 
       // Stage 5: Apply guardrails
       setRun9Stage('guardrails', 'running', '');
-      const guardrailObj = computeGuardrailObject(scoreObj, allAnnotations, grCfg, interpretObj);
+      const guardrailObj = computeGuardrailObject(scoreObj, allAnnotations, grCfg, interpretObj, taskObj);
       const flagCount    = guardrailObj.flags.length + guardrailObj.contradictions.length;
       setRun9Stage('guardrails', 'done',
         guardrailObj.confidence + ' confidence' + (flagCount > 0 ? ', ' + flagCount + ' flag(s)' : ''));
@@ -7738,6 +8135,14 @@ Return JSON only:
         if (go_contradictions.some(c => c.rule === 'orth_det_llm_split')) {
           if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
           notesHtml += '<span class="tr-note-pill warning">⚠ deterministic/LLM split</span>';
+        }
+      }
+      // Tier 4H (D8a): organisation_coherence — coh_dev_flow_split indicator (teacher report only).
+      if (dim === 'organisation_coherence') {
+        const go_contradictions = go.contradictions || [];
+        if (go_contradictions.some(c => c.rule === 'coh_dev_flow_split')) {
+          if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
+          notesHtml += '<span class="tr-note-pill warning">⚠ coh.dev/flow split</span>';
         }
       }
       dimRowsHtml +=
