@@ -4733,7 +4733,7 @@ Use observational language (signals/shows/marks — NOT creates/weaves/captures)
 <expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
 <response>${response}</response>
 </inputs>`;
-    return llmAnnotate('vocab_diversity', prompt, response, runId, data => {
+    return llmAnnotate('range', prompt, response, runId, data => {
       if (data.score === null && data.reason) return [];
       const score = (typeof data.vocabulary_diversity_score === 'number') ? data.vocabulary_diversity_score : null;
       return [{
@@ -4828,7 +4828,7 @@ Use observational language (signals/shows/marks — NOT creates/weaves/captures)
 <expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
 <response>${response}</response>
 </inputs>`;
-    return llmAnnotate('morph_variety', prompt, response, runId, data => {
+    return llmAnnotate('range', prompt, response, runId, data => {
       if (data.score === null && data.reason) return [];
       const score = (typeof data.morphological_variety_score === 'number') ? data.morphological_variety_score : null;
       return [{
@@ -4928,7 +4928,7 @@ Use observational language (signals/shows/marks — NOT creates/weaves/captures)
 <expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
 <response>${response}</response>
 </inputs>`;
-    return llmAnnotate('sentence_complexity', prompt, response, runId, data => {
+    return llmAnnotate('range', prompt, response, runId, data => {
       if (data.score === null && data.reason) return [];
       const score = (typeof data.arabic_sentence_complexity_score === 'number') ? data.arabic_sentence_complexity_score : null;
       return [{
@@ -7441,9 +7441,12 @@ Return JSON only:
       claimAnns.map(a => (a.metadata.requirement_source || 'task_requirement') + ':' + a.metadata.requirement_id)
     );
     const buildCheck = (id, source, weight) => ({ pass: passed.has(source + ':' + id), weight });
-    const coreChecks = (taskObj.task_requirements      || []).map((_, i) => buildCheck(i, 'task_requirement',      1.0));
-    const addlCheck  = [buildCheck(0, 'additional_development', 1.0)];
-    const typeChecks = (taskObj.task_type_requirements || []).map((_, i) => buildCheck(i, 'task_type_requirement', 0.5));
+    const coreChecks = (taskObj.task_requirements      || []).map((_, i) => buildCheck(i, 'task_requirement', 1.0));
+    // addlCheck and typeChecks use GLOBAL indices matching annotateClaim's augmentedRequirements numbering.
+    // additional_development is always at index numCore; task_type_requirements follow at numCore+1, numCore+2, ...
+    const _numCore   = (taskObj.task_requirements || []).length;
+    const addlCheck  = [buildCheck(_numCore, 'additional_development', 1.0)];
+    const typeChecks = (taskObj.task_type_requirements || []).map((_, i) => buildCheck(_numCore + 1 + i, 'task_type_requirement', 0.5));
     const allChecks  = [...coreChecks, ...addlCheck, ...typeChecks];
     const weightedPasses = allChecks.filter(c => c.pass).reduce((s, c) => s + c.weight, 0);
     const weightedTotal  = allChecks.reduce((s, c) => s + c.weight, 0);
