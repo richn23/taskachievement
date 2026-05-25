@@ -5237,6 +5237,71 @@ Return JSON only:
     });
   }
 
+  // ── annotateAdvancedFormalControl ────────────────────────────────────────────
+  // Detects THREE advanced formal control features that justify an LA score > 88.
+  // Returns a single accuracy:advanced_formal_control annotation whose metadata
+  // contains boolean flags + verbatim evidence for each criterion.
+  // Called by runLLMAnnotators; consumed by computeInterpretationObject.
+  function annotateAdvancedFormalControl(response, runId) {
+    const prompt = `You are a strict Arabic grammar evaluator. Assess whether this MSA Arabic response demonstrates three specific advanced formal control features. Return JSON only.
+
+CRITERIA — evaluate each independently:
+
+1. complex_subordination
+True ONLY when the response contains a subordinate clause using a FORMAL Arabic connector with CORRECT grammatical agreement (case, gender, number) between the clause and its antecedent or controller.
+Qualifying connectors: الذي / التي / الذين / اللواتي (relative clauses), إذا / لو / إن (conditionals), أن / أنَّ (complementiser after verbs or adjectives), حيث, لكي / كي, لأنَّ, بينما.
+NOT qualifying: coordinating conjunctions (و، ف، ثم، لكن، أو) used alone without a dependent clause.
+Quote the verbatim subordinate clause as evidence.
+
+2. dual_plural_agreement
+True ONLY when the response sustains morphological DUAL or PLURAL agreement across a continuous span of 5 or more words — meaning a noun/pronoun in dual or plural form PLUS at least two agreeing elements (verb, adjective, or resumptive pronoun) within that same span, ALL correctly inflected for the same number category.
+Quote the verbatim span as evidence.
+
+3. advanced_verb_form
+True ONLY when the response uses at least one of:
+- Passive voice (المبني للمجهول): verb in a clearly passive construction identifiable from context (e.g. نُفِّذ، يُبنى، أُعلن، or مضارع after يُـ with passive reading).
+- Subjunctive (المضارع المنصوب): مضارع verb immediately after لن، لكي، كي، حتى، or أن used as a purpose/complement particle.
+- Jussive (المضارع المجزوم): مضارع verb immediately after لم، لا النهية، لام الطلب, or إن الشرطية (conditional إن with jazm).
+Quote the verbatim verb form and its governing particle/context as evidence.
+
+STRICT STANDARD: if uncertain about any criterion, set it to false. Only set true when you can quote clear verbatim evidence directly from the response.
+
+Return JSON only:
+{
+  "complex_subordination": true or false,
+  "complex_subordination_evidence": "verbatim phrase from response, or empty string if false",
+  "dual_plural_agreement": true or false,
+  "dual_plural_agreement_evidence": "verbatim phrase from response, or empty string if false",
+  "advanced_verb_form": true or false,
+  "advanced_verb_form_type": "passive" or "subjunctive" or "jussive" or "none",
+  "advanced_verb_form_evidence": "verbatim phrase from response, or empty string if false"
+}
+No extra keys. No markdown fences. No explanation.
+
+RESPONSE:
+${response}`;
+
+    return llmAnnotate('accuracy', prompt, response, runId, data => {
+      const cs  = !!data.complex_subordination;
+      const dpa = !!data.dual_plural_agreement;
+      const avf = !!data.advanced_verb_form;
+      return [{
+        type: 'accuracy:advanced_formal_control',
+        text: '',
+        metadata: {
+          complex_subordination:          cs,
+          complex_subordination_evidence: data.complex_subordination_evidence  || '',
+          dual_plural_agreement:          dpa,
+          dual_plural_agreement_evidence: data.dual_plural_agreement_evidence  || '',
+          advanced_verb_form:             avf,
+          advanced_verb_form_type:        data.advanced_verb_form_type         || 'none',
+          advanced_verb_form_evidence:    data.advanced_verb_form_evidence     || '',
+          all_present:                    cs && dpa && avf
+        }
+      }];
+    });
+  }
+
   function annotateOrthographyLLM(response, runId) {
     const prompt = `Identify ONLY genuine spelling errors in this Arabic (MSA) response, and provide a holistic orthographic accuracy score.
 
@@ -5357,8 +5422,9 @@ Return JSON only:
       _runAnnotatorWithStatus('sentence_complexity', () => annotateSentenceComplexity(response, runId)),
       _runAnnotatorWithStatus('cohesion',        () => annotateCohesionLLM(response, runId)),
       _runAnnotatorWithStatus('coherence_flow',  () => annotateCoherenceFlow(response, taskObj, runId)),
-      _runAnnotatorWithStatus('accuracy',        () => annotateAccuracy(response, runId)),
-      _runAnnotatorWithStatus('orthography',     () => annotateOrthographyLLM(response, runId))
+      _runAnnotatorWithStatus('accuracy',          () => annotateAccuracy(response, runId)),
+      _runAnnotatorWithStatus('accuracy_advanced', () => annotateAdvancedFormalControl(response, runId)),
+      _runAnnotatorWithStatus('orthography',       () => annotateOrthographyLLM(response, runId))
     ]);
     const _annotator_status = Object.fromEntries(results.map(r => [r.name, r.status]));
     const annotations = results.flatMap(r => r.annotations);
@@ -6359,6 +6425,7 @@ Return JSON only:
     'accuracy:word_order':         { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:sentence_formation': { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:other':              { applies_to: ['language_accuracy'], polarity: 'negative' },
+    'accuracy:advanced_formal_control': { applies_to: ['language_accuracy'], polarity: 'neutral' },
     // ----- orthographic_control -----
     'orthography:hamza':                   { applies_to: ['orthographic_control'], polarity: 'negative' },
     'orthography:alif':                    { applies_to: ['orthographic_control'], polarity: 'negative' },
@@ -6932,6 +6999,18 @@ Return JSON only:
         la_ub_cap_applied = true;
       }
 
+      // Advanced formal control cap: score > 88 requires ALL THREE advanced features
+      // (complex_subordination, dual_plural_agreement, advanced_verb_form) confirmed by LLM.
+      const _afcAnn = activeAnns.find(a => a.type === 'accuracy:advanced_formal_control');
+      const _afcMeta = _afcAnn && _afcAnn.metadata ? _afcAnn.metadata : null;
+      const advanced_formal_control_evidence_present = !!(_afcMeta && _afcMeta.all_present);
+      let   la_afc_cap_applied = false;
+      if (la_derived_score > 88 && !advanced_formal_control_evidence_present) {
+        la_derived_score     = 88;
+        la_afc_cap_applied   = true;
+        la_ub_cap_applied    = false; // afc cap supersedes ub cap in reporting
+      }
+
       const validity_notes = [];
       if (measurement_validity === 'LOW') {
         if (global_profile.construct_attempt_score < 25)
@@ -6948,18 +7027,31 @@ Return JSON only:
       Object.assign(dp.language_accuracy, {
         measurement_validity,
         attempt_tokens,
-        weighted_error_score:           Math.round(weighted_error_score * 100) / 100,
+        weighted_error_score:                   Math.round(weighted_error_score * 100) / 100,
         positive_formal_evidence_score,
-        error_density_within_attempt:   Math.round(error_density_within_attempt * 10000) / 10000,
-        upper_band_qualified:           la_upper_band_qualified,
-        upper_band_cap_applied:         la_ub_cap_applied,
-        cap_reason:                     la_ub_cap_applied
-                                          ? 'No advanced formal control evidence (pfe < 30) — score capped at 88'
-                                          : null,
-        profile_band:                   laResult.profile_band,
-        derived_score:                  la_derived_score,
-        confidence:                     measurement_validity === 'HIGH' ? 'HIGH'
-                                       : measurement_validity === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+        error_density_within_attempt:           Math.round(error_density_within_attempt * 10000) / 10000,
+        upper_band_qualified:                   la_upper_band_qualified,
+        upper_band_cap_applied:                 la_ub_cap_applied,
+        advanced_formal_control_evidence_present,
+        advanced_formal_control_cap_applied:    la_afc_cap_applied,
+        advanced_formal_control_detail:         _afcMeta ? {
+          complex_subordination:          _afcMeta.complex_subordination,
+          complex_subordination_evidence: _afcMeta.complex_subordination_evidence,
+          dual_plural_agreement:          _afcMeta.dual_plural_agreement,
+          dual_plural_agreement_evidence: _afcMeta.dual_plural_agreement_evidence,
+          advanced_verb_form:             _afcMeta.advanced_verb_form,
+          advanced_verb_form_type:        _afcMeta.advanced_verb_form_type,
+          advanced_verb_form_evidence:    _afcMeta.advanced_verb_form_evidence
+        } : null,
+        cap_reason:                             la_afc_cap_applied
+                                                  ? 'Insufficient advanced formal control evidence — score capped at 88'
+                                                  : la_ub_cap_applied
+                                                    ? 'No advanced formal control evidence (pfe < 30) — score capped at 88'
+                                                    : null,
+        profile_band:                           laResult.profile_band,
+        derived_score:                          la_derived_score,
+        confidence:                             measurement_validity === 'HIGH' ? 'HIGH'
+                                               : measurement_validity === 'MEDIUM' ? 'MEDIUM' : 'LOW',
         validity_notes
       });
     }
