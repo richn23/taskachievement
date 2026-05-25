@@ -5543,11 +5543,15 @@ Return JSON only:
 
     // Pass 2 — overlap rules. Same span + same dimension = duplicate; keep first verified, reject the rest.
     // We only enforce this for verified-so-far annotations.
+    // For the 'range' family, use annotation type as the dedup key so that the three distinct
+    // range sub-metrics (vocabulary_score, morphology_score, sentence_complexity_score) are
+    // deduplicated independently rather than colliding with each other under the shared family key.
     const byKey = new Map();
     annotations.forEach(a => {
       if (!a.verified) return;
+      const dedupGroup = a.family === 'range' ? a.type : a.family;
       (a.score_in || []).forEach(dim => {
-        const key = `${dim}::${a.span.start}::${a.span.end}::${a.family}`;
+        const key = `${dim}::${a.span.start}::${a.span.end}::${dedupGroup}`;
         if (!byKey.has(key)) byKey.set(key, []);
         byKey.get(key).push(a);
       });
@@ -7582,67 +7586,67 @@ Return JSON only:
     const wcc_score = wordCompliance(wordCount, _taMin, _taMax);
 
     // Weighted pass-rate (D3): core task_requirement 1.0 / additional_development 1.0 / task_type_requirement 0.5.
-    // Annotation types use the prefixed form family:subtype — 'claim:requirement' not bare 'requirement'.
-    const claimAnns  = annotations.filter(a => a.family === 'claim' && a.type === 'claim:requirement');
-    const passed     = new Set(
-      claimAnns.map(a => (a.metadata.requirement_source || 'task_requirement') + ':' + a.metadata.requirement_id)
+    // Uses requirement_id directly — avoids requirement_source key matching which was fragile when
+    // the LLM returned non-whitelisted source strings. Only verified claim:requirement annotations
+    // are counted; polarity is always positive by POLARITY_REGISTRY definition.
+    const claimAnns = annotations.filter(
+      a => a.family === 'claim' && a.type === 'claim:requirement' && a.verified !== false
     );
-    const buildCheck = (id, source, weight) => ({ pass: passed.has(source + ':' + id), weight });
-    const coreChecks = (taskObj.task_requirements      || []).map((_, i) => buildCheck(i, 'task_requirement', 1.0));
-    // addlCheck and typeChecks use GLOBAL indices matching annotateClaim's augmentedRequirements numbering.
-    // additional_development is always at index numCore; task_type_requirements follow at numCore+1, numCore+2, ...
-    const _numCore   = (taskObj.task_requirements || []).length;
-    const addlCheck  = [buildCheck(_numCore, 'additional_development', 1.0)];
-    const typeChecks = (taskObj.task_type_requirements || []).map((_, i) => buildCheck(_numCore + 1 + i, 'task_type_requirement', 0.5));
-    const allChecks  = [...coreChecks, ...addlCheck, ...typeChecks];
-    const weightedPasses = allChecks.filter(c => c.pass).reduce((s, c) => s + c.weight, 0);
-    const weightedTotal  = allChecks.reduce((s, c) => s + c.weight, 0);
-    const ta_score       = weightedTotal > 0 ? Math.round((weightedPasses / weightedTotal) * 100) : 100;
-    // Format breakdown signal (D3): teacher sees yellow flag even if score doesn't dip much.
-    const format_breakdown = typeChecks.length > 0 && typeChecks.every(c => !c.pass);
+    const coveredIds = new Set(
+      claimAnns
+        .filter(a => a.metadata && a.metadata.requirement_id != null)
+        .map(a => a.metadata.requirement_id)
+    );
+    // Index layout matches annotateClaim's augmentedRequirements:
+    //   0 … coreCount-1  → task_requirements
+    //   coreCount         → additional_development
+    //   coreCount+1 …    → task_type_requirements
+    const _numCore     = (taskObj.task_requirements      || []).length;
+    const coveredCore  = Array.from({ length: _numCore }, (_, i) => i)
+                          .filter(i => coveredIds.has(i)).length;
+    const addlCovered  = coveredIds.has(_numCore) ? 1.0 : 0;
+    const typeCovered  = (taskObj.task_type_requirements || [])
+                          .map((_, i) => coveredIds.has(_numCore + 1 + i) ? 0.5 : 0)
+                          .reduce((s, v) => s + v, 0);
+    const weightedPasses = coveredCore * 1.0 + addlCovered + typeCovered;
+    const weightedTotal  = _numCore * 1.0 + 1.0 +
+                           (taskObj.task_type_requirements || []).length * 0.5;
+    const ta_score       = weightedTotal > 0
+                           ? Math.round((weightedPasses / weightedTotal) * 100)
+                           : 100;
+    // Format breakdown signal: all type requirements missed → yellow flag.
+    const format_breakdown = (taskObj.task_type_requirements || []).length > 0 &&
+                             !(taskObj.task_type_requirements || []).some((_, i) => coveredIds.has(_numCore + 1 + i));
 
     // TA diagnostic: always build claim_check_details for sub_scores; emit interpretation_log when ta=0.
-    // claim_check_details exposes the passed Set, per-check pass/fail, and per-annotation metadata keys
-    // so that score-object inspection reveals exactly WHY ta came out zero (e.g. requirement_id=undefined).
     const claim_check_details = {
       claim_annotations_found: claimAnns.length,
-      passed_set:              Array.from(passed),
-      core_checks:             coreChecks.map((c, i) => ({
-        index: i, source: 'task_requirement', expected_key: 'task_requirement:' + i,
-        pass: c.pass, weight: c.weight
+      covered_ids:   Array.from(coveredIds),
+      core_checks:   Array.from({ length: _numCore }, (_, i) => ({
+        index: i, covered: coveredIds.has(i), weight: 1.0
       })),
-      addl_check:  { index: _numCore,  source: 'additional_development',
-                     expected_key: 'additional_development:' + _numCore,
-                     pass: addlCheck[0].pass, weight: addlCheck[0].weight },
-      type_checks: typeChecks.map((c, i) => ({
-        index: _numCore + 1 + i, source: 'task_type_requirement',
-        expected_key: 'task_type_requirement:' + (_numCore + 1 + i),
-        pass: c.pass, weight: c.weight
+      addl_check:  { index: _numCore, covered: coveredIds.has(_numCore), weight: 1.0 },
+      type_checks: (taskObj.task_type_requirements || []).map((_, i) => ({
+        index: _numCore + 1 + i, covered: coveredIds.has(_numCore + 1 + i), weight: 0.5
       })),
       annotation_metadata_sample: claimAnns.slice(0, 6).map(a => ({
-        id: a.id, verified: a.verified,
-        requirement_id:     a.metadata && a.metadata.requirement_id,
-        requirement_source: a.metadata && a.metadata.requirement_source,
-        key_emitted: (a.metadata
-          ? (a.metadata.requirement_source || 'task_requirement') + ':' + a.metadata.requirement_id
-          : '(no metadata)')
+        id:             a.id,
+        verified:       a.verified,
+        requirement_id: a.metadata && a.metadata.requirement_id
       })),
       weighted_passes: weightedPasses,
       weighted_total:  weightedTotal
     };
     if (ta_score === 0 && interpretObj && Array.isArray(interpretObj.interpretation_log)) {
-      const passedArr  = Array.from(passed);
-      const coreKeys   = (taskObj.task_requirements || []).map((_, i) => 'task_requirement:' + i);
-      let   diagReason;
+      let diagReason;
       if (claimAnns.length === 0) {
-        diagReason = 'No claim:requirement annotations in allAnnotations — annotateClaim may have failed, returned [], or all claim annotations have wrong type/family.';
-      } else if (passedArr.every(k => k.endsWith(':undefined') || k.endsWith(':null'))) {
-        diagReason = 'All ' + claimAnns.length + ' claim annotation(s) have requirement_id=undefined or null — LLM JSON may use a different field name (check annotation_metadata_sample in claim_check_details).';
+        diagReason = 'No verified claim:requirement annotations — annotateClaim may have failed or all annotations were rejected by the verifier.';
+      } else if (coveredIds.size === 0) {
+        diagReason = 'All ' + claimAnns.length + ' claim annotation(s) have requirement_id=null or undefined — check annotation_metadata_sample in claim_check_details.';
       } else {
-        const anyMatch = passedArr.some(k => coreKeys.includes(k) || k.startsWith('additional_development:') || k.startsWith('task_type_requirement:'));
-        diagReason = anyMatch
-          ? 'Some keys in passed Set match expected format but no allChecks entry evaluated to pass=true — possible source string mismatch.'
-          : 'Passed Set keys [' + passedArr.slice(0, 4).join(', ') + '] do not match expected check keys [' + coreKeys.slice(0, 4).join(', ') + '].';
+        diagReason = 'coveredIds ' + JSON.stringify(Array.from(coveredIds)) +
+                     ' do not overlap expected core indices 0–' + (_numCore - 1) +
+                     ' — LLM may have used non-integer or out-of-range requirement_id values.';
       }
       interpretObj.interpretation_log.push({
         stage: 'computeScoreObject', dimension: 'task_achievement',
