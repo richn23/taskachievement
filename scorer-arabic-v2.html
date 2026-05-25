@@ -6419,8 +6419,16 @@ Return JSON only:
     if (consistency === 'dialect_consistent') base -= 2;
     if (consistency === 'msa_with_lapses')    base += 2;
     // Allow ±3 overflow
-    const derived_score = Math.max(Math.max(0, low - 3), Math.min(Math.min(100, high + 3), Math.round(base)));
-    return { band_name: band.name, derived_score };
+    let derived_score = Math.max(Math.max(0, low - 3), Math.min(Math.min(100, high + 3), Math.round(base)));
+    // Cap at 92 when any register lapse is present — a perfect 100 is not justified
+    // when the model flagged even one clear register lapse (e.g. بصراحة, intrusively
+    // casual phrasing). Target for clean MSA with minor lapse: 85–92.
+    let sr_lapse_cap_applied = false;
+    if (lapse_count > 0 && derived_score > 92) {
+      derived_score        = 92;
+      sr_lapse_cap_applied = true;
+    }
+    return { band_name: band.name, derived_score, lapse_cap_applied: sr_lapse_cap_applied };
   }
 
   // Boundary tolerance (D3): flag when dialect_density is within ±0.005 of any threshold.
@@ -6842,6 +6850,10 @@ Return JSON only:
       task_appropriateness:   sr_task_appropriateness,
       profile_band:           sr_scored.band_name,
       derived_score:          sr_scored.derived_score,
+      lapse_cap_applied:      sr_scored.lapse_cap_applied,
+      cap_reason:             sr_scored.lapse_cap_applied
+                                ? 'Register lapse(s) detected — score capped at 92'
+                                : null,
       confidence:             'HIGH',
       evidence_summary: {
         dialect_markers:   srDialectAnns.length,
@@ -6908,6 +6920,18 @@ Return JSON only:
       const attemptFloor = Math.max(attempt_tokens, 20);
       const error_density_within_attempt = weighted_error_score / attemptFloor;
 
+      // Cap at 88 when upper_band_qualified is false (positive_formal_evidence_score < 30).
+      // No errors + safe/simple structures does not justify a score above 88.
+      // The internal _scoreLanguageAccuracyProfile already caps at 80 for pfe<30, so
+      // this acts as a safety net and makes the intent explicit in the profile output.
+      const la_upper_band_qualified = positive_formal_evidence_score >= 30;
+      let   la_derived_score        = laResult.derived_score;
+      let   la_ub_cap_applied       = false;
+      if (!la_upper_band_qualified && la_derived_score > 88) {
+        la_derived_score  = 88;
+        la_ub_cap_applied = true;
+      }
+
       const validity_notes = [];
       if (measurement_validity === 'LOW') {
         if (global_profile.construct_attempt_score < 25)
@@ -6927,9 +6951,13 @@ Return JSON only:
         weighted_error_score:           Math.round(weighted_error_score * 100) / 100,
         positive_formal_evidence_score,
         error_density_within_attempt:   Math.round(error_density_within_attempt * 10000) / 10000,
-        upper_band_qualified:           positive_formal_evidence_score >= 30,
+        upper_band_qualified:           la_upper_band_qualified,
+        upper_band_cap_applied:         la_ub_cap_applied,
+        cap_reason:                     la_ub_cap_applied
+                                          ? 'No advanced formal control evidence (pfe < 30) — score capped at 88'
+                                          : null,
         profile_band:                   laResult.profile_band,
-        derived_score:                  laResult.derived_score,
+        derived_score:                  la_derived_score,
         confidence:                     measurement_validity === 'HIGH' ? 'HIGH'
                                        : measurement_validity === 'MEDIUM' ? 'MEDIUM' : 'LOW',
         validity_notes
@@ -6953,8 +6981,8 @@ Return JSON only:
 
     let _llmCapped     = _llmRaw;
     let _llmCapApplied = false;
-    if (!_advanced && typeof _llmRaw === 'number' && _llmRaw > 88) {
-      _llmCapped     = 88;
+    if (!_advanced && typeof _llmRaw === 'number' && _llmRaw > 83) {
+      _llmCapped     = 83;
       _llmCapApplied = true;
     }
 
@@ -6964,8 +6992,8 @@ Return JSON only:
 
     let _orthDerived       = Math.round(_tq * 0.25 + _ced * 0.35 + _llm * 0.40);
     let _derivedCapApplied = false;
-    if (!_advanced && _orthDerived > 88) {
-      _orthDerived       = 88;
+    if (!_advanced && _orthDerived > 83) {
+      _orthDerived       = 83;
       _derivedCapApplied = true;
     }
 
@@ -6988,9 +7016,9 @@ Return JSON only:
       advanced_evidence_present: _advanced,
       cap_applied:               _llmCapApplied || _derivedCapApplied,
       cap_reason:                _derivedCapApplied
-                                   ? 'derived_score capped at 88 — no advanced orthographic evidence'
+                                   ? 'derived_score capped at 83 — no advanced orthographic evidence'
                                    : _llmCapApplied
-                                     ? 'LLM score capped at 88 — no advanced orthographic evidence'
+                                     ? 'LLM score capped at 83 — no advanced orthographic evidence'
                                      : null,
       derived_score:             _orthDerived,
       confidence:                _orthConfidence,
