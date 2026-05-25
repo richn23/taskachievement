@@ -7003,7 +7003,12 @@ Return JSON only:
       // (complex_subordination, dual_plural_agreement, advanced_verb_form) confirmed by LLM.
       const _afcAnn = activeAnns.find(a => a.type === 'accuracy:advanced_formal_control');
       const _afcMeta = _afcAnn && _afcAnn.metadata ? _afcAnn.metadata : null;
-      const advanced_formal_control_evidence_present = !!(_afcMeta && _afcMeta.all_present);
+      // ≥ 2 of 3 advanced grammar signals must be present to justify LA > 88.
+      const _afcCount = _afcMeta
+        ? [_afcMeta.complex_subordination, _afcMeta.dual_plural_agreement, _afcMeta.advanced_verb_form]
+            .filter(Boolean).length
+        : 0;
+      const advanced_formal_control_evidence_present = _afcCount >= 2;
       let   la_afc_cap_applied = false;
       if (la_derived_score > 88 && !advanced_formal_control_evidence_present) {
         la_derived_score     = 88;
