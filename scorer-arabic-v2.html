@@ -5124,7 +5124,7 @@ A pure-dialect response with strong logical progression may land 51–65 based o
 <word_count>${wc}</word_count>
 <expected_word_range>${q.min_words}-${q.max_words}</expected_word_range>
 <response>${response}</response>
-</inputs>\`;
+</inputs>`;
     return llmAnnotate('cohesion', prompt, response, runId, data => {
       return [{
         family: 'cohesion',
