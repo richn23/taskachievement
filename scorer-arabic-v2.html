@@ -7724,6 +7724,7 @@ Return JSON only:
       flags.push({ code: 'DIMENSION_SPREAD', message: 'Dimension spread of ' + spread + ' points is wide (\u2265' + spreadThresh + '). Check dimension breakdown.' });
 
     const contradictions = [];
+    const confidence_per_dimension = {};   // hoisted — written by contradiction rules below; read at end of function
     const rules = gc.contradiction_rules || {};
 
     if (rules.high_grammar_low_orthography !== false) {
@@ -7830,7 +7831,7 @@ Return JSON only:
     //   - any verifier failure landed on a family that maps to that dimension.
     // Code-driven dimensions (task_achievement, orthographic_control) inherit the global
     // baseline because their evidence comes from deterministic components, not the LLM.
-    const confidence_per_dimension = {};
+    // (confidence_per_dimension declared above, before contradiction rules)
     const codeDrivenDims = new Set(['task_achievement', 'orthographic_control']);
     const dimToFamilies = {
       task_achievement:       ['word_count', 'claim', 'intelligibility'],
