@@ -1927,18 +1927,41 @@
       </details>
 
       <details class="sub-weights-detail">
-        <summary>Style &amp; Register sub-metrics</summary>
+        <summary>Style &amp; Register — Profile-based scoring (Tier 4E)</summary>
         <div class="sub-weights-body">
-          <div class="cal-weight-row">
-            <span class="cal-weight-label">MSA Consistency</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="sr" id="sw_sr_msa"    min="0" max="100" step="0.1" value="60" /><span class="cal-weight-unit">%</span>
+          <div class="hint" style="margin-bottom:10px;">
+            <strong>Sub-metric weights retired.</strong> Style &amp; Register is now scored from a
+            5-signal register profile computed by the Interpretation Engine.
+            No configurable weights are needed — the score is derived directly from annotation evidence.
           </div>
-          <div class="cal-weight-row">
-            <span class="cal-weight-label">Dialect Detection</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="sr" id="sw_sr_dialect" min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+          <div style="font-size:.82rem; color:var(--muted); margin-bottom:6px; font-weight:600;">Signals used</div>
+          <div style="font-size:.8rem; display:grid; grid-template-columns:160px 1fr; gap:3px 8px; margin-bottom:12px;">
+            <span style="color:var(--text-dim);">dialect_density</span><span>dialect markers ÷ word count</span>
+            <span style="color:var(--text-dim);">msa_evidence_density</span><span>MSA markers ÷ word count</span>
+            <span style="color:var(--text-dim);">register_lapse_count</span><span>verified informal phrasing lapses</span>
+            <span style="color:var(--text-dim);">register_consistency</span><span>sustained_msa / msa_with_lapses / mixed_register / dialect_consistent / informal_chat</span>
+            <span style="color:var(--text-dim);">task_appropriateness</span><span>strong / moderate / weak (vs formal_msa target)</span>
           </div>
-          <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_sr">100.0%</span></div>
-          <div id="sub_err_sr" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
+          <div style="font-size:.82rem; color:var(--muted); margin-bottom:6px; font-weight:600;">Band table</div>
+          <table style="font-size:.78rem; width:100%; border-collapse:collapse; margin-bottom:10px;">
+            <thead><tr style="color:var(--muted);">
+              <th style="text-align:left; padding:2px 6px 4px;">Band</th>
+              <th style="text-align:left; padding:2px 6px 4px;">dialect_density</th>
+              <th style="text-align:right; padding:2px 6px 4px;">Score range</th>
+            </tr></thead>
+            <tbody>
+              <tr><td style="padding:2px 6px;">sustained_formal_msa</td><td style="padding:2px 6px; color:var(--success);">&lt; 0.02</td><td style="text-align:right; padding:2px 6px;">80–100</td></tr>
+              <tr><td style="padding:2px 6px;">mostly_msa_with_lapses</td><td style="padding:2px 6px; color:#78716c;">&lt; 0.05</td><td style="text-align:right; padding:2px 6px;">65–79</td></tr>
+              <tr><td style="padding:2px 6px;">mixed_register</td><td style="padding:2px 6px; color:#92400e;">&lt; 0.10</td><td style="text-align:right; padding:2px 6px;">40–64</td></tr>
+              <tr><td style="padding:2px 6px;">dialect_dominant_coherent</td><td style="padding:2px 6px; color:var(--danger);">&lt; 0.20</td><td style="text-align:right; padding:2px 6px;">20–39</td></tr>
+              <tr><td style="padding:2px 6px;">pure_dialect_chat</td><td style="padding:2px 6px; color:var(--danger);">≥ 0.20</td><td style="text-align:right; padding:2px 6px;">0–19</td></tr>
+            </tbody>
+          </table>
+          <div class="hint">
+            Live profile values (band, derived_score, <code>consistency_borderline</code>) appear in Tab 10 / Tab 11
+            after running the pipeline. The <strong>consistency_borderline</strong> flag fires when
+            dialect_density is within ±0.005 of any threshold — Tab 11 surfaces it as a caveat.
+          </div>
         </div>
       </details>
 
@@ -4825,8 +4848,8 @@ Return JSON only:
           ie:  gv('sw_ta_ie')
         },
         style_register: {
-          msa_consistency:   gv('sw_sr_msa'),
-          dialect_detection: gv('sw_sr_dialect')
+          // Tier 4E: sub-metric weights retired — hardcoded for legacy fallback only.
+          msa_consistency: 60, dialect_detection: 40
         },
         organisation_coherence: {
           cohesive_devices: gv('sw_oc_cohesive'),
@@ -4862,7 +4885,7 @@ Return JSON only:
     }
 
     // Validate sub-metric groups
-    for (const group of ['ta', 'sr', 'oc', 'ortho']) {
+    for (const group of ['ta', 'oc', 'ortho']) {  // 'sr' retired Tier 4E
       const total = _subGroupInputs(group).reduce((s, el) => s + (parseFloat(el.value) || 0), 0);
       if (Math.abs(total - 100) > 0.11) {
         errEl.textContent = `Sub-metric weights for "${group}" sum to ${total.toFixed(2)}% — must be 100%.`;
@@ -5200,6 +5223,65 @@ Return JSON only:
 
   // ── main function ─────────────────────────────────────────────────────────
 
+  // ── Style & Register helper functions (Tier 4E) ─────────────────────────────────
+  // SR_BANDS: density_max is the UPPER bound of each band (inclusive).
+  const SR_BANDS = [
+    { name: 'sustained_formal_msa',      density_max: 0.02, score_range: [80, 100] },
+    { name: 'mostly_msa_with_lapses',    density_max: 0.05, score_range: [65, 79]  },
+    { name: 'mixed_register',            density_max: 0.10, score_range: [40, 64]  },
+    { name: 'dialect_dominant_coherent', density_max: 0.20, score_range: [20, 39]  },
+    { name: 'pure_dialect_chat',         density_max: 1.00, score_range: [0,  19]  }
+  ];
+
+  // Profile-based S&R score (D2). Smooth within-band position + bonus/penalty adjustments.
+  function scoreStyleRegisterProfile(dialect_density, msa_evidence_density, lapse_count, consistency) {
+    const band  = SR_BANDS.find(b => dialect_density <= b.density_max) || SR_BANDS[SR_BANDS.length - 1];
+    const [low, high] = band.score_range;
+    const bIdx  = SR_BANDS.indexOf(band);
+    const prev  = bIdx > 0 ? SR_BANDS[bIdx - 1].density_max : 0;
+    const width = band.density_max - prev;
+    // Higher dialect_density → lower position in band
+    const pos   = width > 0 ? Math.max(0, Math.min(1, 1 - ((dialect_density - prev) / width))) : 0.5;
+    let base    = low + (high - low) * pos;
+    // MSA evidence bonus (max +5)
+    if (msa_evidence_density >= 0.02) base += Math.min(5, msa_evidence_density * 100);
+    // Register lapse penalty (max −5)
+    base -= Math.min(5, lapse_count * 2);
+    // Consistency adjustment
+    if (consistency === 'dialect_consistent') base -= 2;
+    if (consistency === 'msa_with_lapses')    base += 2;
+    // Allow ±3 overflow
+    const derived_score = Math.max(Math.max(0, low - 3), Math.min(Math.min(100, high + 3), Math.round(base)));
+    return { band_name: band.name, derived_score };
+  }
+
+  // Boundary tolerance (D3): flag when dialect_density is within ±0.005 of any threshold.
+  const BORDERLINE_EPSILON = 0.005;
+  const SR_CONSISTENCY_THRESHOLDS = [0.02, 0.05, 0.10, 0.20];
+
+  // register_consistency label derivation (D3). Returns { consistency, borderline }.
+  function deriveRegisterConsistency(dialect_density, msa_evidence_density, lapse_count) {
+    let consistency;
+    if      (dialect_density >= 0.20 && msa_evidence_density === 0) consistency = 'informal_chat';
+    else if (dialect_density >= 0.10)                                consistency = 'dialect_consistent';
+    else if (dialect_density >= 0.05)                                consistency = 'mixed_register';
+    else if (dialect_density < 0.02 && msa_evidence_density > 0.02) consistency = 'sustained_msa';
+    else                                                             consistency = 'msa_with_lapses';
+    const borderline = SR_CONSISTENCY_THRESHOLDS.some(t =>
+      Math.abs(dialect_density - t) <= BORDERLINE_EPSILON
+    );
+    return { consistency, borderline };
+  }
+
+  // task_appropriateness: how well dominant register matches target (D3).
+  function deriveTaskAppropriateness(target_register, dominant_register) {
+    if (target_register !== 'formal_msa') return 'unknown';   // v0.4: dialect-permitted tasks
+    if (dominant_register === 'msa_dominant')     return 'strong';
+    if (dominant_register === 'mixed')            return 'moderate';
+    if (dominant_register === 'dialect_dominant') return 'weak';
+    return 'unknown';
+  }
+
   function computeInterpretationObject(verifiedAnnotations, taskObject, response) {
     const activeAnns   = (verifiedAnnotations || []).filter(a => a.verified !== false);
     const responseText = response || (taskObject && taskObject.response) || '';
@@ -5411,6 +5493,46 @@ Return JSON only:
         d.confidence           = 'MEDIUM';
       }
     }
+
+    // ── 2b. Style & Register profile (Tier 4E) ──────────────────────────────────────
+    // Compute all 5 signals + derived_score inside the interpretation engine.
+    // Annotation types use the prefixed form (register:dialect_marker, etc.) per Tier 4A convention.
+    const srDialectAnns = activeAnns.filter(a => a.family === 'register' && a.type === 'register:dialect_marker');
+    const srMsaAnns     = activeAnns.filter(a => a.family === 'register' && a.type === 'register:msa_marker');
+    const srLapseAnns   = activeAnns.filter(a => a.family === 'register' && a.type === 'register:register_lapse');
+    const { consistency: sr_consistency, borderline: sr_borderline } = deriveRegisterConsistency(
+      global_profile.dialect_density,
+      global_profile.msa_evidence_density,
+      srLapseAnns.length
+    );
+    const sr_task_appropriateness = deriveTaskAppropriateness(
+      'formal_msa',
+      global_profile.dominant_register
+    );
+    const sr_scored = scoreStyleRegisterProfile(
+      global_profile.dialect_density,
+      global_profile.msa_evidence_density,
+      srLapseAnns.length,
+      sr_consistency
+    );
+    Object.assign(dp.style_register, {
+      target_register:        'formal_msa',
+      dominant_register:      global_profile.dominant_register,
+      dialect_density:        global_profile.dialect_density,
+      msa_evidence_density:   global_profile.msa_evidence_density,
+      register_lapse_count:   srLapseAnns.length,
+      register_consistency:   sr_consistency,
+      consistency_borderline: sr_borderline,
+      task_appropriateness:   sr_task_appropriateness,
+      profile_band:           sr_scored.band_name,
+      derived_score:          sr_scored.derived_score,
+      confidence:             'HIGH',
+      evidence_summary: {
+        dialect_markers:   srDialectAnns.length,
+        msa_markers:       srMsaAnns.length,
+        register_lapses:   srLapseAnns.length
+      }
+    });
 
     // ── 3. cap_directives ─────────────────────────────────────────────────
     const cap_directives = [];
@@ -5647,35 +5769,36 @@ Return JSON only:
     }
 
     // ── Style & Register ─────────────────────────────────────
-    // Tier 4A: annotation pipeline emits prefixed types — match register:dialect_marker, not bare 'dialect_marker'.
-    const dialectAnns = annotations.filter(a => a.family === 'register' && a.type === 'register:dialect_marker');
-    const msaAnns     = annotations.filter(a => a.family === 'register' && a.type === 'register:msa_marker');
-    const lapseAnns   = annotations.filter(a => a.family === 'register' && a.type === 'register:register_lapse');
-    const totalReg    = dialectAnns.length + msaAnns.length;
-    const dialectPct  = totalReg > 0 ? (dialectAnns.length / totalReg) * 100 : 0;
+    // Tier 4E: interpretation-driven — reads derived_score from InterpretationObject (D4).
+    // Annotation types use the prefixed form family:subtype per Tier 4A convention.
+    const srProfile = interpretObj
+      && interpretObj.dimension_profiles
+      && interpretObj.dimension_profiles.style_register;
 
-    const treatment = (calibConfig.dialect && calibConfig.dialect.treatment) || 'formal_msa_penalise';
-    const modThresh = (calibConfig.dialect && calibConfig.dialect.moderate_threshold) || 15;
-
-    let msa_sub;
-    if (treatment === 'dialect_allowed_no_penalty') {
-      msa_sub = 100;
-    } else if (treatment === 'mixed_register_allow') {
-      msa_sub = dialectPct > modThresh ? Math.max(0, Math.round(100 - (dialectPct - modThresh) * 2)) : 100;
+    let sr_dim, msa_sub, dialect_sub;
+    if (srProfile && typeof srProfile.derived_score === 'number') {
+      // New path: profile-based derived_score from interpretation engine.
+      sr_dim      = srProfile.derived_score;
+      // Descriptive sub_scores kept for backwards-compat display only (Tab 10/11).
+      msa_sub     = Math.round((1 - (srProfile.dialect_density || 0)) * 100);
+      dialect_sub = Math.round((srProfile.dialect_density || 0) * 100);
     } else {
-      msa_sub = Math.max(0, Math.round(100 - dialectPct * 2));
+      // Legacy fallback — count-based math (pre-Tier-4E, used when interpretObj unavailable).
+      const dialectAnns_sr = annotations.filter(a => a.family === 'register' && a.type === 'register:dialect_marker');
+      const msaAnns_sr     = annotations.filter(a => a.family === 'register' && a.type === 'register:msa_marker');
+      const lapseAnns_sr   = annotations.filter(a => a.family === 'register' && a.type === 'register:register_lapse');
+      const totalReg_sr    = dialectAnns_sr.length + msaAnns_sr.length;
+      const dialectPct_sr  = totalReg_sr > 0 ? (dialectAnns_sr.length / totalReg_sr) * 100 : 0;
+      const treatment      = (calibConfig.dialect && calibConfig.dialect.treatment) || 'formal_msa_penalise';
+      const modThresh      = (calibConfig.dialect && calibConfig.dialect.moderate_threshold) || 15;
+      if      (treatment === 'dialect_allowed_no_penalty') { msa_sub = 100; }
+      else if (treatment === 'mixed_register_allow')  { msa_sub = dialectPct_sr > modThresh ? Math.max(0, Math.round(100 - (dialectPct_sr - modThresh) * 2)) : 100; }
+      else                                            { msa_sub = Math.max(0, Math.round(100 - dialectPct_sr * 2)); }
+      dialect_sub = Math.max(0, 100 - lapseAnns_sr.length * 10);
+      if (dialectPct_sr > modThresh && treatment !== 'dialect_allowed_no_penalty') { dialect_sub = Math.max(0, dialect_sub - 20); }
+      const srW = sw.style_register || { msa_consistency: 60, dialect_detection: 40 };
+      sr_dim = Math.min(100, Math.round(msa_sub * (srW.msa_consistency / 100) + dialect_sub * (srW.dialect_detection / 100)));
     }
-
-    let dialect_sub = Math.max(0, 100 - lapseAnns.length * 10);
-    if (dialectPct > modThresh && treatment !== 'dialect_allowed_no_penalty') {
-      dialect_sub = Math.max(0, dialect_sub - 20);
-    }
-
-    const srW    = sw.style_register || { msa_consistency: 60, dialect_detection: 40 };
-    const sr_dim = Math.min(100, Math.round(
-      msa_sub     * (srW.msa_consistency   / 100) +
-      dialect_sub * (srW.dialect_detection / 100)
-    ));
 
     // ── Language Range ───────────────────────────────────────
     // Tier 4A: exclude the lexical_density annotation from the strength-sum by matching the
@@ -6758,13 +6881,23 @@ Return JSON only:
       const fams = Object.entries(familyToDim).filter(([,d]) => d === dim).map(([f]) => f);
       const notes = [];
       fams.forEach(f => { if (familyNotes[f]) notes.push.apply(notes, familyNotes[f]); });
-      const notesHtml = notes.length > 0
+      let notesHtml = notes.length > 0
         ? notes.map(n => {
             const cls = /thin|low|leakage|heavy|errors repeated/.test(n) ? 'warning' :
                         /clean|stable|developed|consistent|strong|varied/.test(n) ? 'positive' : '';
             return '<span class="tr-note-pill ' + cls + '">' + _esc(n) + '</span>';
           }).join('')
         : '<span style="color:var(--muted); font-size:.8rem;">—</span>';
+      // S&R borderline caveat (Tier 4E AC18): surface when consistency label is near a threshold.
+      if (dim === 'style_register') {
+        const srDp = run.interpretation_object
+          && run.interpretation_object.dimension_profiles
+          && run.interpretation_object.dimension_profiles.style_register;
+        if (srDp && srDp.consistency_borderline) {
+          if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
+          notesHtml += '<span class="tr-note-pill warning">near register boundary — small density change may shift label</span>';
+        }
+      }
       dimRowsHtml +=
         '<tr>' +
           '<td class="tr-dim-name">' + (DIM_LABELS_T9[dim] || dim) + '</td>' +
