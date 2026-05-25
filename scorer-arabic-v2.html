@@ -7475,6 +7475,57 @@ Return JSON only:
     // Format breakdown signal (D3): teacher sees yellow flag even if score doesn't dip much.
     const format_breakdown = typeChecks.length > 0 && typeChecks.every(c => !c.pass);
 
+    // TA diagnostic: always build claim_check_details for sub_scores; emit interpretation_log when ta=0.
+    // claim_check_details exposes the passed Set, per-check pass/fail, and per-annotation metadata keys
+    // so that score-object inspection reveals exactly WHY ta came out zero (e.g. requirement_id=undefined).
+    const claim_check_details = {
+      claim_annotations_found: claimAnns.length,
+      passed_set:              Array.from(passed),
+      core_checks:             coreChecks.map((c, i) => ({
+        index: i, source: 'task_requirement', expected_key: 'task_requirement:' + i,
+        pass: c.pass, weight: c.weight
+      })),
+      addl_check:  { index: _numCore,  source: 'additional_development',
+                     expected_key: 'additional_development:' + _numCore,
+                     pass: addlCheck[0].pass, weight: addlCheck[0].weight },
+      type_checks: typeChecks.map((c, i) => ({
+        index: _numCore + 1 + i, source: 'task_type_requirement',
+        expected_key: 'task_type_requirement:' + (_numCore + 1 + i),
+        pass: c.pass, weight: c.weight
+      })),
+      annotation_metadata_sample: claimAnns.slice(0, 6).map(a => ({
+        id: a.id, verified: a.verified,
+        requirement_id:     a.metadata && a.metadata.requirement_id,
+        requirement_source: a.metadata && a.metadata.requirement_source,
+        key_emitted: (a.metadata
+          ? (a.metadata.requirement_source || 'task_requirement') + ':' + a.metadata.requirement_id
+          : '(no metadata)')
+      })),
+      weighted_passes: weightedPasses,
+      weighted_total:  weightedTotal
+    };
+    if (ta_score === 0 && interpretObj && Array.isArray(interpretObj.interpretation_log)) {
+      const passedArr  = Array.from(passed);
+      const coreKeys   = (taskObj.task_requirements || []).map((_, i) => 'task_requirement:' + i);
+      let   diagReason;
+      if (claimAnns.length === 0) {
+        diagReason = 'No claim:requirement annotations in allAnnotations — annotateClaim may have failed, returned [], or all claim annotations have wrong type/family.';
+      } else if (passedArr.every(k => k.endsWith(':undefined') || k.endsWith(':null'))) {
+        diagReason = 'All ' + claimAnns.length + ' claim annotation(s) have requirement_id=undefined or null — LLM JSON may use a different field name (check annotation_metadata_sample in claim_check_details).';
+      } else {
+        const anyMatch = passedArr.some(k => coreKeys.includes(k) || k.startsWith('additional_development:') || k.startsWith('task_type_requirement:'));
+        diagReason = anyMatch
+          ? 'Some keys in passed Set match expected format but no allChecks entry evaluated to pass=true — possible source string mismatch.'
+          : 'Passed Set keys [' + passedArr.slice(0, 4).join(', ') + '] do not match expected check keys [' + coreKeys.slice(0, 4).join(', ') + '].';
+      }
+      interpretObj.interpretation_log.push({
+        stage: 'computeScoreObject', dimension: 'task_achievement',
+        event: 'ta_score_zero',
+        reason: diagReason,
+        claim_check_details
+      });
+    }
+
     // Intel & Effect — no silent-50 fallback (D4a). If IE annotation absent/null, renormalise
     // WCC + pass-rate to 100% and flag confidence LOW so teacher sees partial measurement.
     const ieAnn   = annotations.find(a => a.family === 'intelligibility' && a.type === 'intelligibility:effect_score');
@@ -7696,7 +7747,7 @@ Return JSON only:
       word_count: wordCount,
       dimensions: dimScores,
       sub_scores: {
-        task_achievement:       { wcc: wcc_score, ta: ta_score, ie: ie_score },
+        task_achievement:       { wcc: wcc_score, ta: ta_score, ie: ie_score, claim_check_details },
         style_register:         { msa_consistency: msa_sub, dialect_detection: dialect_sub },
         organisation_coherence: { count_score, subtype_score },
         orthographic_control:   { tq: tq_score, ced: ced_score, llm: llm_ortho }
@@ -7960,7 +8011,7 @@ Return JSON only:
       const reqs = Array.isArray(to.requirements) ? to.requirements.length : 0;
       detail.innerHTML =
         '<strong>' + (to.title || to.task_id || 'Untitled task') + '</strong>' +
-        '<div style="margin-top:4px; direction:rtl;">' + ((to.question_text || '').slice(0, 200)) + '</div>' +
+        '<div style="margin-top:4px; direction:rtl;">' + ((to.task_prompt || to.question_text || '').slice(0, 200)) + '</div>' +
         '<div style="margin-top:6px; color:var(--muted);">Word count target: ' +
           (to.word_count_min || to.min_words || '?') + '\u2013' + (to.word_count_max || to.max_words || '?') +
           ' words \u00a0|\u00a0 Requirements: ' + reqs + '</div>';
@@ -8164,42 +8215,96 @@ Return JSON only:
     }
     dimCardsHtml += '</div>';
 
-    // Sub-scores table
-    const ss = so.sub_scores || {};
+    // Sub-scores table \u2014 always renders all rows, including CQ per-requirement (dynamic),
+    // LR sub-metrics, and LA sub-metrics read from the interpretation_object dimension_profiles.
+    // Display rules: numeric \u2192 value; null/undefined \u2192 '\u2014'; 'unmeasurable' string \u2192 'n/a';
+    // cap_applied containing 'floor' \u2192 append '\u230a' to value.
+    const ss   = so.sub_scores || {};
+    const _io  = run.interpretation_object || {};
+    const _dp  = _io.dimension_profiles   || {};
+    const dpLR = _dp.language_range        || {};
+    const dpLA = _dp.language_accuracy     || {};
+    const dpCQ = _dp.content_quality       || {};
+    const cqPerReq = Array.isArray(dpCQ.per_requirement) ? dpCQ.per_requirement : [];
+
+    // Format a single sub-score cell value.
+    const _fmtSub = (val, capApplied) => {
+      if (val === null || val === undefined) return '\u2014';
+      if (typeof val === 'string' && val === 'unmeasurable') return 'n/a';
+      const floorFlag = capApplied && /floor/i.test(String(capApplied));
+      return String(val) + (floorFlag ? ' \u230a' : '');
+    };
+
     let subHtml = '<table class="sub-score-table"><thead><tr><th>Dimension</th><th>Sub-metric</th><th>Score</th></tr></thead><tbody>';
-    const subRows = [
-      ['Task Achievement', [
-        ['Word count check', ss.task_achievement && ss.task_achievement.wcc],
-        ['Claim coverage',   ss.task_achievement && ss.task_achievement.ta],
-        ['Intelligibility',  ss.task_achievement && ss.task_achievement.ie]
-      ]],
-      ['Style & Register', [
-        ['MSA consistency',   ss.style_register && ss.style_register.msa_consistency],
-        ['Dialect detection', ss.style_register && ss.style_register.dialect_detection]
-      ]],
-      ['Organisation & Coherence', [
-        ['Cohesive device count', ss.organisation_coherence && ss.organisation_coherence.count_score],
-        ['Subtype diversity',     ss.organisation_coherence && ss.organisation_coherence.subtype_score]
-      ]],
-      ['Orthographic Control', [
-        ['Technical quality',      ss.orthographic_control && ss.orthographic_control.tq],
-        ['Common error detection', ss.orthographic_control && ss.orthographic_control.ced],
-        ['LLM error detection',    ss.orthographic_control && ss.orthographic_control.llm]
-      ]]
-    ];
-    for (const [dim, rows] of subRows) {
-      rows.forEach(([label, score], i) => {
+
+    // Emit a group of rows with rowspan on the dimension label cell.
+    // Each entry in rows is [label, value, optionalCapApplied].
+    const _emitGroup = (dimLabel, rows) => {
+      rows.forEach(([label, val, cap], i) => {
         subHtml += '<tr>' +
-          (i === 0 ? '<td rowspan="' + rows.length + '" style="font-weight:600; vertical-align:top;">' + dim + '</td>' : '') +
+          (i === 0
+            ? '<td rowspan="' + rows.length + '" style="font-weight:600; vertical-align:top;">' + dimLabel + '</td>'
+            : '') +
           '<td>' + label + '</td>' +
-          '<td>' + (score != null ? score : '\u2014') + '</td>' +
+          '<td>' + _fmtSub(val, cap) + '</td>' +
         '</tr>';
       });
+    };
+
+    // Task Achievement \u2014 3 fixed rows
+    _emitGroup('Task Achievement', [
+      ['Word count check', ss.task_achievement && ss.task_achievement.wcc],
+      ['Claim coverage',   ss.task_achievement && ss.task_achievement.ta],
+      ['Intelligibility',  ss.task_achievement && ss.task_achievement.ie]
+    ]);
+
+    // Content Quality \u2014 dynamic per-requirement rows from interpretation_object
+    if (cqPerReq.length > 0) {
+      _emitGroup('Content Quality', cqPerReq.map((req, i) => {
+        const label = 'Req\u00a0' + (req.requirement_id != null ? req.requirement_id : i);
+        return [label, req.score, req.cap_applied];
+      }));
+    } else {
+      _emitGroup('Content Quality', [['Requirements', null]]);
     }
+
+    // Style & Register \u2014 2 fixed rows
+    _emitGroup('Style\u00a0&\u00a0Register', [
+      ['MSA consistency',   ss.style_register && ss.style_register.msa_consistency],
+      ['Dialect detection', ss.style_register && ss.style_register.dialect_detection]
+    ]);
+
+    // Language Range \u2014 3 sub-metric rows from interpretation_object dimension_profile
+    _emitGroup('Language\u00a0Range', [
+      ['Vocabulary diversity',  dpLR.vocabulary_diversity_score,  dpLR.vocabulary_diversity_cap],
+      ['Morphological variety', dpLR.morphological_variety_score, dpLR.morphological_variety_cap],
+      ['Sentence complexity',   dpLR.sentence_complexity_score,   dpLR.sentence_complexity_cap]
+    ]);
+
+    // Organisation & Coherence \u2014 2 fixed rows
+    _emitGroup('Organisation\u00a0&\u00a0Coherence', [
+      ['Cohesive device count', ss.organisation_coherence && ss.organisation_coherence.count_score],
+      ['Subtype diversity',     ss.organisation_coherence && ss.organisation_coherence.subtype_score]
+    ]);
+
+    // Language Accuracy \u2014 3 sub-metric rows from interpretation_object dimension_profile
+    _emitGroup('Language\u00a0Accuracy', [
+      ['Weighted error score',     dpLA.weighted_error_score],
+      ['Attempt tokens',           dpLA.attempt_tokens],
+      ['Positive formal evidence', dpLA.positive_formal_evidence_score]
+    ]);
+
+    // Orthographic Control \u2014 3 fixed rows
+    _emitGroup('Orthographic\u00a0Control', [
+      ['Technical quality',      ss.orthographic_control && ss.orthographic_control.tq],
+      ['Common error detection', ss.orthographic_control && ss.orthographic_control.ced],
+      ['LLM error detection',    ss.orthographic_control && ss.orthographic_control.llm]
+    ]);
+
     subHtml += '</tbody></table>';
 
     // Question + annotated response
-    const qText     = run.task_object && run.task_object.question_text;
+    const qText     = run.task_object && (run.task_object.task_prompt || run.task_object.question_text);
     const questionHtml = qText
       ? '<div style="direction:rtl; font-size:.95rem; line-height:1.9; padding:14px; background:var(--primary-soft-2); border-radius:8px;">' + qText + '</div>'
       : '<p style="color:var(--muted); font-size:.9rem;">Question text not stored.</p>';
