@@ -2210,6 +2210,16 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">Evidence reuse — CQ</div>
+          <div class="gr-toggle-desc">Same evidence span reused across multiple requirements — WARNING at 2 requirements, MODERATE + confidence drop at 3+ requirements (only when CQ ≥ 70)</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_cq_evidence_reuse" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
 
     <!-- Card 4: Actions -->
@@ -4537,20 +4547,41 @@ ${markers}
 RESPONSE:
 ${response}
 
+EVIDENCE RULE:
+- evidence_spans is an array of verbatim sentences from the response.
+- A score of 1 requires ≥1 span naming the topic.
+- A score of 2 requires ≥1 span demonstrating development (topic + reason, detail, or example).
+- A score of 3 requires ≥2 spans OR one substantial span demonstrating extended development.
+- If you cannot quote verbatim spans, the score MUST be 0.
+- Fragments under 7 words cannot support a score ≥2.
+- Fragments under 12 words with total under 15 cannot support a score of 3.
+- Empty evidence_spans with score ≥1 will be force-corrected to 0 downstream.
+
 For each requirement return:
 - requirement_id: integer (0-indexed)
 - score: 0, 1, 2, or 3
-- evidence_text: the EXACT sentence(s) from the response that justify the score (verbatim). Empty string if score is 0.
+- evidence_spans: array of verbatim sentences from the response (empty array if score = 0)
 - justification: 1 sentence explaining the score
 
 Return JSON only:
-{ "cq_scores": [ { "requirement_id": 0, "score": 2, "evidence_text": "...", "justification": "..." }, ... ] }`;
+{ "cq_scores": [ { "requirement_id": 0, "score": 2, "evidence_spans": ["...", "..."], "justification": "..." }, ... ] }`;
     return llmAnnotate('cq', prompt, response, runId, data => {
-      return (data.cq_scores || []).map(c => ({
-        type: `cq:requirement_${c.requirement_id}`,
-        text: c.evidence_text || '',
-        metadata: { requirement_id: c.requirement_id, score: c.score, justification: c.justification }
-      }));
+      return (data.cq_scores || []).map(c => {
+        // Backwards-compat: accept evidence_spans[] or legacy evidence_text string
+        const spans = Array.isArray(c.evidence_spans) ? c.evidence_spans
+                    : (c.evidence_text ? [c.evidence_text] : []);
+        return {
+          type: `cq:requirement_${c.requirement_id}`,
+          text: spans[0] || '',
+          metadata: {
+            requirement_id: c.requirement_id,
+            score:          c.score,
+            evidence_spans: spans,
+            grounded_in:    spans,    // V2 convention alias
+            justification:  c.justification
+          }
+        };
+      });
     });
   }
 
@@ -5334,6 +5365,21 @@ Return JSON only:
   }
 
   // ================================================================
+  // ARABIC NORMALISATION — for tolerant span matching (Tier 4J D4)
+  // ================================================================
+  const ARABIC_NORMALISATION_MAP = [
+    [/[إأآا]/g, 'ا'],   // collapse hamza-bearing alifs to bare alif
+    [/ى/g,                     'ي'],   // collapse alif maqsura to ya
+    [/ة/g,                     'ه'],   // collapse taa marbuta to ha
+    [/ؤ/g,                     'و'],   // collapse hamza-on-waw to waw
+    [/ئ/g,                     'ي']    // collapse hamza-on-ya to ya
+  ];
+
+  function _normaliseArabic(s) {
+    return ARABIC_NORMALISATION_MAP.reduce((acc, [re, sub]) => acc.replace(re, sub), s);
+  }
+
+  // ================================================================
   // VERIFIER — five checks. Sets verified=true|false on each annotation.
   // ================================================================
   function verifyAnnotations(annotations, response) {
@@ -5368,7 +5414,7 @@ Return JSON only:
       //     Skips families where text isn't a literal span (word_count, range:lexical_density, etc.)
       const literalSpanFamilies = ['claim', 'intelligibility', 'cq', 'register', 'cohesion', 'accuracy', 'orthography'];
       if (literalSpanFamilies.includes(a.family) && a.text) {
-        // CQ with score 0 may have empty evidence_text — accept that.
+        // CQ with score 0 may have empty evidence_spans — accept that.
         if (a.family === 'cq' && (a.metadata?.score === 0 || a.metadata?.score === '0')) {
           // skip span check for score-0 CQ
         } else if (response.indexOf(a.text) < 0) {
@@ -5466,6 +5512,35 @@ Return JSON only:
       else if (f.some(x => x.startsWith('overlap:')))       a.rejection_status = 'excluded_duplicate';
       else                                                   a.rejection_status = 'rejected_other';
     });
+
+    // Pass 4 — CQ evidence verification (Tier 4J D4).
+    // For each CQ annotation, verify every evidence_span appears in response.
+    // Two-tier: strict match first; normalisation-tolerant fallback if strict fails.
+    // Tolerant matches count as verified for density purposes but are flagged in audit.
+    {
+      const normResponse = _normaliseArabic(response);
+      annotations.filter(a => a.family === 'cq').forEach(ann => {
+        const spans                    = ann.metadata?.evidence_spans || [];
+        const unverified               = [];
+        const verifiedWithNormalisation = [];
+        for (const span of spans) {
+          if (response.includes(span)) continue;               // strict pass
+          if (normResponse.includes(_normaliseArabic(span))) { // tolerant pass
+            verifiedWithNormalisation.push(span);
+            continue;
+          }
+          unverified.push(span);                               // fail
+        }
+        if (unverified.length > 0)
+          ann.metadata._evidence_unverified = unverified;
+        if (verifiedWithNormalisation.length > 0)
+          ann.metadata._evidence_verified_with_normalisation = verifiedWithNormalisation;
+        ann.verification_status =
+            unverified.length > 0                ? 'partial'
+          : verifiedWithNormalisation.length > 0  ? 'verified_with_normalisation'
+          : 'verified';
+      });
+    }
 
     return annotations;
   }
@@ -6061,7 +6136,8 @@ Return JSON only:
       dialect_dominant_high_accuracy: true,
       high_coherence_no_connectives: true,
       orth_det_llm_split: true,
-      coh_dev_flow_split: true
+      coh_dev_flow_split:  true,
+      cq_evidence_reuse:   true
     }
   };
 
@@ -6083,7 +6159,8 @@ Return JSON only:
         dialect_dominant_high_accuracy: document.getElementById('gr_rule_dialect_accuracy').checked,
         high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked,
         orth_det_llm_split:             document.getElementById('gr_rule_orth_det_llm_split').checked,
-        coh_dev_flow_split:              document.getElementById('gr_rule_coh_dev_flow_split').checked
+        coh_dev_flow_split:              document.getElementById('gr_rule_coh_dev_flow_split').checked,
+        cq_evidence_reuse:               document.getElementById('gr_rule_cq_evidence_reuse').checked
       }
     };
   }
@@ -6105,6 +6182,7 @@ Return JSON only:
     setChk('gr_rule_coherence_connectives',  r.high_coherence_no_connectives);
     setChk('gr_rule_orth_det_llm_split',     r.orth_det_llm_split);
     setChk('gr_rule_coh_dev_flow_split',      r.coh_dev_flow_split);
+    setChk('gr_rule_cq_evidence_reuse',       r.cq_evidence_reuse);
   }
 
   document.getElementById('btn_gr_save').addEventListener('click', () => {
@@ -7054,6 +7132,129 @@ Return JSON only:
       }
     });
 
+    // ── 2g. Content Quality profile (Tier 4J) ────────────────────────────────
+    // D2: no-evidence enforcement — score ≥1 with no evidence_spans → force to 0.
+    // D3: density caps — verified spans only (strict + tolerant-normalised, not unverified).
+    // Idempotence guard: _original_score ??= prevents double-mutation on re-run.
+    const SCORE_2_DENSITY_WORD_THRESHOLD = 7; // calibrated for Arabic; revisit post-batch (see D3 spec)
+    const cqAnns_ie = activeAnns.filter(a => a.family === 'cq');
+
+    // D2: no-evidence enforcement
+    for (const ann of cqAnns_ie) {
+      const score = ann.metadata?.score;
+      const spans = ann.metadata?.evidence_spans || [];
+      if (typeof score === 'number' && score > 0 && spans.length === 0) {
+        ann.metadata._original_score         = ann.metadata._original_score ?? score;
+        ann.metadata.score                   = 0;
+        ann.metadata._forced_zero_no_evidence = true;
+        ann.metadata._zero_note              = 'Forced to 0: score ≥1 with no evidence_spans';
+      }
+    }
+
+    // D3: density caps on verified spans only
+    for (const ann of cqAnns_ie) {
+      const score = ann.metadata?.score;
+      if (typeof score !== 'number' || score <= 0) continue;
+      const allSpans      = ann.metadata?.evidence_spans || [];
+      const unverified    = ann.metadata?._evidence_unverified || [];
+      const verifiedSpans = allSpans.filter(s => !unverified.includes(s));
+      const wc = s => s.trim().split(/\s+/).filter(Boolean).length;
+      const longest = verifiedSpans.reduce((m, s) => Math.max(m, wc(s)), 0);
+      const total   = verifiedSpans.reduce((sum, s) => sum + wc(s), 0);
+      let cap = null;
+      if (score === 3 && longest < 12 && total < 15) cap = 2;
+      if (score === 2 && longest < SCORE_2_DENSITY_WORD_THRESHOLD) cap = 1;
+      if (cap !== null && cap < score) {
+        ann.metadata._original_score    = ann.metadata._original_score ?? score;
+        ann.metadata.score              = cap;
+        ann.metadata._capped_by_density  = true;
+        ann.metadata._density_note      = `Capped ${score} → ${cap}: verified evidence too thin (longest ${longest}w, total ${total}w)`;
+      }
+    }
+
+    // Build per-requirement summary
+    const cqPerReq = cqAnns_ie.map(ann => ({
+      requirement_id:      ann.metadata.requirement_id,
+      score:               ann.metadata.score,
+      original_score:      ann.metadata._original_score ?? ann.metadata.score,
+      evidence_spans:      ann.metadata.evidence_spans || [],
+      justification:       ann.metadata.justification,
+      cap_applied:         ann.metadata._forced_zero_no_evidence ? 'no_evidence'
+                         : ann.metadata._capped_by_density
+                           ? `density_score_${ann.metadata._original_score}`
+                           : null,
+      verification_status: ann.verification_status || 'verified'
+    }));
+
+    const cqScores       = cqPerReq.map(r => r.score);
+    const cqMeanScore    = cqScores.length ? cqScores.reduce((s, v) => s + v, 0) / cqScores.length : 0;
+    const cqDerived      = Math.round(cqMeanScore * (100 / 3));
+
+    const cqEnfEvents = {
+      no_evidence_forced_zero:            cqAnns_ie.filter(a => a.metadata._forced_zero_no_evidence).length,
+      density_capped_3_to_2:              cqAnns_ie.filter(a => a.metadata._capped_by_density && a.metadata._original_score === 3).length,
+      density_capped_2_to_1:              cqAnns_ie.filter(a => a.metadata._capped_by_density && a.metadata._original_score === 2).length,
+      unverified_spans_excluded:          cqAnns_ie.reduce((s, a) => s + (a.metadata._evidence_unverified?.length || 0), 0),
+      verified_with_normalisation_count:  cqAnns_ie.reduce((s, a) => s + (a.metadata._evidence_verified_with_normalisation?.length || 0), 0)
+    };
+
+    const cqTotalSpans = cqPerReq.reduce((s, r) => s + r.evidence_spans.length, 0);
+    const cqVerSpans   = cqTotalSpans - cqEnfEvents.unverified_spans_excluded;
+    const allVerSpans  = cqPerReq.flatMap(r => {
+      const unv = cqAnns_ie.find(a => a.metadata.requirement_id === r.requirement_id)
+                    ?.metadata._evidence_unverified || [];
+      return r.evidence_spans.filter(s => !unv.includes(s));
+    });
+    const _wcLen = s => s.trim().split(/\s+/).filter(Boolean).length;
+    const cqLongest  = allVerSpans.reduce((m, s) => Math.max(m, _wcLen(s)), 0);
+    const cqMeanSpan = allVerSpans.length
+      ? Math.round(allVerSpans.reduce((s, sp) => s + _wcLen(sp), 0) / allVerSpans.length)
+      : 0;
+
+    // Reuse counts (for D5 and evidence_summary)
+    const cqSpanCounts = new Map();
+    for (const ann of cqAnns_ie) {
+      for (const s of (ann.metadata?.evidence_spans || [])) {
+        cqSpanCounts.set(s, (cqSpanCounts.get(s) || 0) + 1);
+      }
+    }
+    const cqDupes      = [...cqSpanCounts.entries()].filter(([, n]) => n > 1);
+    const cqHeavyReuse = cqDupes.filter(([, n]) => n >= 3);
+
+    // D9 confidence
+    const anyEnforcement = cqEnfEvents.no_evidence_forced_zero > 0
+                        || cqEnfEvents.density_capped_3_to_2 > 0
+                        || cqEnfEvents.density_capped_2_to_1 > 0;
+    const anyUnverified  = cqEnfEvents.unverified_spans_excluded > 0;
+    let cqConf, cqConfReason;
+    if (word_count < 30) {
+      cqConf = 'UNMEASURABLE'; cqConfReason = null;
+    } else if (anyEnforcement) {
+      cqConf = 'MEDIUM'; cqConfReason = 'enforcement_events';
+    } else if (anyUnverified) {
+      cqConf = 'MEDIUM'; cqConfReason = 'unverified_spans';
+    } else {
+      cqConf = 'HIGH'; cqConfReason = null;
+    }
+
+    dp.content_quality = Object.assign(dp.content_quality || {}, {
+      per_requirement:    cqPerReq,
+      mean_score:         cqMeanScore,
+      derived_score:      cqDerived,
+      confidence:         cqConf,
+      confidence_reason:  cqConfReason,
+      enforcement_events: cqEnfEvents,
+      evidence_summary: {
+        total_verified_spans:                cqVerSpans,
+        total_unverified_spans:              cqEnfEvents.unverified_spans_excluded,
+        total_verified_with_normalisation:   cqEnfEvents.verified_with_normalisation_count,
+        longest_span_words:                  cqLongest,
+        mean_span_words:                     cqMeanSpan,
+        reused_spans_count:                  cqDupes.length,
+        heavy_reused_spans_count:            cqHeavyReuse.length
+      }
+    });
+
         // ── 3. cap_directives ─────────────────────────────────────────────────
     const cap_directives = [];
 
@@ -7287,14 +7488,25 @@ Return JSON only:
     }
 
     // ── Content Quality ──────────────────────────────────────
-    const cqAnns = annotations.filter(a => a.family === 'cq');
+    // Tier 4J: reads derived_score from InterpretationObject (D7).
+    // The interpretation engine ran enforcement + density caps before producing this score.
+    // Legacy fallback: mean × 100/3 (used when interpretObj unavailable).
+    const cqProfile = interpretObj
+      && interpretObj.dimension_profiles
+      && interpretObj.dimension_profiles.content_quality;
     let cq_dim;
-    if (cqAnns.length === 0) {
-      cq_dim = 0;
+    if (cqProfile && typeof cqProfile.derived_score === 'number') {
+      cq_dim = cqProfile.derived_score;
     } else {
-      const scores = cqAnns.map(a => (a.metadata && a.metadata.score != null) ? a.metadata.score : 0);
-      const mean   = scores.reduce((s, v) => s + v, 0) / scores.length;
-      cq_dim = Math.min(100, Math.round(mean * (100 / 3)));
+      // Legacy fallback — pre-Tier-4J mean × 100/3.
+      const cqAnns = annotations.filter(a => a.family === 'cq');
+      if (cqAnns.length === 0) {
+        cq_dim = 0;
+      } else {
+        const scores = cqAnns.map(a => (a.metadata && a.metadata.score != null) ? a.metadata.score : 0);
+        const mean   = scores.reduce((s, v) => s + v, 0) / scores.length;
+        cq_dim = Math.min(100, Math.round(mean * (100 / 3)));
+      }
     }
 
     // ── Style & Register ─────────────────────────────────────
@@ -7582,6 +7794,32 @@ Return JSON only:
           if (severity === 'MODERATE') {
             confidence_per_dimension.organisation_coherence = 'MEDIUM';
           }
+        }
+      }
+    }
+
+    // Tier 4J (D5): cq_evidence_reuse — tiered: WARNING at light reuse, MODERATE + confidence drop at heavy.
+    const HEAVY_REUSE_THRESHOLD = 3;   // same span across 3+ requirements → confidence drop
+    const CQ_REUSE_FLAG_FLOOR   = 70;  // low-CQ responses with reuse are usually genuinely thin
+    if (rules.cq_evidence_reuse !== false) {
+      const _cqP = interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.content_quality;
+      const _cqDupes      = (_cqP && _cqP.evidence_summary && _cqP.evidence_summary.reused_spans_count)      || 0;
+      const _cqHeavy      = (_cqP && _cqP.evidence_summary && _cqP.evidence_summary.heavy_reused_spans_count) || 0;
+      const _cqScore      = scoreObj.dimensions.content_quality;
+      if (_cqScore >= CQ_REUSE_FLAG_FLOOR && _cqDupes > 0) {
+        const _cqSeverity = _cqHeavy > 0 ? 'MODERATE' : 'WARNING';
+        contradictions.push({
+          rule:      'cq_evidence_reuse',
+          severity:  _cqSeverity,
+          dimension: 'content_quality',
+          message:   _cqHeavy > 0
+            ? `Content Quality is ${_cqScore} (high) and ${_cqHeavy} evidence span(s) reused across 3+ requirements — score likely inflated by double-counted evidence, confidence dropped to MEDIUM.`
+            : `Content Quality is ${_cqScore} (high) but evidence reused across ${_cqDupes} requirement(s). Review whether the score is double-counted.`,
+          data: { reused_spans: _cqDupes, heavy_reuse_count: _cqHeavy, cq: _cqScore }
+        });
+        if (_cqSeverity === 'MODERATE' && _cqP) {
+          _cqP.confidence        = 'MEDIUM';
+          _cqP.confidence_reason = 'heavy_evidence_reuse';
         }
       }
     }
@@ -8555,6 +8793,49 @@ Return JSON only:
         if (go_contradictions.some(c => c.rule === 'coh_dev_flow_split')) {
           if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
           notesHtml += '<span class="tr-note-pill warning">⚠ coh.dev/flow split</span>';
+        }
+      }
+      // Tier 4J: content_quality — enforcement events + normalisation footnote.
+      if (dim === 'content_quality') {
+        const cqDp = run.interpretation_object
+          && run.interpretation_object.dimension_profiles
+          && run.interpretation_object.dimension_profiles.content_quality;
+        if (cqDp) {
+          const ev = cqDp.enforcement_events || {};
+          const enfTotal = (ev.no_evidence_forced_zero || 0)
+                         + (ev.density_capped_3_to_2  || 0)
+                         + (ev.density_capped_2_to_1  || 0);
+          if (enfTotal > 0) {
+            if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
+            notesHtml += '<span class="tr-note-pill warning" title="'
+              + _esc(`No-evidence zeros: ${ev.no_evidence_forced_zero || 0}; Density 3→2: ${ev.density_capped_3_to_2 || 0}; Density 2→1: ${ev.density_capped_2_to_1 || 0}`)
+              + '">⚠ ' + enfTotal + ' enforcement event' + (enfTotal > 1 ? 's' : '') + '</span>';
+          }
+          // Per-requirement: show struck-through original scores where enforcement fired
+          if (cqDp.per_requirement && cqDp.per_requirement.some(r => r.cap_applied !== null)) {
+            const reqNotes = cqDp.per_requirement
+              .filter(r => r.cap_applied !== null)
+              .map(r => {
+                const orig = r.original_score;
+                const curr = r.score;
+                const tip  = r.cap_applied === 'no_evidence'
+                  ? 'Forced to 0: no evidence_spans'
+                  : `Capped ${orig}→${curr}: evidence too thin`;
+                return `Req ${r.requirement_id}: <s>${orig}</s>→${curr} (${tip})`;
+              }).join('; ');
+            notesHtml += '<span class="tr-note-pill" title="' + _esc(reqNotes) + '">score corrections applied</span>';
+          }
+          // Normalisation footnote
+          if ((ev.verified_with_normalisation_count || 0) > 0) {
+            notesHtml += '<span class="tr-note-pill" style="font-size:.72rem;" title="LLM quoted evidence with hamza/alif normalisation; tolerant match accepted">hamza-norm spans: ' + ev.verified_with_normalisation_count + '</span>';
+          }
+          // CQ evidence reuse indicator
+          const go_contradictions_cq = go.contradictions || [];
+          if (go_contradictions_cq.some(c => c.rule === 'cq_evidence_reuse')) {
+            const cqC = go_contradictions_cq.find(c => c.rule === 'cq_evidence_reuse');
+            if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
+            notesHtml += '<span class="tr-note-pill ' + (cqC.severity === 'MODERATE' ? 'warning' : '') + '">⚠ evidence reuse</span>';
+          }
         }
       }
       dimRowsHtml +=
