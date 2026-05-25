@@ -1986,15 +1986,15 @@
         <div class="sub-weights-body">
           <div class="cal-weight-row">
             <span class="cal-weight-label">Technical Quality</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_tq"  min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_tq"  min="0" max="100" step="0.1" value="25" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-weight-row">
             <span class="cal-weight-label">Common Error Detection</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_ced" min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_ced" min="0" max="100" step="0.1" value="35" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-weight-row">
             <span class="cal-weight-label">LLM Orthographic Accuracy</span>
-            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_llm" min="0" max="100" step="0.1" value="30" /><span class="cal-weight-unit">%</span>
+            <input type="number" class="cal-weight-input sub-w-input" data-group="ortho" id="sw_ortho_llm" min="0" max="100" step="0.1" value="40" /><span class="cal-weight-unit">%</span>
           </div>
           <div class="cal-total-row"><span>Total</span><span class="cal-total-value valid" id="sub_total_ortho">100.0%</span></div>
           <div id="sub_err_ortho" style="color: var(--danger); font-size: 12.5px; display: none;"></div>
@@ -2187,6 +2187,16 @@
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="gr_rule_coherence_connectives" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="gr-toggle-row">
+        <div>
+          <div class="gr-toggle-label">Det / LLM split — Ortho</div>
+          <div class="gr-toggle-desc">Deterministic engine and LLM orthography judgement disagree by &gt;25 points — flag for teacher review</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_orth_det_llm_split" checked>
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -3674,25 +3684,398 @@ TOPIC: {TOPIC}
     { wrong: 'إنشاء الله', right: 'إن شاء الله', kind: 'spacing' },
     { wrong: 'ماشاء الله', right: 'ما شاء الله', kind: 'spacing' }
   ];
-  function annotateOrthographyCode(response, runId) {
-    const out = [];
-    COMMON_SPELLING_ERRORS.forEach(({ wrong, right, kind }) => {
-      let from = 0;
-      while (true) {
-        const idx = response.indexOf(wrong, from);
-        if (idx < 0) break;
-        out.push(makeAnnotation({
-          family: 'orthography',
-          type: 'orthography:common_error',
-          source: 'code',
-          text: wrong,
-          span: { start: idx, end: idx + wrong.length },
-          metadata: { kind, suggested: right },
-          runId
-        }));
-        from = idx + wrong.length;
+  // ===================================================================
+  // Tier 4G: V1 Orthographic Control engine (ported verbatim from scorer-arabic.html)
+  // computeArabicOrthography, curated lists, hasAdvancedOrthographicEvidence, ARABIC_TITLES
+  // See 04-dimension-orthographic-control.md D1, D2.
+  // ===================================================================
+const ORTHOGRAPHY_TAA_MARBUTA = {
+  version: "v1.1.0",
+  category: "taa_marbuta",
+  entries: [
+    { incorrect: "مدرسه",   correct: "مدرسة",   tier: "always_wrong" },
+    { incorrect: "حياه",    correct: "حياة",    tier: "always_wrong" },
+    { incorrect: "شجره",    correct: "شجرة",    tier: "always_wrong" },
+    { incorrect: "فكره",    correct: "فكرة",    tier: "always_wrong" },
+    { incorrect: "مكتبه",   correct: "مكتبة",   tier: "always_wrong" },
+    { incorrect: "الرحله",  correct: "الرحلة",  tier: "always_wrong" },
+    { incorrect: "جميله",   correct: "جميلة",   tier: "always_wrong" },
+    { incorrect: "الحديقه", correct: "الحديقة", tier: "always_wrong" },
+    { incorrect: "كثيره",   correct: "كثيرة",   tier: "always_wrong" },
+    { incorrect: "جديده",   correct: "جديدة",   tier: "always_wrong" },
+    { incorrect: "العائله", correct: "العائلة", tier: "always_wrong" },
+    { incorrect: "قصه",     correct: "قصة",     tier: "always_wrong" },
+    { incorrect: "مره",     correct: "مرة",     tier: "always_wrong" },
+    { incorrect: "سنه",     correct: "سنة",     tier: "always_wrong" },
+    { incorrect: "اللغه",   correct: "اللغة",   tier: "always_wrong" },
+    { incorrect: "ساعه",    correct: "ساعة",    tier: "always_wrong" },
+    { incorrect: "النهايه", correct: "النهاية", tier: "always_wrong" },
+    { incorrect: "البدايه", correct: "البداية", tier: "always_wrong" },
+    { incorrect: "الجامعه", correct: "الجامعة", tier: "always_wrong" },
+    { incorrect: "الشركه",  correct: "الشركة",  tier: "always_wrong" },
+    { incorrect: "الحاله",  correct: "الحالة",  tier: "always_wrong" },
+    { incorrect: "الصحه",   correct: "الصحة",   tier: "always_wrong" },
+    { incorrect: "البيئه",  correct: "البيئة",  tier: "always_wrong" },
+    { incorrect: "العلاقه", correct: "العلاقة", tier: "always_wrong" },
+    { incorrect: "الفرصه",  correct: "الفرصة",  tier: "always_wrong" },
+    { incorrect: "الزوجه",  correct: "الزوجة",  tier: "always_wrong" },
+    { incorrect: "السياره", correct: "السيارة", tier: "always_wrong" },
+    { incorrect: "الحكومه", correct: "الحكومة", tier: "always_wrong" },
+    { incorrect: "الحضاره", correct: "الحضارة", tier: "always_wrong" },
+    { incorrect: "الدوله",  correct: "الدولة",  tier: "always_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_alif.json (v1.1.0) on 2026-05-21
+// usually_wrong entries (علي, موسي, عيسي, يحيي, ليلي, سلمي) are valid names; proper-noun gate handles suppression.
+const ORTHOGRAPHY_ALIF = {
+  version: "v1.1.0",
+  category: "alif",
+  entries: [
+    { incorrect: "الى",      correct: "إلى",      tier: "always_wrong"  },
+    { incorrect: "حتي",      correct: "حتى",      tier: "always_wrong"  },
+    { incorrect: "علي",      correct: "على",      tier: "usually_wrong" },
+    { incorrect: "موسي",     correct: "موسى",     tier: "usually_wrong" },
+    { incorrect: "عيسي",     correct: "عيسى",     tier: "usually_wrong" },
+    { incorrect: "يحيي",     correct: "يحيى",     tier: "usually_wrong" },
+    { incorrect: "المستشفي", correct: "المستشفى", tier: "always_wrong"  },
+    { incorrect: "مستشفي",   correct: "مستشفى",   tier: "always_wrong"  },
+    { incorrect: "الفتي",    correct: "الفتى",    tier: "always_wrong"  },
+    { incorrect: "الكبري",   correct: "الكبرى",   tier: "always_wrong"  },
+    { incorrect: "الصغري",   correct: "الصغرى",   tier: "always_wrong"  },
+    { incorrect: "الاخري",   correct: "الأخرى",   tier: "always_wrong"  },
+    { incorrect: "الأخري",   correct: "الأخرى",   tier: "always_wrong"  },
+    { incorrect: "ليلي",     correct: "ليلى",     tier: "usually_wrong" },
+    { incorrect: "سلمي",     correct: "سلمى",     tier: "usually_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_hamza.json (v1.1.0) on 2026-05-21
+// اشرف is usually_wrong (valid male name). الاشجار added in v1.1.0 (held back in v1.0.0 for regression reasons).
+const ORTHOGRAPHY_HAMZA = {
+  version: "v1.1.0",
+  category: "hamza",
+  entries: [
+    { incorrect: "انت",     correct: "أنت",     tier: "always_wrong"  },
+    { incorrect: "اخذ",     correct: "أخذ",     tier: "always_wrong"  },
+    { incorrect: "مسئلة",   correct: "مسألة",   tier: "always_wrong"  },
+    { incorrect: "اولاد",   correct: "أولاد",   tier: "always_wrong"  },
+    { incorrect: "الاشجار", correct: "الأشجار", tier: "always_wrong"  },
+    { incorrect: "ان",      correct: "أن",      tier: "always_wrong"  },
+    { incorrect: "اخي",     correct: "أخي",     tier: "always_wrong"  },
+    { incorrect: "الانسان", correct: "الإنسان", tier: "always_wrong"  },
+    { incorrect: "اولا",    correct: "أولاً",   tier: "always_wrong"  },
+    { incorrect: "انا",     correct: "أنا",     tier: "always_wrong"  },
+    { incorrect: "ايضا",    correct: "أيضاً",   tier: "always_wrong"  },
+    { incorrect: "اذا",     correct: "إذا",     tier: "always_wrong"  },
+    { incorrect: "الام",    correct: "الأم",    tier: "always_wrong"  },
+    { incorrect: "الاب",    correct: "الأب",    tier: "always_wrong"  },
+    { incorrect: "الاخ",    correct: "الأخ",    tier: "always_wrong"  },
+    { incorrect: "الاخت",   correct: "الأخت",   tier: "always_wrong"  },
+    { incorrect: "اصبح",    correct: "أصبح",    tier: "always_wrong"  },
+    { incorrect: "ابدا",    correct: "أبداً",   tier: "always_wrong"  },
+    { incorrect: "اول",     correct: "أول",     tier: "always_wrong"  },
+    { incorrect: "اين",     correct: "أين",     tier: "always_wrong"  },
+    { incorrect: "امام",    correct: "أمام",    tier: "always_wrong"  },
+    { incorrect: "اعتقد",   correct: "أعتقد",   tier: "always_wrong"  },
+    { incorrect: "اعرف",    correct: "أعرف",    tier: "always_wrong"  },
+    { incorrect: "ارجو",    correct: "أرجو",    tier: "always_wrong"  },
+    { incorrect: "اشكر",    correct: "أشكر",    tier: "always_wrong"  },
+    { incorrect: "الافضل",  correct: "الأفضل",  tier: "always_wrong"  },
+    { incorrect: "اطفال",   correct: "أطفال",   tier: "always_wrong"  },
+    { incorrect: "احد",     correct: "أحد",     tier: "always_wrong"  },
+    { incorrect: "اشرف",    correct: "أشرف",    tier: "usually_wrong" }
+  ]
+};
+
+// Curated lists — synced from Final info/config/orthography_general.json (v1.0.0) on 2026-05-21
+// Catches high-confidence spelling errors that don't fit taa_marbuta / alif / hamza buckets.
+const ORTHOGRAPHY_GENERAL = {
+  version: "v1.0.0",
+  category: "general",
+  entries: [
+    { incorrect: "ذالك",   correct: "ذلك",   tier: "always_wrong" },
+    { incorrect: "هاذا",   correct: "هذا",   tier: "always_wrong" },
+    { incorrect: "هاذه",   correct: "هذه",   tier: "always_wrong" },
+    { incorrect: "لاكن",   correct: "لكن",   tier: "always_wrong" },
+    { incorrect: "اللذي",  correct: "الذي",  tier: "always_wrong" },
+    { incorrect: "اللتي",  correct: "التي",  tier: "always_wrong" },
+    { incorrect: "هاؤلاء", correct: "هؤلاء", tier: "always_wrong" }
+  ]
+};
+
+// Title tokens for proper-noun gate (spec §5.3)
+const ARABIC_TITLES = new Set(["السيد", "الأستاذ", "الدكتور", "الشيخ", "سيدي"]);
+
+/**
+ * Detect whether a response shows advanced orthographic evidence:
+ *   (a) ≥2 distinct forms from {ئ, ؤ, ء, آ} are present, OR
+ *   (b) combined density of those four forms ≥ 2 per 100 words.
+ * Used by the ceiling logic in scoreSample to allow a higher cap (96) when
+ * mastery signals are present (brief §3 / Step 4).
+ *
+ * @param {Object} counts - letter_form_counts from computeArabicOrthography
+ * @returns {boolean}
+ */
+function hasAdvancedOrthographicEvidence(counts) {
+  const c = counts || {};
+  const forms = [c.hamza_yaa, c.hamza_waw, c.hamza_isolated, c.alif_madda];
+  const distinctUsed = forms.filter(n => (n || 0) > 0).length;
+  const total = forms.reduce((s, n) => s + (n || 0), 0);
+  const words = Math.max(1, c.words || 0);
+  const densityPer100 = (total / words) * 100;
+  return distinctUsed >= 3 && densityPer100 >= 3;
+}
+
+/**
+ * Compute the deterministic branch of the Orthographic Control dimension.
+ * Returns the full orthography result object per spec §8 output schema.
+ *
+ * @param {string} response - Raw Arabic response text
+ * @param {Object} options  - { allow_loanword_list: string[], titles: Set, list_versions: {} }
+ */
+function computeArabicOrthography(response, options) {
+  const { allow_loanword_list = [], titles = ARABIC_TITLES, list_versions } = options || {};
+
+  // --- Tokenisation (same /\S+/ approach as global wordCount) ---
+  const rawTokens = response.match(/\S+/g) || [];
+  const words = rawTokens.length; // consistent with wordCount(response)
+
+  // Strip punctuation from a token for curated-list comparison
+  const normalize = t => t.replace(/[،.؟:؛!,?;«»"']/g, "");
+  // Strip definite article ال prefix (used to match e.g. المدرسه → مدرسه)
+  const stripAl = t => (t.startsWith("ال") && t.length > 2) ? t.slice(2) : t;
+
+  // ================================================================
+  // 1. TECHNICAL QUALITY  (spec §5.1)
+  // ================================================================
+
+  // §5.1.1 Arabic Punctuation Usage
+  // Arabic punctuation: ، . ؟ : ؛ !
+  const arabicPunctCount = (response.match(/[،.؟:؛!]/g) || []).length;
+  // Western substitutions detected: , for ،  ? for ؟  ; for ؛
+  const westernSubstitutions = (response.match(/[,?;]/g) || []).length;
+  const density = words > 0 ? (arabicPunctCount / words) * 100 : 0;
+  let punctBase;
+  if      (density >= 5 && density <= 20) { punctBase = 100; }
+  else if (density < 5)                   { punctBase = 50 + (density / 5) * 50; }   // ramp 50→100
+  else if (density <= 40)                 { punctBase = 100 - ((density - 20) / 20) * 50; } // ramp 100→50
+  else                                    { punctBase = 30; }
+  const substitutionPenalty = Math.min(40, westernSubstitutions * 5);
+  const punctScore = Math.round(Math.max(0, punctBase - substitutionPenalty));
+
+  // §5.1.2 Whitespace & Formatting Quality
+  let wsIssues = 0;
+  wsIssues += (response.match(/  +/g) || []).length;                         // double spaces
+  wsIssues += (response.match(/[،؟؛!](?!\s|$)/g) || []).length;            // missing space after punct
+  if (/^\s/.test(response) || /\s$/.test(response)) wsIssues += 1;          // leading/trailing whitespace
+  wsIssues += (response.match(/\n{3,}/g) || []).length;                      // 3+ consecutive newlines
+  const whitespaceScore = Math.round(Math.max(0, 100 - 5 * wsIssues));
+
+  // §5.1.3 Tatweel Abuse  (U+0640 ـ)
+  const tatweelCount = (response.match(/ـ/g) || []).length;
+  let tatweelScore;
+  if      (tatweelCount === 0) { tatweelScore = 100; }
+  else if (tatweelCount === 1) { tatweelScore = 70; }
+  else                         { tatweelScore = Math.round(Math.max(0, 70 - 10 * (tatweelCount - 1))); }
+
+  // §5.1.4 Non-Arabic Character Intrusion
+  const isArabicToken = t => {
+    if (allow_loanword_list.includes(t)) return true;
+    const hasLatin        = /[A-Za-z]/.test(t);
+    const hasWesternDigit = /[0-9]/.test(t);
+    const hasEmoji        = /[\u{1F000}-\u{1FFFF}]/u.test(t);
+    return !hasLatin && !hasWesternDigit && !hasEmoji;
+  };
+  const nonArabicTokens = rawTokens.filter(t => !isArabicToken(t)).length;
+  const intrusionRate  = rawTokens.length > 0 ? (nonArabicTokens / rawTokens.length) * 100 : 0;
+  const intrusionScore = Math.round(Math.max(0, 100 - intrusionRate * 8));
+
+  // §5.1.5 Technical Quality composite = equal-weight mean of four
+  const technicalQuality = Math.round((punctScore + whitespaceScore + tatweelScore + intrusionScore) / 4);
+
+  // ================================================================
+  // 2. COMMON ERROR DETECTION  (spec §5.2)
+  // ================================================================
+
+  // Build quoted-span positions for proper-noun gate (spec §5.3)
+  const quotedSpans = [];
+  const quoteRe = /[«"']([^»"']+)[»"']/g;
+  let qm;
+  while ((qm = quoteRe.exec(response)) !== null) {
+    quotedSpans.push([qm.index, qm.index + qm[0].length]);
+  }
+  const isInQuotes = pos => quotedSpans.some(([s, e]) => pos >= s && pos < e);
+
+  // Build token-position map from raw response (positions needed for proper-noun gate)
+  const tokenPosMap = [];
+  const tRe = /\S+/g;
+  let tm;
+  while ((tm = tRe.exec(response)) !== null) {
+    tokenPosMap.push({ raw: tm[0], pos: tm.index });
+  }
+
+  /**
+   * Scan response tokens against a curated error list.
+   * Returns { flags, uniqueErrorWeight } per spec §5.2.4 / §5.2.5.
+   */
+  function _scanForErrors(list, category) {
+    const seenForms = new Map(); // base form → { occurrences, tier, correct }
+    tokenPosMap.forEach((tok, idx) => {
+      const norm = normalize(tok.raw);
+      // Try exact match, then ال-stripped match (handles المدرسه → مدرسه)
+      let entry = list.find(e => e.incorrect === norm);
+      let matchedForm = norm;
+      if (!entry) {
+        const stripped = stripAl(norm);
+        if (stripped !== norm) {
+          entry = list.find(e => e.incorrect === stripped);
+          if (entry) matchedForm = stripped;
+        }
       }
+      if (!entry) return;
+      // Proper-noun gate: suppress usually_wrong when preceded by a title or inside quotes
+      if (entry.tier === "usually_wrong") {
+        if (isInQuotes(tok.pos)) return;
+        const prevNorm = idx > 0 ? normalize(tokenPosMap[idx - 1].raw) : null;
+        if (prevNorm && titles.has(prevNorm)) return;
+      }
+      if (!seenForms.has(matchedForm)) {
+        seenForms.set(matchedForm, { occurrences: 0, tier: entry.tier, correct: entry.correct });
+      }
+      seenForms.get(matchedForm).occurrences += 1;
     });
+
+    const flags = [];
+    let uniqueErrorWeight = 0;
+    for (const [form, info] of seenForms.entries()) {
+      flags.push({ type: category, text: form, suggested: info.correct, tier: info.tier, occurrences: info.occurrences });
+      uniqueErrorWeight += (info.tier === "usually_wrong") ? 0.5 : 1.0; // spec §5.3
+    }
+    return { flags, uniqueErrorWeight };
+  }
+
+  // §5.2.4 Per-category density → score formula
+  const _errorScore = uniqueWeight => {
+    const errRate = words > 0 ? (uniqueWeight / words) * 100 : 0;
+    return Math.round(Math.max(0, 100 - errRate * 8));
+  };
+
+  const tmResult      = _scanForErrors(ORTHOGRAPHY_TAA_MARBUTA.entries, "taa_marbuta");
+  const alifResult    = _scanForErrors(ORTHOGRAPHY_ALIF.entries,        "alif");
+  const hamzaResult   = _scanForErrors(ORTHOGRAPHY_HAMZA.entries,       "hamza");
+  const generalResult = _scanForErrors(ORTHOGRAPHY_GENERAL.entries,     "general");
+
+  const taaMarbuta    = _errorScore(tmResult.uniqueErrorWeight);
+  const alifForms     = _errorScore(alifResult.uniqueErrorWeight);
+  const hamzaScore    = _errorScore(hamzaResult.uniqueErrorWeight);
+  const generalScore  = _errorScore(generalResult.uniqueErrorWeight);
+  // NOTE: Common Error Detection scans 4 lists as of 2026-05-21 (added "general"
+  // category). Spec v1.1 documents 3 lists; v1.2 will codify the 4th.
+  const commonErrorDetection = Math.round((taaMarbuta + alifForms + hamzaScore + generalScore) / 4);
+
+  // ================================================================
+  // 3. DETERMINISTIC ORTHOGRAPHY SCORE  (spec §3)
+  // ================================================================
+  const deterministicOrthographyScore = Math.round(technicalQuality * 0.40 + commonErrorDetection * 0.60);
+
+  // ================================================================
+  // 4. FLAGS & SUMMARIES
+  // ================================================================
+  const flags = [...tmResult.flags, ...alifResult.flags, ...hamzaResult.flags, ...generalResult.flags];
+  const flags_summary = {
+    taa_marbuta: { unique: tmResult.flags.length,    occurrences: tmResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    alif:        { unique: alifResult.flags.length,  occurrences: alifResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    hamza:       { unique: hamzaResult.flags.length, occurrences: hamzaResult.flags.reduce((s, f) => s + f.occurrences, 0) },
+    general:     { unique: generalResult.flags.length, occurrences: generalResult.flags.reduce((s, f) => s + f.occurrences, 0) }
+  };
+
+  // ================================================================
+  // 5. LETTER-FORM COUNTS  (spec §6.2 — descriptive context for LLM prompt)
+  // ================================================================
+  let alifCount = 0, alifHamzaAbove = 0, alifHamzaBelow = 0, alifMadda = 0;
+  let alifMaqsura = 0, taaMarbuta_lf = 0, haaFinal = 0;
+  let hamzaIsolated = 0, hamzaYaa = 0, hamzaWaw = 0;
+  for (const t of rawTokens) {
+    const clean = normalize(t);
+    for (let ci = 0; ci < clean.length; ci++) {
+      const cp = clean.charCodeAt(ci);
+      if      (cp === 0x0627) alifCount++;        // ا
+      else if (cp === 0x0623) alifHamzaAbove++;   // أ
+      else if (cp === 0x0625) alifHamzaBelow++;   // إ
+      else if (cp === 0x0622) alifMadda++;         // آ
+      else if (cp === 0x0649) alifMaqsura++;       // ى
+      else if (cp === 0x0629) taaMarbuta_lf++;     // ة
+      else if (cp === 0x0621) hamzaIsolated++;     // ء
+      else if (cp === 0x0626) hamzaYaa++;          // ئ
+      else if (cp === 0x0624) hamzaWaw++;          // ؤ
+    }
+    // haa_final: ه (U+0647) as last character of word
+    if (clean.length > 0 && clean.charCodeAt(clean.length - 1) === 0x0647) haaFinal++;
+  }
+  const letter_form_counts = {
+    alif: alifCount, alif_hamza_above: alifHamzaAbove, alif_hamza_below: alifHamzaBelow,
+    alif_madda: alifMadda, alif_maqsura: alifMaqsura, taa_marbuta: taaMarbuta_lf,
+    haa_final: haaFinal, hamza_isolated: hamzaIsolated, hamza_yaa: hamzaYaa,
+    hamza_waw: hamzaWaw, words
+  };
+
+  return {
+    technical_quality: technicalQuality,
+    technical_quality_breakdown: { punctuation: punctScore, whitespace: whitespaceScore, tatweel: tatweelScore, non_arabic_intrusion: intrusionScore },
+    common_error_detection: commonErrorDetection,
+    common_error_detection_breakdown: { taa_marbuta: taaMarbuta, alif_forms: alifForms, hamza: hamzaScore, general: generalScore },
+    deterministic_orthography_score: deterministicOrthographyScore,
+    flags,
+    flags_summary,
+    list_versions: list_versions || { taa_marbuta: ORTHOGRAPHY_TAA_MARBUTA.version, alif: ORTHOGRAPHY_ALIF.version, hamza: ORTHOGRAPHY_HAMZA.version, general: ORTHOGRAPHY_GENERAL.version },
+    letter_form_counts
+  };
+}
+
+
+  // annotateOrthographyCode (Tier 4G): runs computeArabicOrthography, emits per-error
+  // annotations + a deterministic_snapshot sentinel for the interpretation engine (D3).
+  function annotateOrthographyCode(response, runId) {
+    // Helper: find the first span of a text fragment in the response.
+    const findSpan = (text) => {
+      const idx = response.indexOf(text);
+      return idx >= 0 ? { start: idx, end: idx + text.length } : { start: 0, end: 0 };
+    };
+
+    const det = computeArabicOrthography(response, {
+      allow_loanword_list: [],
+      titles: ARABIC_TITLES
+    });
+
+    // Emit one annotation per curated-list flag (taa_marbuta | alif | hamza | general).
+    const out = det.flags.map(f => makeAnnotation({
+      family: 'orthography',
+      type: 'orthography:' + f.type,
+      source: 'code',
+      text: f.text,
+      span: findSpan(f.text),
+      metadata: {
+        suggested:    f.suggested,
+        tier:         f.tier,
+        occurrences:  f.occurrences,
+        list_version: det.list_versions ? (det.list_versions[f.type] || null) : null
+      },
+      runId
+    }));
+
+    // Sentinel: stash the full det object so the interpretation engine can read
+    // TQ / CED / letter_form_counts without re-running the engine.
+    out.push(makeAnnotation({
+      family: 'orthography',
+      type: 'orthography:deterministic_snapshot',
+      source: 'code',
+      text: '',
+      span: { start: 0, end: 0 },
+      metadata: { snapshot: det },
+      runId
+    }));
+
     return out;
   }
 
@@ -4212,7 +4595,7 @@ Return JSON only:
   }
 
   function annotateOrthographyLLM(response, runId) {
-    const prompt = `Identify ONLY genuine spelling errors in this Arabic (MSA) response.
+    const prompt = `Identify ONLY genuine spelling errors in this Arabic (MSA) response, and provide a holistic orthographic accuracy score.
 
 Orthography = HOW A WORD IS WRITTEN, not which word was chosen.
 
@@ -4233,25 +4616,75 @@ DO NOT flag any of the following — they belong to other families:
 The test: would removing the orthographic error change how the word LOOKS, not which word it is?
 If the word itself is wrong-for-MSA but written correctly, do NOT flag here.
 
-If there is no genuine WRITTEN-FORM error, return { "spelling_errors": [] }. Do not speculate. Do not invent errors.
+BANDS for llm_orthographic_accuracy_score:
+93-100  Near-native / elite control — sustained difficult environments, advanced hamza forms (ئ ؤ ء آ) used correctly in multiple positions
+87-92   Strong with advancing mastery — correct hamza in some advanced positions
+81-86   Strong stability — clean writing but avoids difficult environments OR limited advanced evidence
+61-80   Functional with notable issues
+41-60   Frequent orthographic instability
+21-40   Substantial breakdown
+0-20    Severe
+
+ABSENCE_IS_NOT_MASTERY:
+A response with no errors but no advanced orthographic evidence (rare hamza forms, sustained difficult environments) CANNOT score above 86.
+Absence of mistakes is "Strong stability" (81-86), not "advancing mastery" (87+).
+
+POSITIVE_GROUNDING_FOR_87_PLUS:
+To score 87-92 ("Strong with advancing mastery") at least TWO of the following must be present and cited in grounded_in:
+- Correct medial or final ئ in a non-trivial position (e.g. مسؤول، رئيس، شيئاً)
+- Correct ؤ in derived forms (e.g. مؤتمر، رؤية، مسؤولية)
+- Correct آ (alif madda) in word-initial position (e.g. آخر، آلاف، الآن)
+- Correct hamzat al-wasl vs hamzat al-qat distinction across multiple words
+- Sustained correct ة vs ه vs ت in feminine derivations across the whole response
+
+To score 93-100 ("Near-native / elite") the 87-92 evidence PLUS multiple advanced forms across different contexts AND no errors in difficult environments.
+
+NEGATIVE_EXAMPLE - do NOT award 87+ for:
+- An error-free response showing only basic forms (ا، ت، ة in predictable positions, no advanced hamza) → score 81-86.
+- A response that avoids difficult orthography by paraphrasing around it → cannot exceed 86.
+
+GROUNDING:
+grounded_in MUST contain verbatim Arabic phrases from the response. For any score >= 87, at least two phrases demonstrating the positive evidence above. No normalisation. No paraphrase.
 
 RESPONSE:
 ${response}
 
-For each genuine spelling error return:
+For each genuine spelling error return in spelling_errors:
 - text: the EXACT misspelled word from the response (verbatim)
 - error_subtype: "hamza" | "alif" | "taa_marbuta" | "general"
 - correction: the correctly-spelled word
-- note: short English explanation of what is wrong about the WRITTEN form (not the word choice)
+- note: short English explanation
 
 Return JSON only:
-{ "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." }, ... ] }`;
+{
+  "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." } ],
+  "llm_orthographic_accuracy_score": NUMBER,
+  "band": "near_native" | "strong_advancing" | "strong_stability" | "functional" | "frequent_instability" | "substantial_breakdown" | "severe",
+  "justification": "2-3 sentences grounding the score in the response",
+  "grounded_in": ["verbatim phrase 1", "verbatim phrase 2"]
+}`;
     return llmAnnotate('orthography', prompt, response, runId, data => {
-      return (data.spelling_errors || []).map(s => ({
+      const errors = (data.spelling_errors || []).map(s => ({
         type: `orthography:${s.error_subtype || 'general'}`,
         text: s.text,
         metadata: { error_subtype: s.error_subtype, correction: s.correction, note: s.note }
       }));
+      // Emit ceiling_score annotation carrying the LLM band score.
+      const llmScore = typeof data.llm_orthographic_accuracy_score === 'number'
+        ? data.llm_orthographic_accuracy_score : null;
+      if (llmScore !== null) {
+        errors.push({
+          type: 'orthography:ceiling_score',
+          text: '',
+          metadata: {
+            score: llmScore,
+            band: data.band || null,
+            justification: data.justification || '',
+            grounded_in: data.grounded_in || []
+          }
+        });
+      }
+      return errors;
     });
   }
 
@@ -5011,7 +5444,8 @@ Return JSON only:
     contradiction_rules: {
       high_grammar_low_orthography: true,
       dialect_dominant_high_accuracy: true,
-      high_coherence_no_connectives: true
+      high_coherence_no_connectives: true,
+      orth_det_llm_split: true
     }
   };
 
@@ -5031,7 +5465,8 @@ Return JSON only:
       contradiction_rules: {
         high_grammar_low_orthography:  document.getElementById('gr_rule_grammar_ortho').checked,
         dialect_dominant_high_accuracy: document.getElementById('gr_rule_dialect_accuracy').checked,
-        high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked
+        high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked,
+        orth_det_llm_split:             document.getElementById('gr_rule_orth_det_llm_split').checked
       }
     };
   }
@@ -5051,6 +5486,7 @@ Return JSON only:
     setChk('gr_rule_grammar_ortho',          r.high_grammar_low_orthography);
     setChk('gr_rule_dialect_accuracy',       r.dialect_dominant_high_accuracy);
     setChk('gr_rule_coherence_connectives',  r.high_coherence_no_connectives);
+    setChk('gr_rule_orth_det_llm_split',     r.orth_det_llm_split);
   }
 
   document.getElementById('btn_gr_save').addEventListener('click', () => {
@@ -5210,11 +5646,14 @@ Return JSON only:
     'accuracy:sentence_formation': { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:other':              { applies_to: ['language_accuracy'], polarity: 'negative' },
     // ----- orthographic_control -----
-    'orthography:hamza':         { applies_to: ['orthographic_control'], polarity: 'negative' },
-    'orthography:alif':          { applies_to: ['orthographic_control'], polarity: 'negative' },
-    'orthography:taa_marbuta':   { applies_to: ['orthographic_control'], polarity: 'negative' },
-    'orthography:general':       { applies_to: ['orthographic_control'], polarity: 'negative' },
-    'orthography:common_error':  { applies_to: ['orthographic_control'], polarity: 'negative' }
+    'orthography:hamza':                   { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:alif':                    { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:taa_marbuta':             { applies_to: ['orthographic_control'], polarity: 'negative' },
+    'orthography:general':                 { applies_to: ['orthographic_control'], polarity: 'negative' },
+    // common_error retired in Tier 4G — replaced by per-category types above.
+    // new Tier 4G types:
+    'orthography:deterministic_snapshot':  { applies_to: ['orthographic_control'], polarity: 'neutral' },
+    'orthography:ceiling_score':           { applies_to: ['orthographic_control'], polarity: 'positive' }
   };
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -5783,6 +6222,75 @@ Return JSON only:
       });
     }
 
+    // ── 2d. Orthographic Control profile (Tier 4G) ────────────────────────
+    // D1/D2: read deterministic snapshot + LLM ceiling score; apply advanced-evidence cap.
+    const _orthoSnap = activeAnns.find(a => a.type === 'orthography:deterministic_snapshot');
+    const _det       = _orthoSnap && _orthoSnap.metadata && _orthoSnap.metadata.snapshot
+                       ? _orthoSnap.metadata.snapshot : null;
+
+    const _ceilingAnn = activeAnns.find(a => a.type === 'orthography:ceiling_score');
+    const _llmRaw     = _ceilingAnn && _ceilingAnn.metadata && typeof _ceilingAnn.metadata.score === 'number'
+                        ? _ceilingAnn.metadata.score : null;
+
+    const _orthWordCount = _det
+      ? (_det.letter_form_counts ? (_det.letter_form_counts.words || 0) : 0)
+      : word_count;
+    const _advanced = _det ? hasAdvancedOrthographicEvidence(_det.letter_form_counts) : false;
+
+    let _llmCapped     = _llmRaw;
+    let _llmCapApplied = false;
+    if (!_advanced && typeof _llmRaw === 'number' && _llmRaw > 88) {
+      _llmCapped     = 88;
+      _llmCapApplied = true;
+    }
+
+    const _tq  = _det != null ? _det.technical_quality      : 50;
+    const _ced = _det != null ? _det.common_error_detection : 50;
+    const _llm = (typeof _llmCapped === 'number') ? _llmCapped : 50;
+
+    let _orthDerived       = Math.round(_tq * 0.25 + _ced * 0.35 + _llm * 0.40);
+    let _derivedCapApplied = false;
+    if (!_advanced && _orthDerived > 88) {
+      _orthDerived       = 88;
+      _derivedCapApplied = true;
+    }
+
+    // D9: Confidence mapping for orthographic_control.
+    let _orthConfidence;
+    if (_orthWordCount < 10) {
+      _orthConfidence = 'UNMEASURABLE';
+    } else if (_orthWordCount < 30 || _llmRaw === null) {
+      _orthConfidence = 'MEDIUM';
+    } else {
+      _orthConfidence = 'HIGH';
+    }
+
+    const _orthFlagsSummary = _det && _det.flags_summary ? _det.flags_summary : {};
+    Object.assign(dp.orthographic_control, {
+      technical_quality:         _tq,
+      common_error_detection:    _ced,
+      llm_orthographic_score:    _llm,
+      llm_band:                  _ceilingAnn && _ceilingAnn.metadata ? (_ceilingAnn.metadata.band || null) : null,
+      advanced_evidence_present: _advanced,
+      cap_applied:               _llmCapApplied || _derivedCapApplied,
+      cap_reason:                _derivedCapApplied
+                                   ? 'derived_score capped at 88 — no advanced orthographic evidence'
+                                   : _llmCapApplied
+                                     ? 'LLM score capped at 88 — no advanced orthographic evidence'
+                                     : null,
+      derived_score:             _orthDerived,
+      confidence:                _orthConfidence,
+      evidence_summary: {
+        taa_marbuta_flags: _orthFlagsSummary.taa_marbuta ? (_orthFlagsSummary.taa_marbuta.unique || 0) : 0,
+        alif_flags:        _orthFlagsSummary.alif        ? (_orthFlagsSummary.alif.unique        || 0) : 0,
+        hamza_flags:       _orthFlagsSummary.hamza       ? (_orthFlagsSummary.hamza.unique       || 0) : 0,
+        general_flags:     _orthFlagsSummary.general     ? (_orthFlagsSummary.general.unique     || 0) : 0,
+        llm_errors:        activeAnns.filter(a =>
+          ['orthography:hamza','orthography:alif','orthography:taa_marbuta','orthography:general'].includes(a.type)
+          && a.source === 'llm').length
+      }
+    });
+
     // ── 3. cap_directives ─────────────────────────────────────────────────
     const cap_directives = [];
 
@@ -6117,24 +6625,36 @@ Return JSON only:
     }
 
     // ── Orthographic Control ─────────────────────────────────
-    // Tier 4A: match the prefixed types orthography:common_error / :hamza / :alif / :taa_marbuta / :general.
-    const orthoAll  = annotations.filter(a => a.family === 'orthography');
-    const orthoCode = orthoAll.filter(a => a.source === 'code' || a.type === 'orthography:common_error');
-    const orthoLLM  = orthoAll.filter(a => a.source === 'llm'  || ['orthography:hamza','orthography:alif','orthography:taa_marbuta','orthography:general'].includes(a.type));
+    // Tier 4G: interpretation-driven — reads derived_score from InterpretationObject (D6).
+    // Legacy count-banding retired. Scorer does NOT apply caps (interpretation engine owns them).
+    const orthProfile = interpretObj
+      && interpretObj.dimension_profiles
+      && interpretObj.dimension_profiles.orthographic_control;
 
-    const TQ_BAND        = [100, 90, 75, 60, 45, 30];
-    const tq_score       = TQ_BAND[Math.min(orthoAll.length,  5)] !== undefined ? TQ_BAND[Math.min(orthoAll.length,  5)] : 20;
-    const CED_BAND       = [100, 85, 65, 45];
-    const ced_score      = CED_BAND[Math.min(orthoCode.length, 3)] !== undefined ? CED_BAND[Math.min(orthoCode.length, 3)] : 25;
-    const LLM_ORTHO_BAND = [100, 80, 60, 40];
-    const llm_ortho      = LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)] !== undefined ? LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)] : 20;
-
-    const orthoW    = sw.orthographic_control || { technical_quality: 40, common_error_detection: 30, llm: 30 };
-    const ortho_dim = Math.min(100, Math.round(
-      tq_score  * (orthoW.technical_quality      / 100) +
-      ced_score * (orthoW.common_error_detection / 100) +
-      llm_ortho * (orthoW.llm                    / 100)
-    ));
+    let ortho_dim, tq_score, ced_score, llm_ortho;
+    if (orthProfile && typeof orthProfile.derived_score === 'number') {
+      ortho_dim = orthProfile.derived_score;
+      tq_score  = orthProfile.technical_quality      != null ? orthProfile.technical_quality      : 50;
+      ced_score = orthProfile.common_error_detection != null ? orthProfile.common_error_detection : 50;
+      llm_ortho = orthProfile.llm_orthographic_score != null ? orthProfile.llm_orthographic_score : 50;
+    } else {
+      // Legacy fallback — count-banding (pre-Tier-4G or interpretObj unavailable).
+      const orthoAll  = annotations.filter(a => a.family === 'orthography');
+      const orthoCode = orthoAll.filter(a => a.source === 'code');
+      const orthoLLM  = orthoAll.filter(a => a.source === 'llm');
+      const TQ_BAND        = [100, 90, 75, 60, 45, 30];
+      const CED_BAND       = [100, 85, 65, 45];
+      const LLM_ORTHO_BAND = [100, 80, 60, 40];
+      tq_score  = TQ_BAND[Math.min(orthoAll.length,  5)]        !== undefined ? TQ_BAND[Math.min(orthoAll.length,  5)]        : 20;
+      ced_score = CED_BAND[Math.min(orthoCode.length, 3)]        !== undefined ? CED_BAND[Math.min(orthoCode.length, 3)]        : 25;
+      llm_ortho = LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)]  !== undefined ? LLM_ORTHO_BAND[Math.min(orthoLLM.length, 3)]  : 20;
+      const orthoW = sw.orthographic_control || { technical_quality: 25, common_error_detection: 35, llm: 40 };
+      ortho_dim = Math.min(100, Math.round(
+        tq_score  * (orthoW.technical_quality      / 100) +
+        ced_score * (orthoW.common_error_detection / 100) +
+        llm_ortho * (orthoW.llm                    / 100)
+      ));
+    }
 
     // ── Overall ──────────────────────────────────────────────
     const dimScores = {
@@ -6171,7 +6691,7 @@ Return JSON only:
 
   // ===== Guardrail engine =====
 
-  function computeGuardrailObject(scoreObj, annotations, guardrailConfig) {
+  function computeGuardrailObject(scoreObj, annotations, guardrailConfig, interpretObj) {
     const gc = guardrailConfig || {};
 
     const minWC     = (gc.confidence && gc.confidence.min_word_count_for_high)              || 80;
@@ -6234,6 +6754,27 @@ Return JSON only:
       if (oc_s >= 70 && cohAnns.length === 0)
         contradictions.push({ rule: 'high_coherence_no_connectives',
           message: 'Organisation & Coherence (' + oc_s + ') is high but no cohesive-device annotations were found.' });
+    }
+
+    // Tier 4G (D9a): orth_det_llm_split contradiction — MODERATE severity.
+    // Reads from interpretObj (4th param). Teacher-visible only (Tab 10/11); no auto-correction.
+    if (rules.orth_det_llm_split !== false) {
+      const _orp = interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.orthographic_control;
+      if (_orp && typeof _orp.technical_quality === 'number' && typeof _orp.llm_orthographic_score === 'number') {
+        const detCombined = Math.round(_orp.technical_quality * (25/60) + _orp.common_error_detection * (35/60));
+        const llmScore    = _orp.llm_orthographic_score;
+        const split       = Math.abs(detCombined - llmScore);
+        if (split > 25) {
+          contradictions.push({
+            rule:      'orth_det_llm_split',
+            severity:  'MODERATE',
+            dimension: 'orthographic_control',
+            message:   'Orthographic Control deterministic engine (' + detCombined + ') and LLM judgement (' + llmScore + ') disagree by ' + split + ' points. Combined derived_score uses both — review which view better matches the response.',
+            data:      { det_combined: detCombined, llm_score: llmScore, split: split, derived_score: _orp.derived_score }
+          });
+          confidence_per_dimension.orthographic_control = 'MEDIUM';
+        }
+      }
     }
 
     // Per-dimension confidence — added v0.3 Tab 11 build.
@@ -6432,7 +6973,7 @@ Return JSON only:
 
       // Stage 5: Apply guardrails
       setRun9Stage('guardrails', 'running', '');
-      const guardrailObj = computeGuardrailObject(scoreObj, allAnnotations, grCfg);
+      const guardrailObj = computeGuardrailObject(scoreObj, allAnnotations, grCfg, interpretObj);
       const flagCount    = guardrailObj.flags.length + guardrailObj.contradictions.length;
       setRun9Stage('guardrails', 'done',
         guardrailObj.confidence + ' confidence' + (flagCount > 0 ? ', ' + flagCount + ' flag(s)' : ''));
@@ -7189,6 +7730,14 @@ Return JSON only:
               '<span class="tr-note-pill warning">' + _esc(n) + '</span>'
             ).join('');
           }
+        }
+      }
+      // Tier 4G (D9a): orthographic_control — orth_det_llm_split indicator (teacher report only).
+      if (dim === 'orthographic_control') {
+        const go_contradictions = go.contradictions || [];
+        if (go_contradictions.some(c => c.rule === 'orth_det_llm_split')) {
+          if (notesHtml.startsWith('<span style="color:var(--muted)')) notesHtml = '';
+          notesHtml += '<span class="tr-note-pill warning">⚠ deterministic/LLM split</span>';
         }
       }
       dimRowsHtml +=
