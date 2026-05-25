@@ -7020,6 +7020,33 @@ Return JSON only:
         la_ub_cap_applied    = false; // afc cap supersedes ub cap in reporting
       }
 
+      // Construct-volume discount: HIGH validity + limited MSA attempt volume (< 70).
+      // Applies a compression effect (max 20 pts), not multiplicative collapse.
+      // Not applied on LOW validity (unmeasurable routing) or construct_avoidance (LR floor handles it).
+      let la_volume_discount_applied = false;
+      let la_volume_discount_factor  = 0;
+      if (measurement_validity === 'HIGH'
+          && global_profile.construct_attempt_score < 70
+          && !global_profile.construct_avoidance) {
+        const _deficit   = 70 - global_profile.construct_attempt_score;
+        const _discount  = Math.min(20, Math.round(_deficit * 0.4));
+        la_derived_score           = Math.max(0, la_derived_score - _discount);
+        la_volume_discount_applied = true;
+        la_volume_discount_factor  = _discount;
+      }
+
+      // Consolidate cap_reason (cap may have been set above, discount layered on top).
+      let _la_cap_reason = la_afc_cap_applied
+        ? 'Insufficient advanced formal control evidence — score capped at 88'
+        : la_ub_cap_applied
+          ? 'No advanced formal control evidence (pfe < 30) — score capped at 88'
+          : null;
+      if (la_volume_discount_applied) {
+        _la_cap_reason = _la_cap_reason
+          ? _la_cap_reason + '; construct-volume discount applied'
+          : 'Construct-volume discount applied — limited MSA attempt volume';
+      }
+
       const validity_notes = [];
       if (measurement_validity === 'LOW') {
         if (global_profile.construct_attempt_score < 25)
@@ -7052,11 +7079,9 @@ Return JSON only:
           advanced_verb_form_type:        _afcMeta.advanced_verb_form_type,
           advanced_verb_form_evidence:    _afcMeta.advanced_verb_form_evidence
         } : null,
-        cap_reason:                             la_afc_cap_applied
-                                                  ? 'Insufficient advanced formal control evidence — score capped at 88'
-                                                  : la_ub_cap_applied
-                                                    ? 'No advanced formal control evidence (pfe < 30) — score capped at 88'
-                                                    : null,
+        volume_discount_applied:                la_volume_discount_applied,
+        volume_discount_factor:                 la_volume_discount_factor,
+        cap_reason:                             _la_cap_reason,
         profile_band:                           laResult.profile_band,
         derived_score:                          la_derived_score,
         confidence:                             measurement_validity === 'HIGH' ? 'HIGH'
@@ -7146,8 +7171,43 @@ Return JSON only:
     const cfBand  = cfAnn && cfAnn.metadata ? (cfAnn.metadata.band || null) : null;
     const cfCap   = cfAnn && cfAnn.metadata ? (cfAnn.metadata.cap_applied || null) : null;
 
-    const cd_oc = cohDet != null ? cohDet.score : 50;
-    const cf_oc = (typeof cfScore === 'number') ? cfScore : 50;
+    // ── Dialect sequencing connectors — contribute to coherence flow ONLY.
+    // Do NOT affect formal cohesive devices score, categories, or distinct_types.
+    // Listed as a named constant for easy future extension.
+    // Ordered within each variety by length descending; final sort enforces greedy
+    // longest-match-first so shorter phrases cannot match inside longer ones.
+    const DIALECT_SEQUENCING_CONNECTORS = [
+      // Gulf Arabic (Emirati / Khaleeji)
+      'أول شيء', 'بعد ما', 'في الليل', 'في الصبح', 'في العصر', 'بالليل',
+      'أول شي', 'بعدين', 'عقب', 'لما',
+      // Moroccan Darija
+      'من بعد العصر', 'أول حاجة', 'فالصباح', 'فالليل', 'فالعصر',
+      'من بعد', 'ملي'
+      // Note: باش excluded — purpose connector, too broad to credit as sequencing.
+    ];
+    const _sortedDialectConns = DIALECT_SEQUENCING_CONNECTORS
+      .slice()
+      .sort((a, b) => b.length - a.length);
+    const _dialectFound  = [];
+    let   _dialectRemain = response;
+    for (const conn of _sortedDialectConns) {
+      const _esc = conn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const _re  = new RegExp('(?:^|[\\s،,.])'  + _esc + '(?=[\\s،,.]|$)', 'g');
+      if (_re.test(_dialectRemain)) {
+        _dialectFound.push(conn);
+        // Consume matched span to prevent shorter phrases re-matching the same text.
+        _dialectRemain = _dialectRemain.replace(
+          new RegExp('(?:^|[\\s،,.])'  + _esc + '(?=[\\s،,.]|$)', 'g'), ' '
+        );
+      }
+    }
+    const _dialectSeqCount = _dialectFound.length;
+    const _dialectBonus    = Math.min(20, _dialectSeqCount * 5);
+
+    const cd_oc     = cohDet != null ? cohDet.score : 50;
+    const cf_oc_raw = (typeof cfScore === 'number') ? cfScore : 50;
+    // Dialect sequencing bonus applied to coherence flow sub-score only.
+    const cf_oc     = _dialectSeqCount > 0 ? Math.min(100, cf_oc_raw + _dialectBonus) : cf_oc_raw;
     const _ocDerived = Math.round(cd_oc * 0.30 + cf_oc * 0.70);
 
     // D8 confidence
@@ -7167,11 +7227,15 @@ Return JSON only:
         distinct_types: cohDet ? (cohDet.distinct_types || 0) : 0,
         per_100_words:  cohDet ? (cohDet.arabic_connectives_per_100_words || null) : null
       },
-      coherence_flow_score:       cf_oc,
-      coherence_flow_band:        cfBand,
-      coherence_flow_cap_applied: cfCap,
-      derived_score:              _ocDerived,
-      confidence:                 _ocConf,
+      coherence_flow_score:                cf_oc,
+      coherence_flow_score_raw:            cf_oc_raw,
+      coherence_flow_band:                 cfBand,
+      coherence_flow_cap_applied:          cfCap,
+      dialect_sequencing_detected:         _dialectFound,
+      dialect_sequencing_count:            _dialectSeqCount,
+      dialect_sequencing_coherence_bonus:  _dialectBonus > 0 ? _dialectBonus : 0,
+      derived_score:                       _ocDerived,
+      confidence:                          _ocConf,
       evidence_summary: {
         device_count:               activeAnns.filter(a => a.type === 'cohesion:device').length,
         category_count:             cohDet ? (cohDet.connective_category_count || 0) : 0,
