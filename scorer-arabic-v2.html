@@ -5778,10 +5778,11 @@ Return JSON only:
 
       // Stage 2 — LLM
       const llmAnnos = await runLLMAnnotators(response, taskObj, runId);
-      allAnnotations = allAnnotations.concat(llmAnnos);
+      allAnnotations = allAnnotations.concat(llmAnnos.annotations);   // fix: use .annotations not whole object
+      allAnnotations._annotator_status = llmAnnos._annotator_status;
       setStage('llm', 'done');
       setStage('verify', 'active');
-      setStatus(status, `LLM annotations: ${llmAnnos.length}. Running verifier…`, '');
+      setStatus(status, `LLM annotations: ${llmAnnos.annotations.length}. Running verifier…`, '');
 
       // AnnotationObject (pre-verify)
       lastAnnotationObject = {
@@ -7090,6 +7091,19 @@ Return JSON only:
       }
     }
 
+    // Bug 1a: null fallback — if all sub-metrics returned null AND a floor cap directive is active,
+    // use the floor value rather than propagating null to the scorer. This covers the construct_avoidance
+    // case where near-zero MSA attempt makes sub-metrics unmeasurable but a floor still applies.
+    const lr_allNull = lr_derived === null;
+    if (lr_allNull) {
+      if (global_profile.construct_attempt_score < 20) {
+        lr_derived         = 30;
+        lr_ceiling_applied = 'construct_avoidance_floor';
+        lr_ceiling_source  = 'construct_avoidance_cap_directive';
+      }
+      // else: leave lr_derived null — scorer will handle as UNMEASURABLE
+    }
+
     // D8 confidence
     const lr_nullCount = [v_lr, m_lr, s_lr].filter(x => x === null).length;
     let lr_confidence;
@@ -7131,6 +7145,13 @@ Return JSON only:
         lexical_density:                 lr_ldVal
       }
     });
+
+    // Bug 1b: interpreted_strength override — if all 3 scoring sub-metrics were null, the generic
+    // annotation-evidence loop may have set interpreted_strength to 'moderate' based on diagnostic
+    // range annotations. Override to 'unmeasurable' to match how Language Accuracy handles the same case.
+    if (lr_allNull) {
+      dp.language_range.interpreted_strength = 'unmeasurable';
+    }
 
     // ── 2g. Content Quality profile (Tier 4J) ────────────────────────────────
     // D2: no-evidence enforcement — score ≥1 with no evidence_spans → force to 0.
