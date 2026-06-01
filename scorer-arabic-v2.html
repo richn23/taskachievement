@@ -3503,7 +3503,8 @@ TOPIC: {TOPIC}
   // ---- Annotation schema ----
   const ANNOTATION_FAMILIES = [
     'word_count', 'claim', 'intelligibility', 'cq',
-    'register', 'range', 'cohesion', 'accuracy', 'orthography'
+    'register', 'range', 'cohesion', 'accuracy', 'orthography',
+    'task_meta'   // Fix B: task-type match + genre-structure annotators
   ];
   const DIMENSIONS = [
     'task_achievement', 'content_quality', 'style_register',
@@ -4709,8 +4710,8 @@ No extra keys. No markdown fences.
 
 TASK_TYPE_AWARE_CAP_EXCEPTION:
 The cap on recycled content verbs (cap 30) is genre-sensitive.
-- For task_type in {narrative, email, account, recount}: recycled travel/motion/consumption verbs are genre-appropriate. Raise the recycled-verb cap to 40 for these task types only. Other vocab caps (basic_everyday, narrow_scope, identical_vocabulary) still apply normally.
-- For task_type in {argumentative, descriptive, report, explanatory}: the cap 30 stays — recycled verbs signal genuine vocabulary weakness.
+- For task_type in {paragraph, letter}: recycled travel/motion/consumption verbs are genre-appropriate. Raise the recycled-verb cap to 40 for these task types only. Other vocab caps (basic_everyday, narrow_scope, identical_vocabulary) still apply normally.
+- For all other task types (email, article, essay, report, proposal, summary): the cap 30 stays — recycled verbs signal genuine vocabulary weakness.
 <task_type>${taskType}</task_type>
 Use the task_type tag above when deciding whether the recycled-verb cap applies at 30 or 40.
 </output_format>
@@ -5302,6 +5303,54 @@ ${response}`;
     });
   }
 
+  // ── annotateTaskTypeMatch (Fix B C1.2) ───────────────────────────────────────
+  // QA-only annotator. Checks whether the declared task_type matches the genre
+  // implied by the task prompt. Emits a single task_meta:type_match annotation.
+  // Consumed by computeGuardrailObject → task_type_prompt_mismatch WARNING.
+  // NOT learner-facing.
+  function annotateTaskTypeMatch(response, taskObj, runId) {
+    const declaredType = (taskObj && taskObj.task_type)   || 'unknown';
+    const taskPrompt   = (taskObj && taskObj.task_prompt) || '';
+    const prompt = `You are validating writing-task metadata. You are given a task PROMPT and a declared TASK_TYPE. Decide whether the prompt's genre matches the declared type.
+
+The 8 valid task types and what their prompts look like:
+- email: asks to write an email; usually names a recipient or situation to respond to.
+- letter: asks to write a formal/informal letter to a named recipient.
+- paragraph: asks to write about / describe / recount a topic or experience. No recipient, no genre conventions required. Travel recounts, personal experiences, descriptions, and diary-style prompts are paragraph tasks.
+- article: asks to write an article for a publication/website/magazine.
+- essay: asks to argue a position, discuss, or give an opinion with reasons.
+- report: asks to report on / analyse a situation, often with recommendations.
+- proposal: asks to propose a solution or make a recommendation.
+- summary: asks to summarise a provided source text.
+
+Return JSON only:
+{
+  "match": boolean,
+  "suspected_type": "<the type the prompt actually looks like>" | null,
+  "reason": "1 sentence"
+}
+
+If match is true, suspected_type must be null.
+If the prompt describes a trip/experience/description with no recipient and no genre request, the correct type is "paragraph" — flag a mismatch if it is tagged otherwise.
+
+DECLARED_TYPE: ${declaredType}
+PROMPT: ${taskPrompt}`;
+
+    return llmAnnotate('task_meta', prompt, response, runId, data => {
+      const isMatch = !!data.match;
+      return [{
+        type: 'task_meta:type_match',
+        text: '',
+        metadata: {
+          declared_type:  declaredType,
+          match:          isMatch,
+          suspected_type: isMatch ? null : (data.suspected_type || null),
+          reason:         data.reason || ''
+        }
+      }];
+    });
+  }
+
   function annotateOrthographyLLM(response, runId) {
     const prompt = `Identify ONLY genuine spelling errors in this Arabic (MSA) response, and provide a holistic orthographic accuracy score.
 
@@ -5424,7 +5473,8 @@ Return JSON only:
       _runAnnotatorWithStatus('coherence_flow',  () => annotateCoherenceFlow(response, taskObj, runId)),
       _runAnnotatorWithStatus('accuracy',          () => annotateAccuracy(response, runId)),
       _runAnnotatorWithStatus('accuracy_advanced', () => annotateAdvancedFormalControl(response, runId)),
-      _runAnnotatorWithStatus('orthography',       () => annotateOrthographyLLM(response, runId))
+      _runAnnotatorWithStatus('orthography',       () => annotateOrthographyLLM(response, runId)),
+      _runAnnotatorWithStatus('task_type_match',   () => annotateTaskTypeMatch(response, taskObj, runId))
     ]);
     const _annotator_status = Object.fromEntries(results.map(r => [r.name, r.status]));
     const annotations = results.flatMap(r => r.annotations);
@@ -6430,6 +6480,9 @@ Return JSON only:
     'accuracy:sentence_formation': { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:other':              { applies_to: ['language_accuracy'], polarity: 'negative' },
     'accuracy:advanced_formal_control': { applies_to: ['language_accuracy'], polarity: 'neutral' },
+    // ----- task_meta (Fix B) -----
+    'task_meta:type_match':      { applies_to: [], polarity: 'neutral' },
+    'task_meta:genre_structure': { applies_to: [], polarity: 'neutral' },
     // ----- orthographic_control -----
     'orthography:hamza':                   { applies_to: ['orthographic_control'], polarity: 'negative' },
     'orthography:alif':                    { applies_to: ['orthographic_control'], polarity: 'negative' },
@@ -7928,6 +7981,14 @@ Return JSON only:
     };
   }
 
+  // ===== Shared task-type classification — single source of truth (Fix B C1.1) =====
+  // Paragraph tasks are treated as minimally structured open-response tasks by design.
+  // Article is STRUCTURED (not narrative-like): expository, requires cohesion + vocab range.
+  // Email is in NEITHER set: transactional, gets default handling for both 4H and 4I.
+  // No legacy types: 'narrative', 'account', 'recount', 'description' do NOT exist in this system.
+  const NARRATIVE_LIKE_TYPES = new Set(['paragraph', 'letter']);
+  const STRUCTURED_TYPES     = new Set(['essay', 'report', 'proposal', 'summary', 'article']);
+
   // ===== Guardrail engine =====
 
   function computeGuardrailObject(scoreObj, annotations, guardrailConfig, interpretObj, taskObject) {
@@ -8025,7 +8086,7 @@ Return JSON only:
         const cf = _ocp.coherence_flow_score;
         const split = Math.abs(cd - cf);
         if (split > 40) {
-          const NARRATIVE_LIKE_TYPES = new Set(['narrative', 'email', 'account', 'recount', 'description']);
+          // Uses module-level NARRATIVE_LIKE_TYPES = {paragraph, letter} (Fix B C1.1).
           const taskType = (taskObject && taskObject.task_type) || 'unknown';
           const isNarrativeLike = NARRATIVE_LIKE_TYPES.has(taskType);
           const severity = isNarrativeLike ? 'WARNING' : 'MODERATE';
@@ -8042,6 +8103,28 @@ Return JSON only:
           if (severity === 'MODERATE') {
             confidence_per_dimension.organisation_coherence = 'MEDIUM';
           }
+        }
+      }
+    }
+
+    // Fix B C1.2: task_type_prompt_mismatch — QA/authoring-audit only; NOT learner-facing.
+    // Fires when the LLM judges that the prompt semantics contradict the declared task_type.
+    // Also sets interpretObj.dimension_profiles.task_achievement.task_type_mismatch = true
+    // as a flag consumed by the genre ceiling in Commit 2.
+    if (rules.task_type_prompt_mismatch !== false) {
+      const matchAnn = annotations.find(a => a.type === 'task_meta:type_match');
+      if (matchAnn && matchAnn.metadata && matchAnn.metadata.match === false) {
+        contradictions.push({
+          rule:           'task_type_prompt_mismatch',
+          severity:       'WARNING',
+          dimension:      'task_achievement',
+          learner_facing: false,
+          message:        `Prompt appears to be "${matchAnn.metadata.suspected_type || 'unknown'}" but task_type is "${matchAnn.metadata.declared_type || 'unknown'}". Check task metadata.`,
+          data:           matchAnn.metadata
+        });
+        // Consumed by genre ceiling (Commit 2): when this fires, genre ceiling is suspended.
+        if (interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.task_achievement) {
+          interpretObj.dimension_profiles.task_achievement.task_type_mismatch = true;
         }
       }
     }
