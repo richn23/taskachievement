@@ -2221,6 +2221,16 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="gr-toggle-row">
+        <div class="gr-toggle-text">
+          <div class="gr-toggle-label">S&amp;R / Range split — LR</div>
+          <div class="gr-toggle-desc">S&amp;R MSA consistency &lt;50 but Language Range &gt;70 — dialect-heavy response may inflate vocabulary range score; flag for review</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="gr_rule_sr_range_split" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
 
     <!-- Card 4: Actions -->
@@ -3778,78 +3788,191 @@ function computeArabicCohesiveDevices(response) {
     return out;
   }
 
-  // register (code-side): basic dialect markers (small list).
-  // Dialect lists vary by variety — this is a starter set. Expand per dialect later.
-  // Code-side dialect detection — bare-token lookup with whitespace/punctuation boundaries.
+  // register (code-side): structured dialect-marker vocabulary, organised by dialect family.
+  // Fix C C1.1: 7 families (gulf, egyptian, levantine, maghrebi, iraqi, yemeni, pan_arabic).
+  // Each family has two sublists:
+  //   unambiguous — colloquial-only forms; safe for deterministic token matching.
+  //   homograph   — forms also valid in MSA; NEVER matched deterministically; LLM-only.
   // V2.1 follow-up: add cliticised/prefix patterns (e.g. ف- prefix on nouns, كنـ-/كيـ continuous prefix)
-  // which can't be matched as bare tokens. For v0.3 we rely on the LLM register prompt to catch
-  // those cliticised dialect forms.
-  const DIALECT_MARKERS = [
-    // ===== Levantine / general =====
-    { word: 'مش',     note: 'Egyptian/Levantine negation' },
-    { word: 'هاي',    note: 'Levantine demonstrative' },
-    { word: 'هون',    note: 'Levantine "here"' },
-    { word: 'هلق',    note: 'Levantine "now"' },
-    { word: 'كتير',   note: 'Levantine "a lot"' },
-    { word: 'شو',     note: 'Levantine "what"' },
-    // ===== Egyptian =====
-    { word: 'كده',    note: 'Egyptian "like this"' },
-    { word: 'دلوقتي', note: 'Egyptian "now"' },
-    { word: 'إيه',    note: 'colloquial "what"' },
-    { word: 'بتاع',   note: 'Egyptian possessive' },
-    { word: 'اوي',    note: 'Egyptian intensifier' },
+  // which can't be matched as bare tokens. For v0.3 we rely on the LLM register prompt.
+  const DIALECT_MARKERS = {
     // ===== Gulf =====
-    { word: 'وايد',   note: 'Gulf "a lot"' },
-    { word: 'شلون',   note: 'Gulf/Iraqi "how"' },
-    { word: 'يبا',    note: 'Gulf address particle' },
-    // ===== Maghrebi / Darija (added Tier 3) =====
-    { word: 'ديال',   note: 'Maghrebi/Darija possessive particle (MSA: ـه / of)' },
-    { word: 'باش',    note: 'Maghrebi purpose marker (MSA: لكي / كي)' },
-    { word: 'بزاف',   note: 'Maghrebi "a lot" (MSA: كثيراً)' },
-    { word: 'شوية',   note: 'general dialect "a little" (MSA: قليلاً)' },
-    { word: 'ملي',    note: 'Maghrebi temporal "when" (MSA: عندما / حين)' },
-    { word: 'فاش',    note: 'Maghrebi "when/while" (MSA: متى)' },
-    { word: 'فين',    note: 'Maghrebi/dialect "where" (MSA: أين)' },
-    { word: 'كلشي',   note: 'Maghrebi "everything" (MSA: كل شيء)' },
-    { word: 'تما',    note: 'Maghrebi "there" (MSA: هناك)' },
-    { word: 'خويا',   note: 'Maghrebi "my brother" (MSA: أخي)' },
-    { word: 'خوي',    note: 'Maghrebi/general dialect "my brother"' },
-    { word: 'حوايج',  note: 'Maghrebi/dialect "things" (MSA: أشياء)' },
-    { word: 'حاجة',   note: 'colloquial "thing" used as dialect filler (MSA: شيء)' },
-    { word: 'كيطل',   note: 'Maghrebi "overlooks/faces" (MSA: يُطل)' },
-    { word: 'زوين',   note: 'Maghrebi "nice/beautiful" (MSA: جميل / لطيف)' },
-    { word: 'زوينة',  note: 'Maghrebi "nice/beautiful" feminine' },
-    { word: 'الكافي', note: 'Maghrebi "the cafe" (MSA: المقهى)' },
-    { word: 'مبسوط',  note: 'colloquial "happy/content" (MSA: سعيد / مسرور)' },
-    { word: 'كنوقفو', note: 'Maghrebi continuous-prefix verb "we stop"' },
-    { word: 'كنهدرو', note: 'Maghrebi continuous-prefix verb "we talk"' },
-    { word: 'نهزوهم', note: 'Maghrebi conjugation pattern' },
-    { word: 'هاد',    note: 'Maghrebi/general dialect demonstrative "this" (MSA: هذا)' },
-    // ===== Cross-dialect items that are non-MSA in formal writing =====
-    { word: 'حسيت',   note: 'colloquial past "I felt" (MSA: شعرتُ)' },
-    { word: 'شفت',    note: 'colloquial past "I saw" (MSA: رأيتُ)' },
-    { word: 'بعدين',  note: 'colloquial sequence "later" (MSA: لاحقاً / فيما بعد)' },
-    { word: 'اللي',   note: 'colloquial relative pronoun (MSA: الذي / التي)' }
-  ];
-  function annotateRegisterCode(response, runId) {
-    const out = [];
-    DIALECT_MARKERS.forEach(({ word, note }) => {
-      const re = new RegExp(`(?:^|[\\s.،,;؛])(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[\\s.،,;؛]|$)`, 'g');
-      let m;
-      while ((m = re.exec(response)) !== null) {
-        const start = m.index + (m[0].length - m[1].length);
-        out.push(makeAnnotation({
-          family: 'register',
-          type: 'register:dialect_marker',
-          source: 'code',
-          text: m[1],
-          span: { start, end: start + m[1].length },
-          metadata: { dialect_note: note },
-          runId
-        }));
+    gulf: {
+      unambiguous: [
+        { word: 'وايد',   note: 'Gulf "a lot" (MSA: كثيراً)' },
+        { word: 'شوي',    note: 'Gulf "a little" (MSA: قليلاً)' },
+        { word: 'شوية',   note: 'Gulf/general "a little" (MSA: قليلاً)' },
+        { word: 'نسولف',  note: 'Gulf "we chat/talk" (MSA: نتحدث)' },
+        { word: 'سويناه', note: 'Gulf "we did it" (MSA: فعلناه)' },
+        { word: 'ويانا',  note: 'Gulf "with us" (MSA: معنا)' },
+        { word: 'عشان',   note: 'Gulf/Egyptian "because/so that" (MSA: لأن / كي)' },
+        { word: 'بدري',   note: 'Gulf "early" (MSA: مبكراً)' },
+        { word: 'يبا',    note: 'Gulf address particle' },
+        { word: 'يطل',    note: 'Gulf/dialect "overlooks" — colloquial form of يُطل' },
+        { word: 'تمشينا', note: 'Gulf "we went" (MSA: ذهبنا)' },
+      ],
+      // Homographs: also valid in MSA — LLM must disambiguate by context.
+      homograph: [
+        { word: 'عقب',  note: 'Gulf "after" — also MSA heel / subsequent' },
+        { word: 'صوب',  note: 'Gulf "towards/direction" — also MSA correction' },
+        { word: 'لين',  note: 'Gulf "until/while" — also MSA softness/gentle' },
+        { word: 'رحت',  note: 'Gulf "I went" — also MSA past of رَحَلَ' },
+      ]
+    },
+    // ===== Egyptian =====
+    egyptian: {
+      unambiguous: [
+        { word: 'أوي',    note: 'Egyptian intensifier "very" (MSA: جداً)' },
+        { word: 'اوي',    note: 'Egyptian intensifier, undiacritised form' },
+        { word: 'عايز',   note: 'Egyptian "wanting" (MSA: يريد)' },
+        { word: 'عاوز',   note: 'Egyptian variant of عايز' },
+        { word: 'إزاي',   note: 'Egyptian "how" (MSA: كيف)' },
+        { word: 'دلوقتي', note: 'Egyptian "now" (MSA: الآن)' },
+        { word: 'كده',    note: 'Egyptian "like this" (MSA: هكذا)' },
+        { word: 'بتاع',   note: 'Egyptian possessive particle (MSA: خاص بـ)' },
+        { word: 'مش',     note: 'Egyptian/Levantine negation (MSA: ليس)' },
+        { word: 'إحنا',   note: 'Egyptian "we" (MSA: نحن)' },
+        { word: 'لسه',    note: 'Egyptian "still/yet" (MSA: لا يزال)' },
+        { word: 'إيه',    note: 'Egyptian colloquial "what" (MSA: ما / ماذا)' },
+        { word: 'حاجة',   note: 'Egyptian "thing" used as dialect filler (MSA: شيء)' },
+      ],
+      homograph: []
+    },
+    // ===== Levantine =====
+    levantine: {
+      unambiguous: [
+        { word: 'شو',   note: 'Levantine "what" (MSA: ماذا)' },
+        { word: 'هيك',  note: 'Levantine "like this" (MSA: هكذا)' },
+        { word: 'هلق',  note: 'Levantine "now" (MSA: الآن)' },
+        { word: 'لهيك', note: 'Levantine "therefore/so" (MSA: لذلك)' },
+        { word: 'كتير', note: 'Levantine "a lot" (MSA: كثيراً)' },
+        { word: 'لسا',  note: 'Levantine "still/yet" (MSA: لا يزال)' },
+        { word: 'بدي',  note: 'Levantine "I want" (MSA: أريد)' },
+        { word: 'بدّي', note: 'Levantine "I want" emphatic' },
+        { word: 'عنجد', note: 'Levantine "really/seriously" (MSA: فعلاً / حقاً)' },
+        { word: 'مو',   note: 'Levantine/Gulf negation (MSA: ليس)' },
+        { word: 'هاي',  note: 'Levantine demonstrative "this" (MSA: هذا / هذه)' },
+        { word: 'هون',  note: 'Levantine "here" (MSA: هنا)' },
+      ],
+      homograph: []
+    },
+    // ===== Maghrebi / Darija =====
+    maghrebi: {
+      unambiguous: [
+        { word: 'بزاف',   note: 'Maghrebi "a lot" (MSA: كثيراً)' },
+        { word: 'بزّاف',  note: 'Maghrebi "a lot" emphatic form' },
+        { word: 'دابا',   note: 'Maghrebi "now" (MSA: الآن)' },
+        { word: 'واخا',   note: 'Maghrebi "ok/agreed" (MSA: حسناً)' },
+        { word: 'ديال',   note: 'Maghrebi possessive particle (MSA: ـه / خاص بـ)' },
+        { word: 'غادي',   note: 'Maghrebi future marker (MSA: سوف / سـ)' },
+        { word: 'واش',    note: 'Maghrebi question particle (MSA: هل)' },
+        { word: 'علاش',   note: 'Maghrebi "why" (MSA: لماذا)' },
+        { word: 'خويا',   note: 'Maghrebi "my brother" (MSA: أخي)' },
+        // Tier 3 tokens
+        { word: 'ملي',    note: 'Maghrebi temporal "when" (MSA: عندما / حين)' },
+        { word: 'فاش',    note: 'Maghrebi "when/while" (MSA: متى)' },
+        { word: 'فين',    note: 'Maghrebi/dialect "where" (MSA: أين)' },
+        { word: 'كلشي',   note: 'Maghrebi "everything" (MSA: كل شيء)' },
+        { word: 'تما',    note: 'Maghrebi "there" (MSA: هناك)' },
+        { word: 'خوي',    note: 'Maghrebi/general dialect "my brother"' },
+        { word: 'حوايج',  note: 'Maghrebi/dialect "things" (MSA: أشياء)' },
+        { word: 'كيطل',   note: 'Maghrebi "overlooks/faces" (MSA: يُطل)' },
+        { word: 'زوين',   note: 'Maghrebi "nice/beautiful" (MSA: جميل / لطيف)' },
+        { word: 'زوينة',  note: 'Maghrebi "nice/beautiful" feminine' },
+        { word: 'الكافي', note: 'Maghrebi "the cafe" (MSA: المقهى)' },
+        { word: 'هاد',    note: 'Maghrebi/general dialect demonstrative "this" (MSA: هذا)' },
+        { word: 'كنوقفو', note: 'Maghrebi continuous-prefix verb "we stop"' },
+        { word: 'كنهدرو', note: 'Maghrebi continuous-prefix verb "we talk"' },
+        { word: 'نهزوهم', note: 'Maghrebi conjugation pattern' },
+      ],
+      homograph: [
+        { word: 'كن',   note: 'Maghrebi continuous prefix — also MSA كُنْ (imperative "be")' },
+        { word: 'ماشي', note: 'Maghrebi "ok/fine" — also MSA ماشٍ (walking, verbal adj.)' },
+        { word: 'باش',  note: 'Maghrebi purpose marker (كي/لكي) — also MSA بَاشَ (archaic)' },
+      ]
+    },
+    // ===== Iraqi =====
+    iraqi: {
+      unambiguous: [
+        { word: 'شلون',  note: 'Iraqi/Gulf "how" (MSA: كيف)' },
+        { word: 'اكو',   note: 'Iraqi "there is" (MSA: يوجد)' },
+        { word: 'ماكو',  note: 'Iraqi "there isn\'t" (MSA: لا يوجد)' },
+        { word: 'هسة',   note: 'Iraqi "now" (MSA: الآن)' },
+        { word: 'هواية', note: 'Iraqi "a lot" (MSA: كثيراً)' },
+        { word: 'شنو',   note: 'Iraqi "what" (MSA: ماذا)' },
+      ],
+      homograph: [
+        { word: 'عاد', note: 'Iraqi filler/discourse marker — also MSA عاد (returned)' },
+      ]
+    },
+    // ===== Yemeni =====
+    yemeni: {
+      unambiguous: [
+        { word: 'كدي', note: 'Yemeni "like this" (MSA: هكذا)' },
+        { word: 'بش',  note: 'Yemeni purpose/because marker' },
+        { word: 'شي',  note: 'Yemeni "something/thing" (MSA: شيء)' },
+      ],
+      homograph: [
+        { word: 'ذا', note: 'Yemeni demonstrative — also MSA ذا (this, formal/literary)' },
+      ]
+    },
+    // ===== Pan-Arabic colloquial =====
+    pan_arabic: {
+      unambiguous: [
+        { word: 'خلاص',  note: 'pan-Arabic "done/finished" (MSA: انتهى)' },
+        { word: 'يلا',   note: 'pan-Arabic "let\'s go/come on" (MSA: هيا)' },
+        { word: 'يالله', note: 'pan-Arabic variant of يلا' },
+        { word: 'حسيت',  note: 'colloquial past "I felt" (MSA: شعرتُ)' },
+        { word: 'شفت',   note: 'colloquial past "I saw" (MSA: رأيتُ)' },
+        { word: 'بعدين', note: 'colloquial sequence "later" (MSA: لاحقاً / فيما بعد)' },
+        { word: 'اللي',  note: 'colloquial relative pronoun (MSA: الذي / التي)' },
+        { word: 'مبسوط', note: 'colloquial "happy/content" (MSA: سعيد / مسرور)' },
+      ],
+      // يعني / بس / طيب — LLM must judge: filler use = dialect_marker; grammatical/adjectival use = OK.
+      homograph: [
+        { word: 'يعني', note: 'pan-Arabic filler — also MSA يعني (it means)' },
+        { word: 'بس',   note: 'pan-Arabic "just/but/only" filler — also MSA بسٌّ' },
+        { word: 'طيب',  note: 'pan-Arabic discourse opener — also MSA طَيِّب (good/fine adj.)' },
+      ]
+    }
+  };
+
+  // detectDialectMarkers: scan UNAMBIGUOUS token lists only.
+  // Homograph sublists are intentionally excluded — context-dependent disambiguation is LLM-only.
+  // Returns { hits: [{word, family, note, span}], familyCounts: {family: N, ...} }.
+  function detectDialectMarkers(response) {
+    const hits         = [];
+    const familyCounts = {};
+    for (const [family, lists] of Object.entries(DIALECT_MARKERS)) {
+      let count = 0;
+      for (const { word, note } of (lists.unambiguous || [])) {
+        const re = new RegExp(
+          `(?:^|[\\s.،,;؛])(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=[\\s.،,;؛]|$)`,
+          'g'
+        );
+        let m;
+        while ((m = re.exec(response)) !== null) {
+          const start = m.index + (m[0].length - m[1].length);
+          hits.push({ word: m[1], family, note, span: { start, end: start + m[1].length } });
+          count++;
+        }
       }
-    });
-    return out;
+      if (count > 0) familyCounts[family] = count;
+    }
+    return { hits, familyCounts };
+  }
+
+  function annotateRegisterCode(response, runId) {
+    const { hits } = detectDialectMarkers(response);
+    return hits.map(({ word, family, note, span }) => makeAnnotation({
+      family:   'register',
+      type:     'register:dialect_marker',
+      source:   'code',
+      text:     word,
+      span,
+      metadata: { dialect_family: family, dialect_note: note },
+      runId
+    }));
   }
 
   // orthography (code-side): basic common-error list. Small starter set.
@@ -4592,21 +4715,30 @@ Return JSON only:
 
 ${ANNOTATION_DISCIPLINE}
 
-COVERAGE — dialect detection here must cover ALL Arabic dialect families, not only Gulf/Levantine. The task is judged against MSA, and any non-MSA token is a register finding regardless of which dialect family it comes from:
-- Levantine (e.g. هاي، هون، شو، كتير، هلق، عم + verb).
-- Gulf (e.g. شفت، حسيت، رحت، أبغى، يبا، شلون، وايد، حق as a preposition).
-- Egyptian (e.g. مش، كده، دلوقتي، إيه، بتاع، اوي).
-- Maghrebi / Darija (e.g. ديال، باش، بزاف، شوية، ملي، كلشي، تما، خويا، حوايج، فاش، فين، كيطل، زوين، الكافي، الحوايج، بسط، حسيت براسي، contracted prepositions فال-/فمـ-، continuous prefix كنـ-).
-- Iraqi (e.g. هواي، شكو، ماكو، آني، اني).
-- Sudanese (e.g. شنو، داير، كيف).
+COVERAGE — dialect detection must cover ALL seven Arabic dialect families. The task is judged against MSA, and any non-MSA token is a register finding regardless of which dialect family it comes from:
+- Gulf     (e.g. وايد، شوي، عشان، بدري، يبا، تمشينا، سويناه).
+- Egyptian (e.g. مش، كده، دلوقتي، إيه، بتاع، أوي/اوي، عايز، إزاي، إحنا، لسه، حاجة).
+- Levantine (e.g. شو، هيك، هلق، لهيك، كتير، بدي، عنجد، مو، هاي، هون).
+- Maghrebi / Darija (e.g. ديال، بزاف، دابا، واخا، غادي، واش، علاش، خويا، ملي، فاش، فين، كلشي، تما، حوايج، كيطل، زوين، هاد، كنوقفو، كنهدرو — continuous كنـ/كيـ prefix, contracted prepositions فالـ-/فمـ-).
+- Iraqi    (e.g. شلون، اكو، ماكو، هسة، هواية، شنو).
+- Yemeni   (e.g. كدي، بش، شي).
+- Pan-Arabic colloquial (e.g. خلاص، يلا/يالله، حسيت، شفت، بعدين، اللي، مبسوط).
 
-1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form. Annotate EVERY non-MSA token or phrase you can identify, regardless of dialect family. In a heavily dialect response (e.g. near-pure Darija), expect MANY dialect_marker findings — do not stop at two or three.
+HOMOGRAPH DISAMBIGUATION — the tokens below appear in both dialects and MSA. Flag them as dialect_marker ONLY in the colloquial reading; leave them alone in the MSA reading:
+- يعني: flag as dialect_marker when used as a filler/discourse particle (equivalent to English "like" or "you know"). Do NOT flag when يعني functions as a main verb meaning "it means" (e.g. "وهذا يعني أن...").
+- بس: flag as dialect_marker when used as a colloquial conjunction/adverb ("just/but/only"). Do NOT flag in poetry, proverbs, or formal registers.
+- طيب: flag as dialect_marker when used as a discourse opener or filler transition ("طيب،..."). Do NOT flag when used as the adjective طَيِّب (good/fine) in a clearly adjectival position.
+- عقب، صوب، لين (Gulf): flag as dialect_marker when functioning as "after / towards / until". Do NOT flag when clearly used in the MSA senses (heel, correction, softness/gentle).
+- كن، ماشي، باش (Maghrebi): flag as dialect_marker when كن is a continuous-prefix verb, ماشي means "ok/fine", باش means "in order to / so that". Do NOT flag كُنْ (MSA imperative "be"), ماشٍ (MSA walking), باش in archaic formal use.
+- عاد (Iraqi): flag as dialect_marker when it is a filler particle. Do NOT flag when عاد means "he returned" (MSA past tense verb).
+
+1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form. Annotate EVERY non-MSA token or phrase you can identify, regardless of dialect family. In a heavily dialect response (e.g. near-pure Darija or Egyptian), expect MANY dialect_marker findings — do not stop at two or three.
 
 Examples worth surfacing:
 - Lexical: خويا (MSA: أخي), بزاف (MSA: كثيراً), حوايج (MSA: أشياء), زوين (MSA: جميل), كلشي (MSA: كل شيء), حسيت (MSA: شعرتُ), شفت (MSA: رأيتُ), كيطل (MSA: يُطل).
-- Particles: ديال (MSA: ـ of/possessive ـه), باش (MSA: لكي/كي), ملي (MSA: عندما/حين), فاش (MSA: متى/عندما), هاد (MSA: هذا).
+- Particles: ديال (MSA: possessive ـه), باش (MSA: لكي/كي), ملي (MSA: عندما/حين), فاش (MSA: متى/عندما), هاد (MSA: هذا).
 - Contracted prepositions: فالليل/فالصباح/فمطعم/فالمدينة — dialect contractions of في + noun.
-- Continuous-prefix verbs: كنوقفو، كنهدرو، كيطل — the كنـ/كيـ continuous prefix is dialect.
+- Continuous-prefix verbs: كنوقفو، كنهدرو — the كنـ/كيـ continuous prefix is Maghrebi dialect.
 - Relative pronoun اللي where MSA would use الذي/التي.
 
 2. msa_marker — formally correct MSA phrasing worth noting positively as evidence of register awareness (e.g. الأسبوع الماضي used as a written time expression). Reserve for genuinely MSA forms only.
@@ -4614,11 +4746,11 @@ Examples worth surfacing:
 3. register_lapse — RESERVE FOR CLEAR cases only. Use ONLY when phrasing is so informal that an MSA writer would clearly avoid it in a written task, AND it is not already a dialect marker.
 
 DO NOT flag as register_lapse:
-- Common semi-neutral spoken discourse markers (e.g. أول شيء، يعني، الحقيقة، طيب). These are register-neutral in narrative writing; leave them alone.
-- Anything already covered by dialect_marker. Pick one subtype per finding — never double-tag the same span with both dialect_marker and register_lapse.
+- الحقيقة، أول شيء — these are register-neutral discourse markers in narrative writing.
+- Anything already covered by dialect_marker. One subtype per finding — never double-tag the same span with both dialect_marker and register_lapse.
 - Borderline-informal phrasing that doesn't break the MSA register noticeably.
 
-Decision rule: if a span fits both dialect_marker and register_lapse, choose dialect_marker. Register_lapse is reserved for register breakdowns that are NOT primarily about colloquial word choice (e.g. unexpectedly slangy address forms, intrusively casual punctuation, jarringly informal interjections — none of which appear in most narrative responses).
+Decision rule: if a span fits both dialect_marker and register_lapse, choose dialect_marker. Register_lapse is reserved for register breakdowns that are NOT primarily about colloquial word choice (e.g. unexpectedly slangy address forms, jarringly informal interjections).
 
 If no register lapses (in the strict sense above) are present, simply do not emit any register_lapse findings. Quality > quantity.
 
@@ -6254,12 +6386,13 @@ Return JSON only:
     },
     extreme_thresholds: { low: 20, high: 95, dimension_spread: 60 },
     contradiction_rules: {
-      high_grammar_low_orthography: true,
+      high_grammar_low_orthography:   true,
       dialect_dominant_high_accuracy: true,
-      high_coherence_no_connectives: true,
-      orth_det_llm_split: true,
-      coh_dev_flow_split:  true,
-      cq_evidence_reuse:   true
+      high_coherence_no_connectives:  true,
+      orth_det_llm_split:             true,
+      coh_dev_flow_split:             true,
+      cq_evidence_reuse:              true,
+      style_range_register_split:     true
     }
   };
 
@@ -6281,8 +6414,9 @@ Return JSON only:
         dialect_dominant_high_accuracy: document.getElementById('gr_rule_dialect_accuracy').checked,
         high_coherence_no_connectives:  document.getElementById('gr_rule_coherence_connectives').checked,
         orth_det_llm_split:             document.getElementById('gr_rule_orth_det_llm_split').checked,
-        coh_dev_flow_split:              document.getElementById('gr_rule_coh_dev_flow_split').checked,
-        cq_evidence_reuse:               document.getElementById('gr_rule_cq_evidence_reuse').checked
+        coh_dev_flow_split:             document.getElementById('gr_rule_coh_dev_flow_split').checked,
+        cq_evidence_reuse:              document.getElementById('gr_rule_cq_evidence_reuse').checked,
+        style_range_register_split:     document.getElementById('gr_rule_sr_range_split').checked
       }
     };
   }
@@ -6303,8 +6437,9 @@ Return JSON only:
     setChk('gr_rule_dialect_accuracy',       r.dialect_dominant_high_accuracy);
     setChk('gr_rule_coherence_connectives',  r.high_coherence_no_connectives);
     setChk('gr_rule_orth_det_llm_split',     r.orth_det_llm_split);
-    setChk('gr_rule_coh_dev_flow_split',      r.coh_dev_flow_split);
-    setChk('gr_rule_cq_evidence_reuse',       r.cq_evidence_reuse);
+    setChk('gr_rule_coh_dev_flow_split',     r.coh_dev_flow_split);
+    setChk('gr_rule_cq_evidence_reuse',      r.cq_evidence_reuse);
+    setChk('gr_rule_sr_range_split',         r.style_range_register_split);
   }
 
   document.getElementById('btn_gr_save').addEventListener('click', () => {
@@ -6963,6 +7098,21 @@ Return JSON only:
       srLapseAnns.length,
       sr_consistency
     );
+    // Fix C C1.3: dialect-family diagnostics from code-side annotations (family is known)
+    // plus detection-source flag (code-only / llm-only / code+llm / none).
+    const _codeDialectAnns = srDialectAnns.filter(a => a.source === 'code');
+    const _llmDialectAnns  = srDialectAnns.filter(a => a.source === 'llm');
+    const _srDialectFamilyCounts = _codeDialectAnns.reduce((acc, a) => {
+      const fam = (a.metadata && a.metadata.dialect_family) || 'unknown';
+      acc[fam] = (acc[fam] || 0) + 1;
+      return acc;
+    }, {});
+    const _srDialectDiversity = Object.keys(_srDialectFamilyCounts).length;
+    const _srDetectionSource  = _codeDialectAnns.length > 0 && _llmDialectAnns.length > 0 ? 'code+llm' :
+                                _llmDialectAnns.length  > 0 ? 'llm'  :
+                                _codeDialectAnns.length > 0 ? 'code' : 'none';
+    // msa_consistency = raw S&R score BEFORE any ceiling — used by style_range_register_split guardrail.
+    const _srMsaConsistency = sr_scored.derived_score;
     // No-MSA-markers ceiling: a response scoring above 65 without any positive
     // MSA register evidence is over-rewarded for merely avoiding dialect.
     // Applied when msa_marker_count === 0 and the response is not msa_dominant.
@@ -6995,6 +7145,11 @@ Return JSON only:
       lapse_cap_applied:          sr_scored.lapse_cap_applied,
       msa_marker_ceiling_applied: sr_msa_marker_ceiling_applied,
       cap_reason:                 _sr_cap_reason,
+      // Fix C C1.3 diagnostics
+      msa_consistency:            _srMsaConsistency,
+      dialect_family_counts:      _srDialectFamilyCounts,
+      dialect_marker_diversity:   _srDialectDiversity,
+      dialect_detection_source:   _srDetectionSource,
       confidence:                 'HIGH',
       evidence_summary: {
         dialect_markers:   srDialectAnns.length,
@@ -8126,6 +8281,26 @@ Return JSON only:
         if (interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.task_achievement) {
           interpretObj.dimension_profiles.task_achievement.task_type_mismatch = true;
         }
+      }
+    }
+
+    // Fix C C1.4: style_range_register_split — flags when S&R is dialect-heavy but Language Range is high.
+    // Heavy dialect use should depress vocabulary range (the range prompt already instructs the LLM to
+    // cap dialect-form scores). A large split suggests the range scorer over-rewarded vocab despite
+    // dialect contamination. Keyed on msa_consistency (pre-ceiling S&R score).
+    if (rules.style_range_register_split !== false) {
+      const _srP     = interpretObj && interpretObj.dimension_profiles && interpretObj.dimension_profiles.style_register;
+      const _lrScore = scoreObj && scoreObj.dimensions && scoreObj.dimensions.language_range;
+      const _srMsaCon = _srP && (typeof _srP.msa_consistency === 'number' ? _srP.msa_consistency : null);
+      if (_srMsaCon !== null && typeof _lrScore === 'number' && _srMsaCon < 50 && _lrScore > 70) {
+        const _srRSplit = _lrScore - _srMsaCon;
+        contradictions.push({
+          rule:      'style_range_register_split',
+          severity:  _srRSplit > 40 ? 'MODERATE' : 'WARNING',
+          dimension: 'language_range',
+          message:   `Language Range (${_lrScore}) is high while S&R MSA consistency is low (${_srMsaCon}) — dialect-heavy responses may inflate vocabulary range; review manually.`,
+          data:      { language_range: _lrScore, msa_consistency: _srMsaCon, split: _srRSplit }
+        });
       }
     }
 
