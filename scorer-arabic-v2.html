@@ -3605,15 +3605,8 @@ TOPIC: {TOPIC}
     })];
   }
 
-  // cohesion (code-side): Arabic connectives — lifted from V1's computeArabicCohesiveDevices spirit.
-  // Small set for v0.3; expand later.
-  const ARABIC_CONNECTIVES = [
-    'و', 'ثم', 'لكن', 'لذلك', 'لأن', 'بسبب', 'بالإضافة إلى', 'علاوة على ذلك',
-    'من ناحية أخرى', 'في المقابل', 'أيضاً', 'أيضًا', 'كذلك', 'إذن', 'فإن',
-    'بينما', 'حيث', 'عندما', 'إذا', 'لو', 'كما', 'مثلاً', 'مثلًا',
-    'أولاً', 'أولًا', 'ثانياً', 'ثانيًا', 'ثالثاً', 'ثالثًا', 'أخيراً', 'أخيرًا',
-    'في النهاية', 'في الختام', 'باختصار', 'إجمالاً'
-  ];
+  // DIV-009: the vestigial flat ARABIC_CONNECTIVES list was removed (unused).
+  // Cohesion uses the categorised CONNECTIVES dictionary in computeArabicCohesiveDevices below.
   // ============================================================
   // computeArabicCohesiveDevices — ported verbatim from V1
   // (V1 lines 3058–3180). Deterministic connective tally.
@@ -3808,7 +3801,6 @@ function computeArabicCohesiveDevices(response) {
         { word: 'عشان',   note: 'Gulf/Egyptian "because/so that" (MSA: لأن / كي)' },
         { word: 'بدري',   note: 'Gulf "early" (MSA: مبكراً)' },
         { word: 'يبا',    note: 'Gulf address particle' },
-        { word: 'يطل',    note: 'Gulf/dialect "overlooks" — colloquial form of يُطل' },
         { word: 'تمشينا', note: 'Gulf "we went" (MSA: ذهبنا)' },
       ],
       // Homographs: also valid in MSA — LLM must disambiguate by context.
@@ -3817,6 +3809,7 @@ function computeArabicCohesiveDevices(response) {
         { word: 'صوب',  note: 'Gulf "towards/direction" — also MSA correction' },
         { word: 'لين',  note: 'Gulf "until/while" — also MSA softness/gentle' },
         { word: 'رحت',  note: 'Gulf "I went" — also MSA past of رَحَلَ' },
+        { word: 'يطل',  note: 'DIV-039: MSA يُطِلّ "overlooks" (e.g. مطعم يطل على الجبل) — homograph, LLM-only' },
       ]
     },
     // ===== Egyptian =====
@@ -6827,10 +6820,13 @@ Return JSON only:
       base = 70 - Math.min(35, error_density * 4);
       if (base > 75) base = 75;
     } else {
-      base = 55 - Math.min(15, error_density * 4);
-      base = Math.max(35, Math.min(65, base));
+      // DIV-001: LOW measurement validity = construct avoidance (the formal construct
+      // was not meaningfully attempted). It is UNMEASURABLE, so derived_score is null
+      // and the scorer applies the null penalty (0 to numerator, full weight in the
+      // denominator). Do NOT prop the score up to a mid-band ~55.
+      base = null;
     }
-    var derived_score = Math.round(base);
+    var derived_score = (base === null) ? null : Math.round(base);
     var profile_band;
     if (validity === 'LOW') {
       profile_band = 'unmeasurable_construct_avoidance';
