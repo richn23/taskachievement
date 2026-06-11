@@ -1,0 +1,3201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZE · Arabic Writing Scorer — Pipeline Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>/* AZE console - "Majlis Night"
+   bg #11151B - panel #181E26 - line #2A3340 - gold #E3A84E - teal #46B59C
+   clay #D96C5F - rose #C9758E - msa-blue #6AA5DC - text #ECF1F6 - muted #8C97A6 */
+:root {
+  --bg: #11151B; --panel: #181E26; --panel2: #1E2630; --line: #2A3340;
+  --gold: #E3A84E; --teal: #46B59C; --clay: #D96C5F; --rose: #C9758E;
+  --blue: #6AA5DC; --text: #ECF1F6; --muted: #8C97A6;
+  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --arabic: "Noto Naskh Arabic", "Amiri", "Traditional Arabic", serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--body);
+  font-size: 15px; line-height: 1.55;
+  background-image: radial-gradient(1100px 480px at 85% -10%, rgba(227,168,78,.07), transparent 60%);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+header {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 18px 28px; border-bottom: 1px solid var(--line);
+}
+.mono-mark {
+  width: 44px; height: 44px; border-radius: 10px; flex: none;
+  background: linear-gradient(150deg, #2A2113, #14171d 70%);
+  border: 1px solid rgba(227,168,78,.45); color: var(--gold);
+  display: grid; place-items: center; font-family: var(--arabic);
+  font-size: 26px; line-height: 1; padding-bottom: 6px;
+}
+header h1 { font-family: var(--display); font-size: 19px; margin: 0; letter-spacing: .2px; }
+header h1 small { color: var(--gold); font-weight: 500; }
+header p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.modewrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+select, input[type=number], input[type=text], textarea {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-family: var(--body); font-size: 14px;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--gold); outline: none; }
+.modeltag { font-family: var(--mono); font-size: 11px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+
+main { display: grid; grid-template-columns: minmax(380px, 500px) 1fr; gap: 22px;
+  padding: 22px 28px 60px; max-width: 1480px; margin: 0 auto; }
+@media (max-width: 1080px) { main { grid-template-columns: 1fr; padding: 16px; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+.card + .card { margin-top: 18px; }
+.card h2 { font-family: var(--display); font-size: 13px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+.card h2 b { color: var(--gold); font-weight: 600; }
+
+#samples { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.chip { text-align: start; background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 11px; display: grid; gap: 2px; transition: border-color .15s; }
+.chip strong { font-size: 13px; }
+.chip span { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.chip:hover { border-color: var(--gold); }
+.chip.on { border-color: var(--gold); background: rgba(227,168,78,.08); }
+label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.fieldrow { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; margin: 12px 0; }
+.fieldrow .f { min-width: 0; }
+.fieldrow select, .fieldrow input { width: 100%; min-width: 0; }
+@media (max-width: 460px) { .fieldrow { grid-template-columns: 1fr; } }
+textarea#response {
+  width: 100%; min-height: 190px; resize: vertical; direction: rtl;
+  font-family: var(--arabic); font-size: 19px; line-height: 2; padding: 14px;
+}
+textarea#requirements, input#prompt { width: 100%; direction: rtl; font-family: var(--arabic); font-size: 15px; }
+textarea#devMarkers { width: 100%; direction: ltr; font-family: var(--mono); font-size: 12px; }
+#counter { font-family: var(--mono); font-size: 12px; color: var(--teal); margin-top: 6px; }
+#counter.warn { color: var(--gold); }
+#failWrap { display: none; align-items: center; gap: 8px; margin-top: 12px;
+  font-size: 12.5px; color: var(--muted); }
+#run {
+  width: 100%; margin-top: 16px; padding: 13px; border-radius: 10px; border: none;
+  background: linear-gradient(120deg, var(--gold), #C98E35); color: #18120A;
+  font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .02em;
+  transition: filter .15s, transform .1s;
+}
+#run:hover:not(:disabled) { filter: brightness(1.08); }
+#run:active:not(:disabled) { transform: translateY(1px); }
+#run:disabled { opacity: .65; cursor: progress; }
+
+.rail { position: relative; display: flex; justify-content: space-between; margin: 10px 4px 4px; }
+.rail::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 2px;
+  background: var(--line); }
+#railFill { position: absolute; left: 0; top: 9px; height: 2px; width: 0;
+  background: var(--gold); transition: width .45s ease; }
+#railFill.haltfill { background: var(--clay); }
+.stage { position: relative; z-index: 1; display: grid; justify-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted); }
+.stage i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line);
+  background: var(--bg); display: block; transition: border-color .3s, background .3s; }
+.stage.done i { border-color: var(--gold); background: var(--gold); }
+.stage.now i { border-color: var(--gold); animation: pulse 1.1s ease-in-out infinite; }
+.stage.halt i { border-color: var(--clay); background: var(--clay); }
+.stage.done, .stage.now { color: var(--text); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(227,168,78,.18); } }
+
+#annotators { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+.anno { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono);
+  font-size: 11.5px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); background: var(--panel2); }
+.anno i { color: var(--gold); font-style: normal; font-size: 8px; }
+.anno em { font-style: normal; color: var(--muted); }
+.anno .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); flex: none; }
+.anno.running .dot { background: var(--gold); animation: pulse 1s infinite; }
+.anno.ok { color: var(--text); border-color: rgba(70,181,156,.5); }
+.anno.ok .dot { background: var(--teal); }
+.anno.ok em { color: var(--teal); }
+.anno.failed { color: var(--text); border-color: rgba(217,108,95,.6); }
+.anno.failed .dot { background: var(--clay); }
+.anno.failed em { color: var(--clay); }
+
+#halt { border-color: rgba(217,108,95,.55); background: rgba(217,108,95,.07); }
+#halt h2 { color: var(--clay); }
+#halt p { margin: 6px 0; }
+#haltFams { margin-top: 8px; }
+
+.scorehead { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+#overall { font-family: var(--display); font-size: 76px; font-weight: 700; line-height: 1;
+  color: var(--gold); min-width: 110px; }
+#cefr { font-family: var(--display); font-size: 22px; font-weight: 700;
+  border: 1.5px solid var(--gold); color: var(--gold); border-radius: 10px; padding: 6px 16px; }
+#runMeta { width: 100%; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+#formula { font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+  margin-top: 12px; padding: 10px 12px; background: var(--panel2);
+  border-radius: 8px; border: 1px dashed var(--line); overflow-x: auto; }
+#formula b { color: var(--gold); }
+#formula b.pen { color: var(--clay); }
+#formula i { color: var(--muted); font-style: italic; }
+
+.dim { border-bottom: 1px solid var(--line); }
+.dim:last-child { border-bottom: none; }
+.dimhead { display: grid; grid-template-columns: 230px 1fr 200px 16px; align-items: center;
+  gap: 14px; width: 100%; background: none; border: none; padding: 12px 2px; text-align: left; }
+@media (max-width: 720px) { .dimhead { grid-template-columns: 1fr 90px 16px; }
+  .dimhead .bar, .dimhead .nabar, .dimhead .penbar { display: none; } }
+.dimname { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.bar { height: 8px; border-radius: 99px; background: var(--panel2); overflow: hidden; }
+.bar .fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold));
+  border-radius: 99px; transition: width .7s ease; }
+.penbar .fill { background: repeating-linear-gradient(135deg, rgba(217,108,95,.55) 0 6px, rgba(217,108,95,.15) 6px 12px); }
+.nabar { background: repeating-linear-gradient(135deg, var(--panel2) 0 6px, var(--bg) 6px 12px); }
+.dimval { justify-self: end; }
+.val { font-family: var(--display); font-size: 18px; }
+.chev { color: var(--muted); transition: transform .2s; }
+.dim.open .chev { transform: rotate(180deg); }
+.dimbody { padding: 2px 2px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 18px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px;
+  border-bottom: 1px dotted var(--line); padding: 3px 0; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 600; text-align: end; }
+
+.conf { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.conf.hi { background: var(--teal); } .conf.md { background: var(--gold); }
+.conf.lo { background: var(--clay); } .conf.na { background: var(--muted); }
+
+.tag { font-family: var(--mono); font-size: 10.5px; padding: 3px 8px; border-radius: 5px; }
+.tag.pen { color: var(--clay); border: 1px solid rgba(217,108,95,.5); }
+.tag.na { color: var(--muted); border: 1px solid var(--line); }
+.tag.bad { color: var(--clay); border: 1px solid rgba(217,108,95,.5); }
+.tag.warn { color: var(--gold); border: 1px solid rgba(227,168,78,.5); }
+
+#evidenceText { direction: rtl; font-family: var(--arabic); font-size: 19px; line-height: 2.2;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+mark { border-radius: 4px; padding: 1px 3px; color: var(--text); }
+.hl-dialect { background: rgba(201,117,142,.28); box-shadow: inset 0 -2px 0 var(--rose); }
+.hl-msa { background: rgba(106,165,220,.24); box-shadow: inset 0 -2px 0 var(--blue); }
+.hl-acc { background: rgba(217,108,95,.26); box-shadow: inset 0 -2px 0 var(--clay); }
+.hl-orth { background: rgba(227,168,78,.24); box-shadow: inset 0 -2px 0 var(--gold); }
+.hl-cq { background: rgba(70,181,156,.20); box-shadow: inset 0 -2px 0 var(--teal); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+.legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block;
+  margin-inline-end: 5px; vertical-align: -1px; font-style: normal; }
+#verifierStat { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: 14px 0 8px; }
+.rej { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 5px 0;
+  border-bottom: 1px dotted var(--line); }
+.rej code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.rej bdi { font-family: var(--arabic); }
+.muted { color: var(--muted); font-size: 13px; }
+
+.grow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+#gConf { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 16px; }
+#gStats { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+#gMod { margin-left: auto; font-size: 12px; color: var(--gold);
+  border: 1px solid rgba(227,168,78,.5); border-radius: 999px; padding: 4px 12px; }
+.gitem { display: flex; gap: 10px; align-items: baseline; font-size: 13px; padding: 5px 0;
+  border-bottom: 1px dotted var(--line); }
+
+#export { background: none; border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; color: var(--muted); }
+#export:hover { border-color: var(--gold); color: var(--gold); }
+footer { text-align: center; color: var(--muted); font-size: 11.5px; padding: 0 20px 30px;
+  font-family: var(--mono); }
+
+#annoFilters { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-bottom: 12px; }
+.afilter { font-family: var(--mono); font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--muted); }
+.afilter em { font-style: normal; color: var(--gold); margin-inline-start: 3px; }
+.afilter:hover { border-color: var(--gold); }
+.afilter.on { border-color: var(--gold); color: var(--text); background: rgba(227,168,78,.08); }
+.fsep { width: 1px; height: 16px; background: var(--line); margin: 0 4px; }
+.annorow { border-bottom: 1px solid var(--line); }
+.annorow:last-child { border-bottom: none; }
+.annohead { display: grid; grid-template-columns: 10px minmax(150px,210px) 38px 1fr 86px 110px 14px;
+  align-items: center; gap: 10px; width: 100%; background: none; border: none;
+  padding: 8px 2px; text-align: left; }
+@media (max-width: 720px) { .annohead { grid-template-columns: 10px 1fr 90px 14px; }
+  .annohead .asrc, .annohead .aspan, .annohead .atext { display: none; } }
+.fdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.annohead code { font-family: var(--mono); font-size: 11px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asrc { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.atext { font-family: var(--arabic); font-size: 15px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--text); }
+.aspan { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-align: end; }
+.tag.ok { color: var(--teal); border: 1px solid rgba(70,181,156,.5); }
+.annometa { padding: 4px 2px 12px 28px; }
+.annometa pre { font-family: var(--mono); font-size: 11px; color: var(--muted);
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; margin: 8px 0 0; max-height: 260px; overflow: auto;
+  white-space: pre-wrap; direction: ltr; }
+.annorow.open .chev { transform: rotate(180deg); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px 0 16px; }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+  font-family: var(--display); font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 8px 12px 10px; }
+.tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+.tab:hover { color: var(--text); }
+.wrow { display: grid; grid-template-columns: minmax(140px,1fr) 1fr 76px; gap: 12px;
+  align-items: center; padding: 7px 0; border-bottom: 1px dotted var(--line); font-size: 13px; }
+.wrow input[type=number] { padding: 5px 8px; font-family: var(--mono); font-size: 12.5px; text-align: end; }
+.wrow input[type=range] { accent-color: var(--gold); }
+.wfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+#wTotal { font-family: var(--mono); font-size: 12px; color: var(--teal); }
+#wTotal.warn { color: var(--gold); }
+#wTotal b { font-size: 13px; }
+#wReset { background: none; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; font-size: 12.5px; color: var(--muted); }
+#wReset:hover { border-color: var(--gold); color: var(--gold); }
+
+#pReset { background: none; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; font-size: 12.5px; color: var(--muted); }
+#pReset:hover { border-color: var(--gold); color: var(--gold); }
+#pStatus { font-family: var(--mono); font-size: 11px; }
+.pblock { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px;
+  background: var(--panel2); overflow: hidden; }
+.pblock.broken { border-color: rgba(217,108,95,.6); }
+.phead { display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; padding: 9px 12px; text-align: left; }
+.pdim { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid rgba(227,168,78,.4); border-radius: 5px;
+  padding: 2px 7px; white-space: nowrap; }
+.pname { font-size: 13px; }
+.pver { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: auto; }
+.phead .chev { color: var(--muted); }
+.pblock.open .chev { transform: rotate(180deg); }
+.pbody { padding: 0 12px 12px; }
+.pph { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.pph code { color: var(--teal); }
+.pedit { width: 100%; font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+  resize: vertical; min-height: 180px; background: var(--bg); }
+.pfoot { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.plen { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.pwarn { font-size: 11.5px; color: var(--clay); flex: 1; }
+.preset { background: none; border: 1px solid var(--line); border-radius: 7px;
+  padding: 4px 10px; font-size: 12px; color: var(--muted); }
+.preset:hover { border-color: var(--gold); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mono-mark" aria-hidden="true">ع</div>
+  <div>
+    <h1>AZE <small>· Arabic Writing Scorer</small></h1>
+    <p>annotation-first scoring console · every score traces to verified evidence · prototype build</p>
+  </div>
+  <div class="header-right">
+    <div class="modewrap">
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="live" selected>Live — Claude annotators</option>
+        <option value="offline">Offline — deterministic demo</option>
+      </select>
+    </div>
+    <span class="modeltag">claude-sonnet-4-6 · /api/claude proxy · temp 0 · JSON-only</span>
+  </div>
+</header>
+
+<main>
+  <!-- ===================== LEFT: SUBMISSION ===================== -->
+  <section>
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab on" data-tab="tabSubmission" role="tab" aria-selected="true">Submission</button>
+        <button type="button" class="tab" data-tab="tabWeights" role="tab" aria-selected="false">Weights</button>
+        <button type="button" class="tab" data-tab="tabPrompts" role="tab" aria-selected="false">Prompts</button>
+      </div>
+
+      <div id="tabSubmission" role="tabpanel">
+      <div id="samples" role="group" aria-label="Sample responses"></div>
+
+      <label class="f">Task prompt
+        <input id="prompt" type="text" value="اكتب فقرة من 50 إلى 150 كلمة عن رحلة قمت بها مؤخراً.">
+      </label>
+
+      <div class="fieldrow">
+        <label class="f">Task type
+          <select id="taskType"></select>
+        </label>
+        <label class="f">Min words
+          <input id="minWords" type="number" value="50" min="1">
+        </label>
+        <label class="f">Max words
+          <input id="maxWords" type="number" value="150" min="1">
+        </label>
+      </div>
+
+      <label class="f">Task requirements <span style="font-size:11px">(optional, one per line — drives coverage &amp; CQ)</span>
+        <textarea id="requirements" rows="2">اكتب عن رحلة قمت بها مؤخراً</textarea>
+      </label>
+
+      <label class="f" style="margin-top:12px">Development markers <span style="font-size:11px">(optional JSON array — per-question CQ anchors; empty = generic 0–3 ladder)</span>
+        <textarea id="devMarkers" rows="2" spellcheck="false" placeholder='[{"point":"...","score_0":"...","score_1":"...","score_2":"...","score_3":"..."}]'></textarea>
+      </label>
+
+      <label class="f" style="margin-top:12px">Student response (MSA)
+        <textarea id="response" dir="rtl" spellcheck="false"></textarea>
+      </label>
+      <div id="counter">0 words</div>
+
+      <label id="failWrap">
+        <input type="checkbox" id="simFail">
+        Failure drill — crash the accuracy annotator (tests the DIV-002 halt: no fake score, retry surfaced)
+      </label>
+
+      <button id="run" type="button">Run pipeline</button>
+      </div>
+
+      <div id="tabWeights" role="tabpanel" hidden>
+        <p class="muted" style="margin-top:0">The calibration table for the scorer. Weights self-normalise
+          (overall = Σ score·w ÷ Σ w), so any positive values work. A null-penalty dimension contributes 0
+          to the numerator but its full weight stays in the denominator.</p>
+        <div id="weightRows"></div>
+        <div class="wfoot">
+          <span id="wTotal"></span>
+          <button type="button" id="wReset">Reset to equal</button>
+        </div>
+        <p class="muted" id="wHint" hidden>Weights changed — the last completed run was re-scored instantly
+          (interpretation untouched; scorer is arithmetic only).</p>
+      </div>
+
+      <div id="tabPrompts" role="tabpanel" hidden>
+        <p class="muted" style="margin-top:0">The annotator prompt for each dimension, editable for experimentation.
+          Edits apply to <b>live</b> runs (offline demo dispatches on the <code>prompt_version</code> marker, so keep it
+          if you want offline mode working). Placeholders in braces are filled by the pipeline and must remain.</p>
+        <div class="grow" style="margin-bottom:10px">
+          <button type="button" id="pReset">Reset all prompts</button>
+          <span id="pStatus" class="muted"></span>
+        </div>
+        <div id="promptList"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Global profile</h2>
+      <div id="global" class="dimbody" style="padding:0"><div class="muted">Run the pipeline to populate.</div></div>
+    </div>
+  </section>
+
+  <!-- ===================== RIGHT: PIPELINE + RESULTS ===================== -->
+  <section>
+    <div class="card">
+      <h2>Pipeline <b>task → annotate → verify → interpret → score → guardrail → result</b></h2>
+      <div class="rail" aria-label="Pipeline stages">
+        <div id="railFill"></div>
+        <div class="stage"><i></i>TASK</div>
+        <div class="stage"><i></i>ANNOTATE</div>
+        <div class="stage"><i></i>VERIFY</div>
+        <div class="stage"><i></i>INTERPRET</div>
+        <div class="stage"><i></i>SCORE</div>
+        <div class="stage"><i></i>GUARDRAIL</div>
+        <div class="stage"><i></i>RESULT</div>
+      </div>
+      <div id="annotators" aria-live="polite"></div>
+    </div>
+
+    <div class="card" id="halt" hidden>
+      <h2>Pipeline halted — INCOMPLETE</h2>
+      <p id="haltMsg"></p>
+      <div id="haltFams"></div>
+      <div id="haltErrs" style="margin-top:8px"></div>
+      <p class="muted">A required annotator failed. This is a system fault, not a learner outcome:
+        the run is never scored, nothing is cached as COMPLETED, and the submission should be retried.</p>
+    </div>
+
+    <div id="results" hidden>
+      <div class="card">
+        <div class="scorehead">
+          <span id="overall">0</span>
+          <span id="cefr">—</span>
+          <button id="export" type="button" hidden style="margin-left:auto">Download result JSON</button>
+          <div id="runMeta"></div>
+        </div>
+        <div id="formula"></div>
+      </div>
+
+      <div class="card">
+        <h2>Seven dimensions <b>click a row for the sub-scores, caps &amp; validity notes</b></h2>
+        <div id="dims"></div>
+      </div>
+
+      <div class="card">
+        <h2>Evidence inspector <b>verified annotations anchored in the response</b></h2>
+        <div id="evidenceText" dir="rtl"></div>
+        <div class="legend">
+          <span><i class="hl-dialect"></i>dialect (register only)</span>
+          <span><i class="hl-msa"></i>MSA marker</span>
+          <span><i class="hl-acc"></i>accuracy error</span>
+          <span><i class="hl-orth"></i>orthography flag</span>
+          <span><i class="hl-cq"></i>content evidence</span>
+        </div>
+        <div id="verifierStat"></div>
+        <div id="rejected"></div>
+      </div>
+
+      <div class="card">
+        <h2>Guardrail <b>flags &amp; confidence — never changes a score</b></h2>
+        <div class="grow">
+          <span id="gConf"></span>
+          <span id="gStats"></span>
+          <span id="gMod" hidden>moderation required — route to human review</span>
+        </div>
+        <div id="gItems"></div>
+      </div>
+    </div>
+
+    <div class="card" id="annoCard" hidden>
+      <h2>All annotations <b>every emission, code + LLM — click a row for full metadata</b></h2>
+      <div id="annoFilters"></div>
+      <div id="annoRows"></div>
+    </div>
+  </section>
+</main>
+
+<footer>AZE prototype · spec-faithful port of ai_service/aze · DIV-001 / 002 / 022 / 023 / 031 honored · equal weights, null = 0 with weight kept</footer>
+
+<script>
+/* ===========================================================================
+   AZE ENGINE — faithful JS port of ai_service/aze (Python package)
+   Stages: Task -> Annotate -> Verify -> Interpret -> Score -> Guardrail -> Result
+   Locked decisions: DIV-001 (LA null penalty), DIV-002 (failure != avoidance),
+   DIV-022 (halt on status not count), DIV-023 (Range null path), DIV-031 (cap 83).
+   Audit 2026-06-10 fixes applied: calibration blocks restored (fix 1),
+   development_markers wired (fix 2), CED unique-form dedup + spec 5.1 TQ (fix 3),
+   live client via /api/claude proxy, max_tokens 2000 (fix 5).
+   =========================================================================== */
+"use strict";
+
+const AZE_DATA = {};
+AZE_DATA.cefr = {"schema": "cefr_bands", "source_doc": "01-pipeline/01d-scoring-engine.md (section 5)", "applies_to": "the rounded integer `overall` score (0-100) from the ScoreObject", "note": "Fixed reporting scale, applied downstream when assembling the result. NOT scorer arithmetic and NOT a calibration weight. Bounds are inclusive and contiguous over 0-100.", "bands": [{"band": "Pre-A1", "min": 0, "max": 9}, {"band": "A1", "min": 10, "max": 28}, {"band": "A2", "min": 29, "max": 35}, {"band": "A2+", "min": 36, "max": 40}, {"band": "B1", "min": 41, "max": 50}, {"band": "B1+", "min": 51, "max": 57}, {"band": "B2", "min": 58, "max": 66}, {"band": "B2+", "min": 67, "max": 73}, {"band": "C1", "min": 74, "max": 85}, {"band": "C2", "min": 86, "max": 100}]};
+AZE_DATA.connectives = {"schema": "connective_dictionary", "owning_dimension": "organisation_coherence", "source_doc": "00-foundations/data/connective-dictionary.md", "matching_rules": {"strip_diacritics": true, "strip_surrounding_punctuation": true, "allowed_clitic_prefixes_on_first_token": ["و", "ف"], "min_words_for_analysis": 30, "below_min_words_score": "null (reason: too short)", "multi_word_longest_first": true, "waw_excluded": true, "dialect_connectives_not_credited": true}, "categories": {"sequencing": ["أولاً", "ثانياً", "ثالثاً", "ثم", "بعد ذلك", "في البداية", "في المرحلة التالية", "أخيراً"], "addition": ["كما", "أيضاً", "كذلك", "بالإضافة إلى ذلك", "فضلاً عن ذلك", "علاوة على ذلك"], "contrast": ["لكن", "ولكن", "بينما", "في حين أن", "على الرغم من", "من ناحية أخرى", "بالمقابل", "غير أن", "إلا أن", "رغم ذلك", "مع ذلك"], "cause_effect": ["لأن", "بسبب", "لذلك", "لذا", "نتيجة لذلك", "بناءً على ذلك", "وبالتالي", "بما أن", "إذ إن", "ولهذا", "ومن ثم"], "example": ["مثل", "كمثال", "على سبيل المثال", "بما في ذلك", "على سبيل الذكر"], "conclusion": ["في النهاية", "في الختام", "خلاصة القول", "مما سبق", "وبهذا", "وفي المحصلة", "لذلك يمكن القول", "وبناءً على ما سبق"]}, "notes": {"waw": "و is excluded from the dictionary. Frequency of و alone is not evidence of cohesion control (long و-coordinated chains read as list-like). Cohesion is assessed by connective variety and category spread, not raw frequency. See DIV-013.", "scope": "This is the categorised dictionary used by the cohesive-devices computation across the six categories above. DIV-009: a separate flat ARABIC_CONNECTIVES list in the build is vestigial and not part of this contract."}, "open_items": ["DIV-009", "DIV-013", "DIV-018"]};
+AZE_DATA.dialect = {"schema": "dialect_markers", "owning_dimension": "style_register", "source_doc": "00-foundations/data/dialect-markers.md", "construct_purity_note": "Dialect markers are evidence ONLY for Style & Register. They are excluded from Language Range, Organisation & Coherence, and Language Accuracy.", "sublist_kinds": {"unambiguous": "Colloquial-only forms. Matched DETERMINISTICALLY by the code annotator with whitespace/punctuation token boundaries. Emits register:dialect_marker.", "homograph": "Also valid in Modern Standard Arabic. NEVER matched deterministically — context disambiguation is the LLM's job. Listed so the LLM register prompt knows to watch for them.", "llm_only_leaning": "Gulf-leaning but delegated to the LLM register judgement, not independently scored deterministically.", "pattern_candidates": "May emit register:dialect_candidate (confidence: medium); does NOT independently trigger register:dialect_marker. Final interpretation delegated to the Style & Register register-analysis stage."}, "marker_entry_shape": {"form": "matchable token", "gloss": "MSA gloss / meaning, or null"}, "families": {}, "scoring_rules_style_register": ["1 deterministic Gulf marker = weak colloquial evidence", "2+ deterministic Gulf markers = reliable colloquial evidence", "1 pattern candidate + 1 lexical marker = reliable colloquial evidence", "Homograph-only evidence = LLM judgement only", "Pan-Arabic markers alone = do not assign Gulf family"], "family_vs_colloquial_note": "Distinguish 'Gulf detected' from 'colloquial detected'. A response can be colloquial Arabic without being confidently Gulf or Emirati. The dialect_family field on the annotation should reflect the evidence available, not an assumption about the student's background.", "open_items": ["DIV-010", "DIV-011", "DIV-019"]};
+AZE_DATA.dialect.families.gulf = {"list_version": "dialect_gulf_v1.0.0", "label": "Gulf / Emirati", "unambiguous": [{"form": "وايد", "gloss": null}, {"form": "وايدين", "gloss": null}, {"form": "شوي", "gloss": null}, {"form": "شوية", "gloss": null}, {"form": "ويانا", "gloss": null}, {"form": "وياي", "gloss": null}, {"form": "وياك", "gloss": null}, {"form": "وياكم", "gloss": null}, {"form": "نسولف", "gloss": null}, {"form": "سولفنا", "gloss": null}, {"form": "سوالف", "gloss": null}, {"form": "يبا", "gloss": null}, {"form": "يبه", "gloss": null}, {"form": "الحين", "gloss": null}, {"form": "توني", "gloss": null}, {"form": "توّه", "gloss": null}, {"form": "تراك", "gloss": null}, {"form": "تراني", "gloss": null}, {"form": "مب", "gloss": null}, {"form": "تمشينا", "gloss": null}, {"form": "سويناه", "gloss": null}, {"form": "بدري", "gloss": null}], "pattern_candidates": {"emits": "register:dialect_candidate", "confidence": "medium", "source": "possessive_pattern", "independently_scored": false, "forms": ["مالي", "مالك", "ماله", "مالها", "مالنا", "مالكم", "مالهم", "حقي", "حقك", "حقه", "حقها", "حقنا", "حقكم", "حقهم"], "regex": ["\bمال(?:ي|ك|ه|ها|نا|كم|هم)\b", "\bحق(?:ي|ك|ه|ها|نا|كم|هم)\b"], "note": "Bare مال and bare حق are never dialect markers. مال + following noun (e.g. السيارة مال أحمد) is dialectal but context-dependent — delegate to LLM."}, "llm_only_leaning": [{"form": "عقب", "gloss": null}, {"form": "صوب", "gloss": null}, {"form": "لين", "gloss": null}, {"form": "عاد", "gloss": null}, {"form": "زين", "gloss": null}, {"form": "ماشي", "gloss": null}, {"form": "طيب", "gloss": null}, {"form": "يعني", "gloss": null}, {"form": "بس", "gloss": null}, {"form": "الحين", "gloss": "when formal context unclear"}], "llm_only_leaning_note": "ماشي is a dangerous homograph (also MSA \"walking\") — LLM-only without exception.", "homograph": [{"form": "رحت", "gloss": "I went — also MSA past of رَحَلَ"}, {"form": "يطل", "gloss": "overlooks — also MSA يُطِلّ (e.g. مطعم يطل على الجبل); dialectal use exists but the MSA reading dominates, so LLM-only. See DIV-039."}]};
+AZE_DATA.dialect.families.egyptian = {"list_version": "dialect_egyptian_v1.0.0", "label": "Egyptian", "unambiguous": [{"form": "أوي", "gloss": "very · جداً"}, {"form": "اوي", "gloss": "very · جداً"}, {"form": "عايز", "gloss": "wanting · يريد"}, {"form": "عاوز", "gloss": "wanting · يريد"}, {"form": "إزاي", "gloss": "how · كيف"}, {"form": "دلوقتي", "gloss": "now · الآن"}, {"form": "كده", "gloss": "like this · هكذا"}, {"form": "بتاع", "gloss": "possessive particle"}, {"form": "مش", "gloss": "negation · ليس"}, {"form": "إحنا", "gloss": "we · نحن"}, {"form": "لسه", "gloss": "still · لا يزال"}, {"form": "إيه", "gloss": "what · ما/ماذا"}, {"form": "حاجة", "gloss": "thing · شيء"}], "homograph": []};
+AZE_DATA.dialect.families.levantine = {"list_version": "dialect_levantine_v1.0.0", "label": "Levantine", "unambiguous": [{"form": "شو", "gloss": "what · ماذا"}, {"form": "هيك", "gloss": "like this · هكذا"}, {"form": "هلق", "gloss": "now · الآن"}, {"form": "لهيك", "gloss": "therefore · لذلك"}, {"form": "كتير", "gloss": "a lot · كثيراً"}, {"form": "لسا", "gloss": "still · لا يزال"}, {"form": "بدي", "gloss": "I want · أريد"}, {"form": "بدّي", "gloss": "I want · أريد"}, {"form": "عنجد", "gloss": "really · فعلاً/حقاً"}, {"form": "مو", "gloss": "negation · ليس"}, {"form": "هاي", "gloss": "this · هذا/هذه"}, {"form": "هون", "gloss": "here · هنا"}], "homograph": []};
+AZE_DATA.dialect.families.maghrebi = {"list_version": "dialect_maghrebi_v1.0.0", "label": "Maghrebi / Darija", "unambiguous": [{"form": "بزاف", "gloss": "a lot · كثيراً"}, {"form": "بزّاف", "gloss": "a lot · كثيراً"}, {"form": "دابا", "gloss": "now · الآن"}, {"form": "واخا", "gloss": "ok · حسناً"}, {"form": "ديال", "gloss": "possessive particle"}, {"form": "غادي", "gloss": "future marker · سوف/سـ"}, {"form": "واش", "gloss": "question particle · هل"}, {"form": "علاش", "gloss": "why · لماذا"}, {"form": "خويا", "gloss": "my brother · أخي"}, {"form": "خوي", "gloss": "my brother · أخي"}, {"form": "ملي", "gloss": "when · عندما"}, {"form": "فاش", "gloss": "when/while · متى"}, {"form": "فين", "gloss": "where · أين"}, {"form": "كلشي", "gloss": "everything · كل شيء"}, {"form": "تما", "gloss": "there · هناك"}, {"form": "حوايج", "gloss": "things · أشياء"}, {"form": "كيطل", "gloss": "overlooks · يُطل"}, {"form": "زوين", "gloss": "nice · جميل"}, {"form": "زوينة", "gloss": "nice · جميل"}, {"form": "الكافي", "gloss": "the cafe · المقهى"}, {"form": "هاد", "gloss": "this · هذا"}, {"form": "كنوقفو", "gloss": "we stop"}, {"form": "كنهدرو", "gloss": "we talk"}, {"form": "نهزوهم", "gloss": "conjugation pattern"}], "homograph": [{"form": "كن", "gloss": "continuous prefix — also MSA imperative \"be\""}, {"form": "ماشي", "gloss": "ok/fine — also MSA \"walking\""}, {"form": "باش", "gloss": "purpose marker — also MSA archaic بَاشَ"}]};
+AZE_DATA.dialect.families.iraqi = {"list_version": "dialect_iraqi_v1.0.0", "label": "Iraqi", "unambiguous": [{"form": "شلون", "gloss": "how · كيف"}, {"form": "اكو", "gloss": "there is · يوجد"}, {"form": "ماكو", "gloss": "there isn't · لا يوجد"}, {"form": "هسة", "gloss": "now · الآن"}, {"form": "هواية", "gloss": "a lot · كثيراً"}, {"form": "شنو", "gloss": "what · ماذا"}], "homograph": [{"form": "عاد", "gloss": "filler — also MSA \"returned\""}]};
+AZE_DATA.dialect.families.yemeni = {"list_version": "dialect_yemeni_v1.0.0", "label": "Yemeni", "unambiguous": [{"form": "كدي", "gloss": "like this · هكذا"}, {"form": "بش", "gloss": "purpose/because marker"}, {"form": "شي", "gloss": "something · شيء"}], "homograph": [{"form": "ذا", "gloss": "demonstrative — also MSA literary \"this\""}]};
+AZE_DATA.dialect.families.pan_arabic = {"list_version": "dialect_pan_arabic_v1.0.0", "label": "Pan-Arabic colloquial", "not_family_specific_note": "These forms are colloquial but NOT Gulf-specific — they do not by themselves indicate Gulf or Emirati register.", "unambiguous": [{"form": "عشان", "gloss": "because/so that · لأن/كي"}, {"form": "خلاص", "gloss": "done · انتهى"}, {"form": "يلا", "gloss": "let's go · هيا"}, {"form": "يالله", "gloss": "let's go · هيا"}, {"form": "بعدين", "gloss": "later · لاحقاً"}, {"form": "شفت", "gloss": "I saw · رأيتُ"}, {"form": "حسيت", "gloss": "I felt · شعرتُ"}, {"form": "مبسوط", "gloss": "happy · سعيد"}, {"form": "اللي", "gloss": "relative pronoun · الذي/التي"}], "homograph": [{"form": "يعني", "gloss": "filler — also MSA \"it means\""}, {"form": "بس", "gloss": "just/only filler — also MSA بسٌّ"}, {"form": "طيب", "gloss": "discourse opener — also MSA \"good/fine\""}]};
+AZE_DATA.orthography = {"schema": "orthographic_lists", "owning_dimension": "orthographic_control", "source_doc": "00-foundations/data/orthographic-lists.md", "tiers": {"always_wrong": "The incorrect form is never valid; a hit is a confirmed error. Never gated.", "usually_wrong": "Usually an error, but a valid form exists in some contexts (e.g. proper names); treat with lower certainty. Subject to the proper-noun gate."}, "matching_notes": "The verifier deliberately does NOT normalise hamza, alif, or taa marbuta when matching annotation spans — those distinctions are exactly the signal these lists detect. Each entry maps an incorrect form to its correct form.", "proper_noun_gate": {"applies_to_tier": "usually_wrong", "suppress_when_preceded_by_title_token": ["السيد", "الأستاذ", "الدكتور", "الشيخ", "سيدي"], "suppress_when_inside_quotes": ["«…»", "\"…\"", "'…'"], "always_wrong_never_gated": true, "full_rule_doc": "05-orthographic-control/05c-annotation.md"}, "categories": {}, "open_items": ["DIV-012"]};
+AZE_DATA.orthography.categories.hamza = {"list_version": "hamza v1.1.0", "always_wrong": {"انت": "أنت", "اخذ": "أخذ", "مسئلة": "مسألة", "اولاد": "أولاد", "الاشجار": "الأشجار", "ان": "أن", "اخي": "أخي", "الانسان": "الإنسان", "اولا": "أولاً", "انا": "أنا", "ايضا": "أيضاً", "اذا": "إذا", "الام": "الأم", "الاب": "الأب", "الاخ": "الأخ", "الاخت": "الأخت", "اصبح": "أصبح", "ابدا": "أبداً", "اول": "أول", "اين": "أين", "امام": "أمام", "اعتقد": "أعتقد", "اعرف": "أعرف", "ارجو": "أرجو", "اشكر": "أشكر", "الافضل": "الأفضل", "اطفال": "أطفال", "احد": "أحد"}, "usually_wrong": {"اشرف": "أشرف"}};
+AZE_DATA.orthography.categories.alif = {"list_version": "alif v1.1.0", "always_wrong": {"الى": "إلى", "حتي": "حتى", "المستشفي": "المستشفى", "مستشفي": "مستشفى", "الفتي": "الفتى", "الكبري": "الكبرى", "الصغري": "الصغرى", "الاخري": "الأخرى", "الأخري": "الأخرى"}, "usually_wrong": {"علي": "على", "موسي": "موسى", "عيسي": "عيسى", "يحيي": "يحيى", "ليلي": "ليلى", "سلمي": "سلمى"}};
+AZE_DATA.orthography.categories.taa_marbuta = {"list_version": "taa_marbuta v1.1.0", "always_wrong": {"مدرسه": "مدرسة", "حياه": "حياة", "شجره": "شجرة", "فكره": "فكرة", "مكتبه": "مكتبة", "الرحله": "الرحلة", "جميله": "جميلة", "الحديقه": "الحديقة", "كثيره": "كثيرة", "جديده": "جديدة", "العائله": "العائلة", "قصه": "قصة", "مره": "مرة", "سنه": "سنة", "اللغه": "اللغة", "ساعه": "ساعة", "النهايه": "النهاية", "البدايه": "البداية", "الجامعه": "الجامعة", "الشركه": "الشركة", "الحاله": "الحالة", "الصحه": "الصحة", "البيئه": "البيئة", "العلاقه": "العلاقة", "الفرصه": "الفرصة", "الزوجه": "الزوجة", "السياره": "السيارة", "الحكومه": "الحكومة", "الحضاره": "الحضارة", "الدوله": "الدولة"}, "usually_wrong": {}, "usually_wrong_note": "Intentionally empty — all taa marbuta errors are always_wrong (a final taa where taa marbuta is required is never a valid alternative form), so this category is not subject to the proper-noun gate. The key is present to show the omission is deliberate, not accidental."};
+AZE_DATA.orthography.categories.general = {"list_version": "general v1.0.0", "always_wrong": {"ذالك": "ذلك", "هاذا": "هذا", "هاذه": "هذه", "لاكن": "لكن", "اللذي": "الذي", "اللتي": "التي", "هاؤلاء": "هؤلاء"}, "usually_wrong": {}, "usually_wrong_note": "Intentionally empty — these general misspellings are never valid forms, so all entries are always_wrong."};
+AZE_DATA.taskRules = {"schema": "task_rules", "source_doc": "00-foundations/data/task-rules.md", "scope_note": "Question authoring lives in the existing platform and is out of scope. The TaskObject is an INPUT contract (its shape is the Pydantic/JSON-Schema model TaskObject). This file holds the task-type requirements map only.", "task_object_schema": "../schemas/json-schema/task-object.schema.json", "empty_task_requirements_rule": "If task_requirements is empty, Task Achievement coverage is evaluated against the overall prompt (full prompt treated as one implicit requirement). An empty array must NOT bypass the coverage engine.", "task_type_requirements": {"email": ["Includes a clear message (purpose is obvious)", "Addresses the situation appropriately (inform / request / complain)", "Responds to all parts of the situation"], "letter": ["Includes a clear message (purpose is obvious)", "Addresses the situation appropriately (inform / request / complain)", "Responds to all parts of the situation"], "paragraph": ["Addresses the topic clearly", "Ideas are connected (not just random sentences)"], "article": ["Engages reader (clear topic or angle)", "Ideas are explained, not just listed", "Has an introduction that sets up the topic"], "essay": ["Clear main idea or position", "Supporting ideas given", "Closing statement or conclusion"], "report": ["Uses headings or clearly separated sections to organise content", "Key points are explained, not just listed", "Purpose is clear (inform / analyse / recommend)"], "proposal": ["Problem or situation is clearly described", "Suggestions or solutions are given", "At least one specific recommendation is made"], "summary": ["Main ideas are included", "Response is shorter than the source text", "Meaning is accurate (not distorted)"]}, "notes": {"essay": "Arabic school essays frequently follow introduction / body / closing reflection without an explicit argumentative position. The check does not require a Western academic argument structure.", "report": "Arabic student reports commonly use مقدمة / عرض / خاتمة as implicit structure without formal headings. Either headings or clearly separated sections satisfy this check."}, "task_meta_genre_fit": {"annotation_family": "task_meta", "score_in": [], "note": "task_meta:genre_fit currently scores into no dimension. If promoted to influence Task Achievement, update score_in and log with methodology sign-off. See DIV-014."}, "open_items": ["DIV-014"]};
+
+/* ---------------- prompts (audit fix 1: calibration blocks restored) ------ */
+/* The ANNOTATION DISCIPLINE block is shared verbatim by every annotator
+   prompt (spec 01f); factored into one constant and interpolated below. */
+const AZE_DISCIPLINE = `ANNOTATION DISCIPLINE — apply to every annotation you consider emitting:
+
+1. SALIENCE TEST. Would a trained human marker consciously notice this feature when reviewing the response? If the answer is "probably not", do NOT annotate. Basic Arabic grammar (e.g. حيوانات as a broken plural, simple SVO sentences, common present-tense verbs) is background, not evidence. A feature must stand out from the response's OWN baseline to merit annotation.
+
+2. OBSERVATIONAL LANGUAGE. Describe what the text DOES, not what it "creates" or "evokes" or "captures."
+   Good verbs: signals, shows, marks, indicates, demonstrates, uses, deploys.
+   AVOID: creates, weaves, captures, evokes, encapsulates, anchors, orchestrates, forward momentum, narrative arc, thematic closure.
+   The annotation is evidence for a marker — NOT a critical essay.
+
+3. NO LITERARY INTENT. Do not infer what the writer was trying to do. Stick to what is observably present in the text.
+   OK: "signals chronological progression"
+   NOT OK: "creates forward momentum across the response"
+
+4. CONSTRUCT PURITY SYMMETRY — DIALECT IS REGISTER EVIDENCE ONLY.
+   Dialectal forms cannot independently serve as positive evidence for language range, cohesion, or grammatical sophistication. They may APPEAR in the text, but they cannot be the REASON for a positive annotation in those families.
+   The system must not mistake linguistic DISTINCTIVENESS for linguistic SOPHISTICATION. Regional vocabulary is regional, not advanced. Specificity is not the same as sophistication.
+   This applies across ALL Arabic dialect families: Levantine, Gulf, Egyptian, Maghrebi/Darija, Iraqi, Sudanese.
+   Concrete tests:
+   - If a phrase is only notable because it is dialect (e.g. كيطل "overlooks" — Moroccan verb, حتى قبل ما — Darija subordinator, ملي — Darija "when", فالليل — contracted Darija "in the night", من بعد — Darija sequence marker), do NOT annotate it as range or cohesion evidence. The register family will handle it.
+   - Range, cohesion, and accuracy annotations should cite forms that would be natural in MSA writing. If the cited form is dialect, drop the annotation.
+   - The mirror of the existing "do not penalize dialect" rule: ALSO do not reward dialect. Construct purity is symmetric.
+
+If in doubt: prefer fewer, sharper annotations over many trivial ones. Quality > quantity. Density is not a positive signal.`;
+
+const AZE_PROMPTS = {};
+AZE_PROMPTS.ANNO_SYS = `You are a strict annotation engine for Arabic (MSA) writing. Always return valid JSON only — no prose, no markdown fences. Quote the response text exactly when anchoring an annotation; do not paraphrase.`;
+
+AZE_PROMPTS.TASK_COVERAGE = `You are a writing assessment engine. Score the student response for task achievement coverage. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<definition:pass_criteria>
+A requirement is PASS only when the response contains a sentence that satisfies BOTH conditions simultaneously:
+Condition 1 — TOPIC NAMED. The sentence explicitly names what the requirement asks about.
+Condition 2 — SPECIFIC DETAIL PRESENT. The sentence includes at least one concrete specific: a name, place, time, number, reason, or example.
+If either condition is missing → FAIL. A sentence that mentions the topic but gives no specific detail → FAIL.
+</definition:pass_criteria>
+
+<definition:specificity>
+Concrete specific = a person's name, a place name, a time (clock or date), a number, a named object, a reason ("because…"), or a concrete example.
+These are NOT specific: vague quantifiers ("many", "a lot", "very"); generic statements ("it is good", "it helps me"); topic repetition without added detail.
+</definition:specificity>
+
+<calibration:examples>
+Arabic narrative (PASS) — "ذهبت إلى شفشاون الأسبوع الماضي ورأيت المباني الزرقاء الجميلة." [named place + time + specific visual detail]
+Arabic narrative (FAIL) — "زرت مكاناً جميلاً في شمال المغرب." [no named place, no concrete detail]
+Arabic descriptive (PASS) — "أقضي عطلتي كل صيف في شاطئ الصويرة مع أسرتي." [named place + season + specific companion]
+Arabic descriptive (FAIL) — "أستمتع كثيراً بقضاء وقتي في الطبيعة." [vague, no named place or specific]
+Arabic transactional (PASS) — "أكتب إليك لأعتذر عن غيابي يوم الثلاثاء بسبب مرضي." [reason named + day named]
+Arabic transactional (FAIL) — "أكتب لأشرح وضعي الصعب." [topic vague, no specific reason or date]
+</calibration:examples>
+
+<rule:additional_development>
+The "Additional on-topic development" requirement credits ONLY a semantically distinct developed point not already credited to the listed requirements. The point must be supported by a verbatim sentence quoted from the response. If no such additional point exists, mark FAIL with empty evidence. Do not invent or infer extra events, places, or details.
+</rule:additional_development>
+
+<rule:anti_inference>
+A travel/narrative response may legitimately omit common essay components. Do NOT infer castle visits, museum visits, markets, tour guides, last-day reflections, weather descriptions, food details, or companion activities beyond what the student actually wrote.
+Score what is on the page. Genre conventions are irrelevant — only the actual response text matters.
+</rule:anti_inference>
+
+EVIDENCE RULE:
+Every quoted phrase must appear verbatim in the response. Do not normalise orthography (hamza, alif, taa marbuta). Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+If the student wrote الى, quote الى — not إلى. If the student wrote ذالك, quote ذالك — not ذلك.
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score.
+
+<output_format>
+Return exactly:
+{ "prompt_version": "task_coverage_v1.0.0", "checks": [ { "requirement_id": NUMBER, "source": STRING, "result": "PASS" | "FAIL", "evidence": "verbatim sentence from response if PASS, empty string if FAIL" } ] }
+No extra keys. No explanation. No markdown fences. Echo "prompt_version" back exactly as given.
+</output_format>
+
+REQUIREMENTS:
+{requirements}
+
+RESPONSE:
+{response}`;
+
+AZE_PROMPTS.INTELLIGIBILITY = `You are a writing assessment engine. Judge intelligibility and communicative effect of an Arabic written response. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<definition:scope>
+Score ONLY: 1. How clearly the reader can understand the text (intelligibility). 2. How effectively the text communicates and leaves an impression (effect).
+OUT OF SCOPE — must not influence the score: whether the student answered the question; whether ideas were developed; grammar/spelling errors that do NOT obscure meaning; vocabulary range, sentence complexity, stylistic richness; register or dialect appropriateness.
+</definition:scope>
+
+<rule:no_construct_leakage>
+Intelligibility & Effect evaluates communicative readability and impact ONLY. If the only thing you can say about a response is "it has grammar errors" or "it uses dialect", those are NOT intel-and-effect findings.
+</rule:no_construct_leakage>
+
+<scoring:bands>
+Score 0–100. Use the full range.
+  0–20    Unintelligible. Reader cannot extract meaning. Fragments only; no complete sentences.
+  21–40   Barely intelligible. A few isolated facts may be extracted. Errors severely impede meaning throughout.
+  41–60   Partially intelligible. General idea comes through but errors cause confusion at multiple points.
+  61–75   Mostly intelligible. Core message reaches the reader. Some communicative effect; no strong or memorable impression.
+  76–90   Clear and effective. Text leaves a real impression. Errors present but do not impede meaning.
+  91–100  Fluent and compelling. Engages, informs, and leaves a vivid impression. All three qualities must be present.
+</scoring:bands>
+
+<rule:hard_caps>
+→ Single broken sentence (entire response): cap at 5.
+→ Dot-separated lists with no complete sentences: cap at 25.
+→ Errors that obscure meaning at multiple points: cap at 44.
+</rule:hard_caps>
+
+<rule:upper_thresholds>
+→ Score ≥ 76 requires a real impression. Understandability alone is not enough.
+→ Score ≥ 91 requires ALL THREE: fluent AND engaging AND vivid. Meeting only one or two → score must stay ≤ 90.
+</rule:upper_thresholds>
+
+<rule:observability>
+Do not infer emotional impact, vividness, or communicative strength unless specific textual evidence supports it. If you cannot point to a specific phrase in the response that demonstrates the band-relevant quality, you cannot place the response in that band. Higher bands require positive evidence, not absence of problems.
+</rule:observability>
+
+<rule:absence_is_not_excellence>
+A response with no intelligibility problems does NOT automatically qualify for upper bands. Bands 76+ require positive communicative effect grounded in specific phrases. Default a clean-but-flat response to band 61–75, not 91+.
+</rule:absence_is_not_excellence>
+
+<calibration:arabic_bands>
+These Arabic exemplars anchor band placement. Score the actual response; do not template from these.
+
+Band 41–60 (PARTIALLY INTELLIGIBLE):
+"انا رحت للمدينة وشفت ناس كتير وعندهم حاجات كتير وكان تمام."
+→ General idea extractable but dialect interference, vague references, no structure. Score: 52.
+
+Band 61–75 (MOSTLY INTELLIGIBLE — core message reaches reader, no strong impression):
+"ذهبت إلى مدينة جميلة. رأيت أشياء كثيرة وأكلت طعاماً لذيذاً. كان السفر ممتعاً جداً."
+→ Three facts stated. Core message clear but no specific detail and no memorable impression. Score: 68.
+
+Band 76–90 (CLEAR AND EFFECTIVE — leaves a real impression):
+"شفشاون مدينة ترتدي اللون الأزرق من أقدامها إلى رأسها. ضيق الأزقة وصوت الماء يجعلانك تنسى الوقت."
+→ Sensory specificity and distinctive image leave a real impression. Score: 83.
+</calibration:arabic_bands>
+
+<grounding>
+The score MUST be grounded in verbatim phrases from the response cited in "grounded_in" (no normalisation, no paraphrase). If you cannot cite at least one verbatim phrase that justifies the band, you cannot award that band.
+</grounding>
+
+<output_format>
+Return exactly:
+{ "prompt_version": "intelligibility_effect_v1.0.0", "intelligibility_effect_score": NUMBER, "band": STRING, "reason": STRING, "grounded_in": [STRING] }
+band must be one of: "unintelligible", "barely_intelligible", "partial", "mostly_intelligible", "clear_and_effective", "fluent_and_compelling". reason must be one short sentence (≤ 30 words). No extra keys. No markdown fences.
+</output_format>
+
+<inputs>
+<response>{response}</response>
+</inputs>`;
+
+AZE_PROMPTS.REGISTER = `Identify register findings in this Arabic response. Three subtypes:
+
+${AZE_DISCIPLINE}
+
+COVERAGE — dialect detection must cover ALL seven Arabic dialect families. The task is judged against MSA, and any non-MSA token is a register finding regardless of which dialect family it comes from:
+- Gulf (e.g. وايد، شوي، عشان، بدري، يبا، تمشينا، سويناه). - Egyptian (e.g. مش، كده، دلوقتي، إيه، بتاع، أوي، عايز، إزاي، إحنا، لسه، حاجة).
+- Levantine (e.g. شو، هيك، هلق، لهيك، كتير، بدي، عنجد، مو، هاي، هون). - Maghrebi / Darija (e.g. ديال، بزاف، دابا، واخا، غادي، واش، علاش، خويا، ملي، فاش، فين، كلشي، تما، حوايج، كيطل، زوين، هاد، كنوقفو، كنهدرو — continuous كنـ/كيـ prefix, contracted prepositions فالـ-/فمـ-).
+- Iraqi (e.g. شلون، اكو، ماكو، هسة، هواية، شنو). - Yemeni (e.g. كدي، بش، شي). - Pan-Arabic colloquial (e.g. خلاص، يلا، حسيت، شفت، بعدين، اللي، مبسوط).
+
+HOMOGRAPH DISAMBIGUATION — flag the tokens below as dialect_marker ONLY in the colloquial reading; leave them alone in the MSA reading:
+- يعني: flag when used as a filler/discourse particle. Do NOT flag when يعني functions as a main verb meaning "it means".
+- بس: flag when used as a colloquial conjunction/adverb ("just/but/only"). Do NOT flag in poetry, proverbs, or formal registers.
+- طيب: flag when used as a discourse opener or filler. Do NOT flag the adjective طَيِّب in a clearly adjectival position.
+- عقب، صوب، لين (Gulf): flag when functioning as "after / towards / until". Do NOT flag the MSA senses.
+- كن، ماشي، باش (Maghrebi): flag when كن is a continuous-prefix verb, ماشي means "ok/fine", باش means "in order to". Do NOT flag كُنْ (MSA imperative), ماشٍ (walking), archaic formal باش.
+- عاد (Iraqi): flag when a filler particle. Do NOT flag when عاد means "he returned".
+
+1. dialect_marker — clearly colloquial vocabulary or constructions that have a different MSA form. Annotate EVERY non-MSA token or phrase you can identify, regardless of dialect family. In a heavily dialect response, expect MANY dialect_marker findings — do not stop at two or three.
+
+Examples worth surfacing:
+- Lexical: خويا (MSA: أخي), بزاف (MSA: كثيراً), حوايج (MSA: أشياء), زوين (MSA: جميل), كلشي (MSA: كل شيء), حسيت (MSA: شعرتُ), شفت (MSA: رأيتُ), كيطل (MSA: يُطل).
+- Particles: ديال (MSA: possessive ـه), باش (MSA: لكي/كي), ملي (MSA: عندما/حين), فاش (MSA: متى/عندما), هاد (MSA: هذا).
+- Contracted prepositions: فالليل/فالصباح/فمطعم/فالمدينة — dialect contractions of في + noun.
+- Continuous-prefix verbs: كنوقفو، كنهدرو — the كنـ/كيـ continuous prefix is Maghrebi dialect.
+- Relative pronoun اللي where MSA would use الذي/التي.
+
+2. msa_marker — formally correct MSA phrasing worth noting positively as evidence of register awareness (e.g. الأسبوع الماضي as a written time expression). Reserve for genuinely MSA forms only.
+3. register_lapse — RESERVE FOR CLEAR cases only: phrasing so informal an MSA writer would clearly avoid it in a written task, AND not already a dialect marker.
+DO NOT flag as register_lapse: الحقيقة، أول شيء (register-neutral discourse markers); anything already covered by dialect_marker (never double-tag); borderline-informal phrasing. Decision rule: if a span fits both, choose dialect_marker. If no register lapses, emit none. Quality > quantity.
+
+RESPONSE:
+{response}
+
+For each finding return: text (EXACT word or short phrase, verbatim), subtype ("dialect_marker" | "msa_marker" | "register_lapse"), note (short English explanation).
+Return JSON only:
+{ "prompt_version": "sr_annotator_v0.2", "register_findings": [ { "text": "...", "subtype": "...", "note": "..." } ] }
+Echo "prompt_version" back exactly as the value given above.`;
+
+AZE_PROMPTS.ACCURACY_ERRORS = `Identify ONLY genuine grammar errors in this Arabic (MSA) response.
+
+${AZE_DISCIPLINE}
+
+Flag these as grammar errors:
+- agreement errors (gender, number, person mismatches) — including non-human plural agreement (non-human plurals take feminine singular: الكتبُ جميلةٌ, not الكتبُ جميلونَ)
+- conjugation errors (wrong verb form for tense/person/number)
+- dual form errors (المثنى) (endings ـان nominative / ـين accusative-genitive with dual verb/adjective agreement: الطالبانِ يدرسانِ, not الطالبان يدرسون)
+- word order errors (misplaced verb/subject/object in a well-formed MSA construction)
+- sentence formation errors (broken construction, missing required element)
+
+DO NOT flag:
+- a word that is ONLY a dialect CHOICE (e.g. حسيت, شفت, رحنا, بعدين). These are register, not grammar. Only flag a dialectal word if it ALSO has a genuine grammar breakdown beyond the dialect choice.
+- missing prepositions that are stylistically expected but the sentence is otherwise well-formed.
+- spelling or orthography issues (separate family). - vocabulary choice or register lapses (separate family). - punctuation.
+
+Test: would a literate MSA speaker writing carefully produce this same construction with intent? If yes, it is not a grammar error — even if a dialectal speaker would phrase it differently.
+If there are no genuine grammar errors, return { "errors": [] }. Do not speculate. Do not flag a word just because it is colloquial.
+
+RESPONSE:
+{response}
+
+For each genuine grammar error return: text (EXACT erroneous word or short phrase, verbatim), error_type ("agreement" | "conjugation" | "dual" | "word_order" | "sentence_formation" | "other"), correction (the corrected MSA form), note (short English explanation of the GRAMMAR error).
+Return JSON only:
+{ "prompt_version": "accuracy_annotator_v0.1", "errors": [ { "text": "...", "error_type": "...", "correction": "...", "note": "..." } ] }
+Echo "prompt_version" back exactly as the value given above.`;
+
+AZE_PROMPTS.ADVANCED_FORMAL_CONTROL = `You are a strict Arabic grammar evaluator. Assess whether this MSA Arabic response demonstrates three specific advanced formal control features. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+CRITERIA — evaluate each independently:
+1. complex_subordination — True ONLY when the response contains a subordinate clause using a FORMAL Arabic connector with CORRECT grammatical agreement between the clause and its antecedent or controller. Qualifying connectors: الذي / التي / الذين / اللواتي, إذا / لو / إن, أن / أنَّ, حيث, لكي / كي, لأنَّ, بينما. NOT qualifying: coordinating conjunctions (و، ف، ثم، لكن، أو) used alone. Quote the verbatim subordinate clause as evidence.
+2. dual_plural_agreement — True ONLY when the response sustains morphological DUAL or PLURAL agreement across a continuous span of 5 or more words — a noun/pronoun in dual or plural form PLUS at least two agreeing elements (verb, adjective, or resumptive pronoun) within that same span, ALL correctly inflected. Quote the verbatim span as evidence.
+3. advanced_verb_form — True ONLY when the response uses at least one of: Passive voice (المبني للمجهول, e.g. نُفِّذ، يُبنى، أُعلن); Subjunctive (المضارع المنصوب — مضارع immediately after لن، لكي، كي، حتى، or أن as purpose/complement particle); Jussive (المضارع المجزوم — مضارع immediately after لم، لا النهية، لام الطلب, or conditional إن with jazm). Quote the verbatim verb form and its governing particle/context.
+
+STRICT STANDARD: if uncertain about any criterion, set it to false. Only set true when you can quote clear verbatim evidence directly from the response.
+
+Return JSON only:
+{ "prompt_version": "advanced_formal_control_v0.1", "complex_subordination": true or false, "complex_subordination_evidence": "verbatim phrase or empty string", "dual_plural_agreement": true or false, "dual_plural_agreement_evidence": "verbatim phrase or empty string", "advanced_verb_form": true or false, "advanced_verb_form_type": "passive" or "subjunctive" or "jussive" or "none", "advanced_verb_form_evidence": "verbatim phrase or empty string" }
+No extra keys. No markdown fences. No explanation.
+
+RESPONSE:
+{response}`;
+
+AZE_PROMPTS.CQ = `Score how well each task requirement is developed in the student response. Use the development markers as anchors.
+
+${AZE_DISCIPLINE}
+
+TASK REQUIREMENTS:
+{requirements}
+
+DEVELOPMENT MARKERS:
+{development_markers}
+
+RESPONSE:
+{response}
+
+EVIDENCE RULE:
+- evidence_spans is an array of verbatim sentences from the response.
+- A score of 1 requires ≥1 span naming the topic.
+- A score of 2 requires ≥1 span demonstrating development (topic + reason, detail, or example).
+- A score of 3 requires ≥2 spans OR one substantial span demonstrating extended development.
+- If you cannot quote verbatim spans, the score MUST be 0.
+- Fragments under 7 words cannot support a score ≥2.
+- Fragments under 12 words with total under 15 cannot support a score of 3.
+- Empty evidence_spans with score ≥1 will be force-corrected to 0 downstream.
+
+For each requirement return: requirement_id (integer, 0-indexed), score (0, 1, 2, or 3), evidence_spans (array of verbatim sentences; empty if score 0), justification (1 sentence).
+Return JSON only:
+{ "prompt_version": "cq_annotator_v0.2", "cq_scores": [ { "requirement_id": 0, "score": 2, "evidence_spans": ["..."], "justification": "..." } ] }
+Echo "prompt_version" back exactly as given.`;
+
+AZE_PROMPTS.COHERENCE_FLOW = `You are a structured scoring engine for an Arabic writing assessment.
+Score Coherence & Flow only. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<core_principle>Evaluate how clearly ideas progress and link together across the response. Score ONLY: logical progression, paragraph flow, idea linking, and progression clarity.</core_principle>
+
+<focus_on>
+- Logical progression: does each idea follow naturally from the previous one?
+- Paragraph flow: do paragraphs cohere internally and connect to each other?
+- Idea linking: are ideas connected explicitly or by clear implication?
+- Progression clarity: can the reader follow the line of reasoning without effort?
+</focus_on>
+
+<out_of_scope>Do NOT let these influence the score: vividness/engagement/style/fluency; grammatical accuracy; vocabulary range; specific cohesive-device usage; task completion/idea quality; punctuation/spelling.</out_of_scope>
+
+<scoring:bands>
+0–20 No logical progression. 21–40 Weak progression (several jumps or abrupt shifts). 41–60 Some progression (order broadly works, gaps or unclear links). 61–80 Clear progression (minor unevenness). 81–100 Strong progression (each idea builds; paragraphs flow naturally).
+</scoring:bands>
+
+<ceiling_blockers>
+- One or two abrupt topic shifts the reader has to reconstruct: cap at 45.
+- Ideas correctly ordered but linked only by simple sequencing (أولاً، ثم، بعد ذلك) without deeper logical connection: cap at 60.
+- Paragraph breaks absent or arbitrary, even if individual sentences flow: cap at 55.
+A score of 81+ requires logical progression across the WHOLE response. A score of 85+ requires organisation that feels natural and mature.
+</ceiling_blockers>
+
+<rule:hard_caps>
+→ Response under 30 words: return { "coherence_flow_score": null, "justification": "response too short to score" }
+→ No Arabic script: return { "coherence_flow_score": null, "justification": "no Arabic script detected" }
+→ Ideas in random order with no detectable progression: cap at 25.
+</rule:hard_caps>
+
+EVIDENCE RULE:
+Every quoted phrase must appear verbatim in the response. Do not normalise orthography (hamza, alif, taa marbuta). Do not correct dialect spellings. Do not paraphrase. Do not invent sentences.
+If the student wrote الى, quote الى — not إلى. If the student wrote ذالك, quote ذالك — not ذلك.
+Fabricated, paraphrased, or silently-corrected evidence invalidates the score.
+
+<zero_permission>If you cannot find specific evidence of progression, state that plainly and score accordingly. Do not infer connective relationships that are not present.</zero_permission>
+
+<anti_inference_examples>
+A travel-narrative response may legitimately omit common travel-essay components. Do NOT infer:
+- castle visits (قلعة) if the response does not mention one
+- museum visits (متحف) if not mentioned
+- markets (سوق) if not mentioned
+- tour guides (مرشد سياحي) if not mentioned
+- last-day reflections, farewells, or returns if not mentioned
+- weather descriptions if not mentioned
+- food details beyond what the student wrote
+- companion activities beyond what the student wrote
+
+Score what is on the page. The genre conventions of a "complete" travel essay are irrelevant — only the actual student text matters.
+</anti_inference_examples>
+
+GROUNDED_IN EVIDENCE TYPES — cite examples from MULTIPLE categories, not just one: 1. TEMPORAL/SEQUENCING. 2. CAUSAL DEVELOPMENT (required for clear/strong progression in argumentative/explanatory tasks). 3. THEMATIC CONTINUITY. 4. REFERENTIAL LINKAGE.
+For scores >= 61, grounded_in SHOULD contain evidence from at least two categories. For >= 81, at least three categories AND paragraph-level cohesion.
+
+CONSTRUCT PURITY:
+Dialect-form connectives (ملي، باش، فاش، من بعد, etc.) cannot serve as evidence of formal coherence control. A pure-dialect response with strong logical progression may land 51–65 based on holistic judgement; above 65 requires MSA-form evidence in grounded_in.
+
+<output_format>
+Return exactly:
+{ "prompt_version": "coherence_flow_v0.1", "coherence_flow_score": NUMBER | null, "band": "strong_progression" | "clear_progression" | "some_progression" | "weak_progression" | "no_progression", "justification": "2-3 sentences. Quote 1-2 verbatim Arabic phrases.", "grounded_in": ["verbatim phrase 1"], "cap_applied": null | "sequencing_only" | "arbitrary_paragraphs" | "topic_shifts" }
+No extra keys. No markdown fences. Echo "prompt_version" back exactly as given.
+</output_format>
+
+<inputs>
+<word_count>{word_count}</word_count>
+<expected_word_range>{min_words}-{max_words}</expected_word_range>
+<response>{response}</response>
+</inputs>`;
+
+AZE_PROMPTS.VOCAB_DIVERSITY = `You are a structured scoring engine for an Arabic writing assessment.
+Score vocabulary diversity only. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<definition:scope>
+Score ONLY: 1. The range and variety of vocabulary used. 2. Whether the student draws on a wide or narrow set of words. 3. Whether vocabulary choices feel varied and purposeful, or repetitive and limited.
+OUT OF SCOPE: grammar, morphological variety, sentence structure, idea quality, spelling, register.
+Arabic-specific note: do not penalise different derived forms of the same root (كَتَبَ، كِتَاب، كَاتِب). Score variety of distinct lexical items, not root frequency.
+</definition:scope>
+
+<scoring:bands>
+0–20 Extremely limited (heavy repetition). 21–35 Very limited. 36–50 Limited (mostly basic vocab). 51–65 Moderate (mix of basic and varied, some purposeful choices). 66–80 Good (varied across response, some topic-specific choices). 81–90 Strong (wide, consistent, minimal repetition). 91–100 Exceptional (rich, precise, non-repetitive throughout).
+</scoring:bands>
+
+<rule:hard_caps>
+→ Under 30 words: return { "vocabulary_diversity_score": null, "justification": "response too short to score" }
+→ No Arabic script: return { "vocabulary_diversity_score": null, "justification": "no Arabic script detected" }
+→ Fewer than 10 distinct content words: cap at 20. → Identical vocabulary in every sentence: cap at 25.
+→ Heavy repetition of the same content verbs (ذهبنا، أكلنا، رجعنا): cap at 30. → Basic everyday vocabulary throughout: cap at 35. → Narrow lexical scope even if grammatically accurate: cap at 35.
+</rule:hard_caps>
+
+<ceiling_principle>
+81+ requires variety AND precision. 85+ requires precise AND flexible vocabulary. Do NOT award mid/high range scores simply because multiple distinct words appear: a response that uses 30 distinct words but recycles the same 3-4 narrative verbs is mid-band at best.
+</ceiling_principle>
+
+TASK_TYPE_AWARE_CAP_EXCEPTION:
+The recycled-content-verb cap (30) is genre-sensitive. For task_type in {paragraph, letter}: raise the recycled-verb cap to 40 (other caps still apply normally). For all other task types (email, article, essay, report, proposal, summary): the cap 30 stays.
+<task_type>{task_type}</task_type>
+
+<output_format>
+Return exactly:
+{ "prompt_version": "vocab_diversity_v0.1", "vocabulary_diversity_score": NUMBER | null, "band": "extremely_limited"|"very_limited"|"limited"|"moderate"|"good"|"strong"|"exceptional", "justification": "2-3 sentences. Quote 2-3 verbatim Arabic phrases.", "grounded_in": ["verbatim phrase 1", "verbatim phrase 2"], "cap_applied": null | "basic_everyday" | "narrow_scope" | "identical_vocabulary" | "recycled_verbs" | "recycled_verbs_genre_exempt" | "fewer_than_10_distinct" }
+No extra keys. No markdown fences. Echo "prompt_version" back exactly as given.
+</output_format>
+
+GROUNDING:
+Score MUST cite verbatim Arabic phrases from the response in the "grounded_in" array. Phrases must appear in the response exactly as quoted (no normalisation of hamza, alif, taa marbuta).
+
+CONSTRUCT PURITY:
+Dialect forms (Levantine, Gulf, Egyptian, Maghrebi, Iraqi, Sudanese) do NOT count as positive evidence of vocabulary diversity. Examples that DO NOT count:
+كيطل، زوين، حوايج، خويا، بزاف
+Note dialect forms as informal markers in the justification but they cannot drive a band above 60.
+
+ANNOTATION DISCIPLINE:
+A feature must stand out from the response's OWN baseline to merit citation. Use observational language (signals/shows/marks — NOT creates/weaves/captures).
+
+<inputs>
+<word_count>{word_count}</word_count>
+<expected_word_range>{min_words}-{max_words}</expected_word_range>
+<response>{response}</response>
+</inputs>`;
+
+AZE_PROMPTS.MORPH_VARIETY = `You are a structured scoring engine for an Arabic writing assessment.
+Score morphological variety only. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<definition:scope>
+Score ONLY: 1. The VARIETY of CONTROLLED morphological usage — multiple patterns used purposefully and accurately. 2. Whether the writer uses a RANGE of morphological forms (masdar, active/passive participles, broken plurals, varied verb conjugations, derived verb patterns).
+OUT OF SCOPE: grammar correctness, vocabulary richness, sentence complexity, ideas, spelling.
+IMPORTANT: Arabic naturally contains morphology in almost every sentence. Do NOT score high just because derived forms appear — high scores require purposeful variety across multiple distinct pattern types.
+</definition:scope>
+
+<scoring:bands>
+0–20 Almost no variety. 21–35 Very limited (one or two tenses, no masdar/participles). 36–50 Some tense variation, simple broken plurals. 51–65 Moderate (mix of tenses, some derived nouns or simple participles). 66–80 Good (masdar, active participles, broken plurals, multiple verb forms). 81–90 Strong. 91–100 Exceptional.
+</scoring:bands>
+
+<rule:hard_caps>
+→ Under 30 words: return { "morphological_variety_score": null, "justification": "response too short to score" }
+→ No Arabic script: null. → Only isolated words: cap at 20. → Same simple past-tense verbs throughout (no tense variation, no derived forms): cap at 25. → Only one or two derived forms appearing once: cap at 30. → Same handful of verb forms repeated with no morphological flex: cap at 35.
+</rule:hard_caps>
+
+<ceiling_principle>
+81+ requires multiple distinct pattern types (masdar + participle + broken plural + derived verb form) in different contexts — not one or two scattered forms. 85+ requires controlled variety AND consistency across the whole response.
+</ceiling_principle>
+
+<output_format>
+Return exactly:
+{ "prompt_version": "morph_variety_v0.1", "morphological_variety_score": NUMBER | null, "band": "extremely_limited"|"very_limited"|"limited"|"moderate"|"good"|"strong"|"exceptional", "justification": "2-3 sentences.", "grounded_in": ["verbatim phrase 1"], "cap_applied": null | "only_isolated_words" | "same_simple_past_throughout" | "only_one_two_derived" | "same_handful_repeated" }
+No extra keys. No markdown fences. Echo "prompt_version" back exactly as given.
+</output_format>
+
+GROUNDING:
+Score MUST cite verbatim Arabic phrases from the response in the "grounded_in" array. Phrases must appear in the response exactly as quoted (no normalisation of hamza, alif, taa marbuta).
+
+CONSTRUCT PURITY:
+Dialect forms (Levantine, Gulf, Egyptian, Maghrebi, Iraqi, Sudanese) do NOT count as positive evidence. Note dialect forms as informal markers in the justification but they cannot drive a band above 60.
+
+ANNOTATION DISCIPLINE:
+A feature must stand out from the response's OWN baseline to merit citation. Use observational language (signals/shows/marks — NOT creates/weaves/captures).
+
+<inputs>
+<word_count>{word_count}</word_count>
+<expected_word_range>{min_words}-{max_words}</expected_word_range>
+<response>{response}</response>
+</inputs>`;
+
+AZE_PROMPTS.SENTENCE_COMPLEXITY = `You are a structured scoring engine for an Arabic writing assessment.
+Score Arabic sentence complexity only. Return JSON only.
+
+${AZE_DISCIPLINE}
+
+<definition:scope>
+Score ONLY: 1. Structural variety of sentences. 2. Evidence of complex constructions: relative clauses (الذي / التي / الذين), conditional sentences (إذا / لو / إن), subordinate clauses, nominal sentences (الجملة الاسمية), verbal sentences (الجملة الفعلية), and variation between them.
+OUT OF SCOPE: grammar, vocabulary, morphology, ideas, spelling.
+</definition:scope>
+
+<scoring:bands>
+0–20 All sentences same simple pattern (SVO or fragments, no subordination). 21–35 Very limited. 36–50 Some variety (occasional coordination, no real subordination). 51–65 Moderate (some subordinate clauses, occasional relative/conditional, mixed nominal/verbal). 66–80 Good (clear variation, purposeful). 81–90 Strong (confident subordination throughout). 91–100 Exceptional.
+</scoring:bands>
+
+<rule:hard_caps>
+→ Under 30 words: return { "arabic_sentence_complexity_score": null, "justification": "response too short to score" }
+→ No Arabic script: null. → All fragments under 4 words: cap at 15. → Every sentence identical SVO: cap at 35. → Simple SVO sentences chained with و / ثم / بعد ذلك throughout, no subordination: cap at 25. → Coordination only with no relative or subordinate clauses anywhere: cap at 30. → A single subordinate construction appearing once in a long response: cap at 50.
+</rule:hard_caps>
+
+<ceiling_principle>
+81+ requires multiple types of subordination (relative + conditional + subordinate) across multiple sentences, used purposefully. 85+ requires controlled variety used consistently and accurately. Complexity is about FLEXIBILITY across the response, not just presence of features.
+</ceiling_principle>
+
+<output_format>
+Return exactly:
+{ "prompt_version": "sentence_complexity_v0.1", "arabic_sentence_complexity_score": NUMBER | null, "band": "extremely_limited"|"very_limited"|"limited"|"moderate"|"good"|"strong"|"exceptional", "justification": "2-3 sentences.", "grounded_in": ["verbatim phrase 1"], "cap_applied": null | "all_fragments_under_4" | "identical_svo" | "simple_svo_chained" | "coordination_only" | "single_subordinate" }
+No extra keys. No markdown fences. Echo "prompt_version" back exactly as given.
+</output_format>
+
+GROUNDING:
+Score MUST cite verbatim Arabic phrases from the response in the "grounded_in" array. Phrases must appear in the response exactly as quoted (no normalisation of hamza, alif, taa marbuta).
+
+CONSTRUCT PURITY:
+Dialect forms (Levantine, Gulf, Egyptian, Maghrebi, Iraqi, Sudanese) do NOT count as positive evidence. Note dialect forms as informal markers in the justification but they cannot drive a band above 60.
+
+ANNOTATION DISCIPLINE:
+A feature must stand out from the response's OWN baseline to merit citation. Use observational language (signals/shows/marks — NOT creates/weaves/captures).
+
+<inputs>
+<word_count>{word_count}</word_count>
+<expected_word_range>{min_words}-{max_words}</expected_word_range>
+<response>{response}</response>
+</inputs>`;
+
+AZE_PROMPTS.ORTHOGRAPHY = `Identify ONLY genuine spelling errors in this Arabic (MSA) response, and provide a holistic orthographic accuracy score.
+
+${AZE_DISCIPLINE}
+
+Orthography = HOW A WORD IS WRITTEN, not which word was chosen.
+
+Flag only these: hamza placement (ء، أ، إ، ؤ، ئ) — e.g. writing إنشاء الله instead of إن شاء الله; alif forms (ا، آ، ى); taa marbuta vs taa vs ha (ة vs ت vs ه); letter substitution / missing letter / extra letter; internal spacing within established compounds.
+
+DO NOT flag — they belong to other families: dialect word CHOICE (حسيت, بعدين, شفت — register); missing MSA equivalent words (register); colloquial meaning shifts (grammar/register); grammar errors (separate family); punctuation, capitalisation, formatting.
+The test: would removing the orthographic error change how the word LOOKS, not which word it is?
+If the word itself is wrong-for-MSA but written correctly, do NOT flag here.
+
+BANDS for llm_orthographic_accuracy_score:
+93-100 Near-native / elite control — sustained difficult environments, advanced hamza forms (ئ ؤ ء آ) used correctly in multiple positions
+87-92 Strong with advancing mastery — correct hamza in some advanced positions
+81-86 Strong stability — clean writing but avoids difficult environments OR limited advanced evidence
+61-80 Functional with notable issues
+41-60 Frequent orthographic instability
+21-40 Substantial breakdown
+0-20 Severe
+
+ABSENCE_IS_NOT_MASTERY: A response with no errors but no advanced orthographic evidence CANNOT score above 86. Absence of mistakes is "Strong stability" (81-86), not "advancing mastery" (87+).
+
+POSITIVE_GROUNDING_FOR_87_PLUS: To score 87-92 at least TWO of the following must be present and cited in grounded_in: correct medial/final ئ in a non-trivial position (مسؤول، رئيس، شيئاً); correct ؤ in derived forms (مؤتمر، رؤية، مسؤولية); correct آ word-initial (آخر، آلاف، الآن); correct hamzat al-wasl vs hamzat al-qat distinction across multiple words; sustained correct ة vs ه vs ت across the whole response.
+To score 93-100: the 87-92 evidence PLUS multiple advanced forms across different contexts AND no errors in difficult environments.
+NEGATIVE_EXAMPLE — do NOT award 87+ for an error-free response showing only basic forms, or one that avoids difficult orthography by paraphrasing around it (cannot exceed 86).
+
+GROUNDING: grounded_in MUST contain verbatim Arabic phrases from the response. For any score >= 87, at least two phrases demonstrating the positive evidence above. No normalisation. No paraphrase.
+
+RESPONSE:
+{response}
+
+For each genuine spelling error return in spelling_errors: text (EXACT misspelled word, verbatim), error_subtype ("hamza" | "alif" | "taa_marbuta" | "general"), correction, note.
+Return JSON only:
+{ "prompt_version": "orth_annotator_v0.1", "spelling_errors": [ { "text": "...", "error_subtype": "...", "correction": "...", "note": "..." } ], "llm_orthographic_accuracy_score": NUMBER, "band": "near_native" | "strong_advancing" | "strong_stability" | "functional" | "frequent_instability" | "substantial_breakdown" | "severe", "justification": "2-3 sentences grounding the score in the response", "grounded_in": ["verbatim phrase 1", "verbatim phrase 2"] }
+Echo "prompt_version" back exactly as the value given above.`;
+
+/* ---------------- data accessors (mirror data_loader.py) ---------------- */
+const CEFR_BANDS = AZE_DATA.cefr.bands;
+function cefrBandFor(overall) {
+  const s = Math.round(overall);
+  for (const b of CEFR_BANDS) if (s >= b.min && s <= b.max) return b.band;
+  return s < 0 ? "Pre-A1" : "C2";
+}
+function unambiguousDialectForms() {
+  const map = {};
+  for (const [fam, payload] of Object.entries(AZE_DATA.dialect.families)) {
+    for (const entry of payload.unambiguous || []) {
+      const form = typeof entry === "string" ? entry : entry.form;
+      map[form] = fam;
+    }
+  }
+  return map;
+}
+function connectiveCategories() {
+  const cats = {};
+  for (const [cat, conns] of Object.entries(AZE_DATA.connectives.categories)) {
+    cats[cat] = (conns || []).map(c => (typeof c === "string" ? c : c.form))
+      .filter(c => c !== "و"); // bare و excluded (DIV-013)
+  }
+  return cats;
+}
+function orthographyCategoryLists() {
+  const out = {};
+  for (const [cat, payload] of Object.entries(AZE_DATA.orthography.categories)) {
+    out[cat] = {
+      always_wrong: payload.always_wrong || {},
+      usually_wrong: payload.usually_wrong || {},
+      list_version: payload.list_version || "v1",
+    };
+  }
+  return out;
+}
+function taskTypeRequirements(taskType) {
+  const t = AZE_DATA.taskRules.task_type_requirements[taskType];
+  if (!t) return [];
+  return Array.isArray(t) ? t : (t.requirements || []);
+}
+
+/* ---------------- tokenisation (code_annotators.py) ---------------------- */
+const DIACRITICS = /[ً-ْٰ]/g;
+const PUNCT = new Set("،؛؟.,!?:;\"'«»()[]{}…-–—".split(""));
+const CLITICS = ["و", "ف"]; // و ف
+const PROTECTED_PHRASES = [
+  "بسم الله الرحمن الرحيم", "الحمد لله", "إن شاء الله", "ما شاء الله",
+  "سبحان الله", "الله أكبر", "لا إله إلا الله", "السلام عليكم",
+];
+const TITLES = ["السيد", "الأستاذ", "الدكتور", "الشيخ", "سيدي"];
+
+function stripDiacritics(s) { return s.replace(DIACRITICS, ""); }
+
+function tokenize(response) {
+  const tokens = [];
+  const re = /\S+/g; let m;
+  while ((m = re.exec(response)) !== null) {
+    const raw = m[0];
+    let a = 0, b = raw.length;
+    while (a < b && PUNCT.has(raw[a])) a++;
+    while (b > a && PUNCT.has(raw[b - 1])) b--;
+    if (b <= a) continue;
+    tokens.push([raw.slice(a, b), m.index + a, m.index + b]);
+  }
+  return tokens;
+}
+function wordCount(response) { return tokenize(response).length; }
+
+let _annoSeq = 0;
+function makeAnno(family, type, source, text, span, metadata, scoreIn, runId) {
+  return {
+    id: `anno_${runId.slice(4, 8)}${(++_annoSeq).toString(36).padStart(4, "0")}`,
+    schema_version: "1.0.0", family, type, source, text, span,
+    metadata, score_in: scoreIn, verified: null, version: "1.0.0", run_id: runId,
+  };
+}
+
+/* ---------------- code annotators ---------------------------------------- */
+function annotateWordCount(task, runId) {
+  const wc = wordCount(task.response);
+  const sub = wc >= task.min_words && wc <= task.max_words ? "in_range" : (wc < task.min_words ? "under" : "over");
+  return [makeAnno("word_count", `word_count:${sub}`, "code", "", { start: 0, end: 0 },
+    { word_count: wc, min_words: task.min_words, max_words: task.max_words },
+    ["task_achievement"], runId)];
+}
+
+function annotateDialectMarkers(response, runId) {
+  const forms = unambiguousDialectForms();
+  const out = [];
+  for (const [token, start, end] of tokenize(response)) {
+    const bare = stripDiacritics(token);
+    let fam = forms[bare], matched = bare;
+    if (!fam && bare.length > 1 && CLITICS.includes(bare[0])) {
+      fam = forms[bare.slice(1)]; matched = bare.slice(1);
+    }
+    if (!fam) continue;
+    out.push(makeAnno("register", "register:dialect_marker", "code", token,
+      { start, end },
+      { subtype: "dialect_marker", dialect_family: fam, matched_form: matched, detection_method: "unambiguous_list" },
+      ["style_register"], runId));
+  }
+  return out;
+}
+
+const POSSESSIVE = /(مال|حق)(ي|ك|كم|كن|ه|ها|هم|هن|نا)(?![؀-ۿ])/g;
+function annotatePossessiveCandidates(response, runId) {
+  const out = []; let m;
+  POSSESSIVE.lastIndex = 0;
+  while ((m = POSSESSIVE.exec(response)) !== null) {
+    const before = m.index > 0 ? response[m.index - 1] : " ";
+    if (/[؀-ۿ]/.test(before)) continue; // word boundary on the left
+    out.push(makeAnno("register", "register:dialect_candidate", "code", m[0],
+      { start: m.index, end: m.index + m[0].length },
+      { detection_method: "possessive_pattern_regex", root: m[1] },
+      ["style_register"], runId));
+  }
+  return out;
+}
+
+function computeArabicCohesiveDevices(response) {
+  const wc = wordCount(response);
+  if (wc < 30) return { score: null, reason: "below_30_word_floor", word_count: wc,
+    category_breakdown: {}, connective_category_count: 0, distinct_types: 0,
+    connective_diversity_score: 0, arabic_connectives_per_100_words: 0 };
+
+  const text = stripDiacritics(response);
+  const cats = connectiveCategories();
+  const found = {}; for (const c of Object.keys(cats)) found[c] = new Set();
+  const consumed = new Array(text.length).fill(false);
+  let totalHits = 0;
+
+  const entries = [];
+  for (const [cat, conns] of Object.entries(cats)) for (const c of conns) entries.push([c, cat]);
+  entries.sort((a, b) => b[0].length - a[0].length);
+
+  const isBoundary = ch => ch === undefined || /\s/.test(ch) || PUNCT.has(ch);
+  for (const [conn, cat] of entries) {
+    const variants = [conn, ...CLITICS.map(p => p + conn)];
+    for (const v of variants) {
+      let idx = text.indexOf(v);
+      while (idx !== -1) {
+        const s = idx, e = idx + v.length;
+        const ok = isBoundary(text[s - 1]) && isBoundary(text[e]);
+        if (ok && !consumed.slice(s, e).some(Boolean)) {
+          for (let i = s; i < e; i++) consumed[i] = true;
+          found[cat].add(conn); totalHits++;
+        }
+        idx = text.indexOf(v, idx + 1);
+      }
+    }
+  }
+  const breakdown = {}; let distinct = 0;
+  for (const [c, set] of Object.entries(found)) {
+    if (set.size) breakdown[c] = [...set].sort();
+    distinct += set.size;
+  }
+  const catCount = Object.keys(breakdown).length;
+  const diversity = Math.min(100, Math.round((distinct / 10) * 100));
+  const score = Math.round((catCount / 6) * 100 * 0.60 + diversity * 0.40);
+  return { score, word_count: wc, category_breakdown: breakdown,
+    connective_category_count: catCount, distinct_types: distinct,
+    connective_diversity_score: diversity,
+    arabic_connectives_per_100_words: Math.round(totalHits / wc * 10000) / 100 };
+}
+
+function annotateCohesionSnapshot(response, runId) {
+  return [makeAnno("cohesion", "cohesion:deterministic_snapshot", "code", "", { start: 0, end: 0 },
+    { snapshot: computeArabicCohesiveDevices(response) }, ["organisation_coherence"], runId)];
+}
+
+function inQuotedRegion(response, start, end) {
+  for (const [o, c] of [["«", "»"], ['"', '"'], ["'", "'"]]) {
+    let pos = 0;
+    for (;;) {
+      const oi = response.indexOf(o, pos); if (oi === -1) break;
+      const ci = response.indexOf(c, oi + 1); if (ci === -1) break;
+      if (oi < start && end <= ci + 1) return true;
+      pos = ci + 1;
+    }
+  }
+  return false;
+}
+
+/* Audit fix 3 (part 2): Technical Quality per spec 5.1 — ported from
+   scorer-arabic-v2.html computeArabicOrthography. Punctuation density ramps,
+   capped substitution penalty, tatweel anchored at 70, token-level intrusion
+   with loanword allowlist, equal-weight mean of four components. */
+function technicalQuality(response, allowLoanwords) {
+  const allow = allowLoanwords || [];
+  const rawTokens = response.match(/\S+/g) || [];
+  const words = rawTokens.length;
+
+  // 5.1.1 Arabic punctuation usage: density ramp + capped western-substitution penalty
+  const arabicPunctCount = (response.match(/[،.؟:؛!]/g) || []).length;
+  const westernSubstitutions = (response.match(/[,?;]/g) || []).length;
+  const density = words > 0 ? (arabicPunctCount / words) * 100 : 0;
+  let punctBase;
+  if      (density >= 5 && density <= 20) { punctBase = 100; }
+  else if (density < 5)                   { punctBase = 50 + (density / 5) * 50; }
+  else if (density <= 40)                 { punctBase = 100 - ((density - 20) / 20) * 50; }
+  else                                    { punctBase = 30; }
+  const substitutionPenalty = Math.min(40, westernSubstitutions * 5);
+  const punctScore = Math.round(Math.max(0, punctBase - substitutionPenalty));
+
+  // 5.1.2 Whitespace & formatting quality
+  let wsIssues = 0;
+  wsIssues += (response.match(/  +/g) || []).length;
+  wsIssues += (response.match(/[،؟؛!](?!\s|$)/g) || []).length;
+  if (/^\s/.test(response) || /\s$/.test(response)) wsIssues += 1;
+  wsIssues += (response.match(/\n{3,}/g) || []).length;
+  const whitespaceScore = Math.round(Math.max(0, 100 - 5 * wsIssues));
+
+  // 5.1.3 Tatweel abuse (U+0640), anchored at 70 for a single occurrence
+  const tatweelCount = (response.match(/ـ/g) || []).length;
+  let tatweelScore;
+  if      (tatweelCount === 0) { tatweelScore = 100; }
+  else if (tatweelCount === 1) { tatweelScore = 70; }
+  else                         { tatweelScore = Math.round(Math.max(0, 70 - 10 * (tatweelCount - 1))); }
+
+  // 5.1.4 Non-Arabic token intrusion (token-level, loanword allowlist honoured)
+  const isArabicToken = t => {
+    if (allow.includes(t)) return true;
+    const hasLatin        = /[A-Za-z]/.test(t);
+    const hasWesternDigit = /[0-9]/.test(t);
+    const hasEmoji        = /[\u{1F000}-\u{1FFFF}]/u.test(t);
+    return !hasLatin && !hasWesternDigit && !hasEmoji;
+  };
+  const nonArabicTokens = rawTokens.filter(t => !isArabicToken(t)).length;
+  const intrusionRate  = rawTokens.length > 0 ? (nonArabicTokens / rawTokens.length) * 100 : 0;
+  const intrusionScore = Math.round(Math.max(0, 100 - intrusionRate * 8));
+
+  // 5.1.5 composite = equal-weight mean of the four
+  return Math.round((punctScore + whitespaceScore + tatweelScore + intrusionScore) / 4);
+}
+
+/* Audit fix 3 (part 1): Common Error Detection — the same misspelled form
+   counts ONCE per category however often it appears (spec 5.2.6). Annotation
+   flags stay per-occurrence (they anchor the evidence inspector), but the
+   per-category score is computed from UNIQUE weighted forms. */
+function computeArabicOrthography(response, runId) {
+  const tokens = tokenize(response);
+  const wc = Math.max(1, tokens.length);
+  const lists = orthographyCategoryLists();
+  const flags = [];
+  const flagsSummary = {}, uniqueWeighted = {}, seenForms = {};
+  for (const c of Object.keys(lists)) { flagsSummary[c] = 0; uniqueWeighted[c] = 0; seenForms[c] = new Set(); }
+
+  tokens.forEach(([token, start, end], idx) => {
+    const bare = stripDiacritics(token);
+    const candidates = [bare];
+    if (bare.startsWith("ال") && bare.length > 2) candidates.push(bare.slice(2));
+    outer:
+    for (const [cat, payload] of Object.entries(lists)) {
+      for (const [tier, weight] of [["always_wrong", 1.0], ["usually_wrong", 0.5]]) {
+        const table = payload[tier];
+        const hit = candidates.find(c => Object.prototype.hasOwnProperty.call(table, c));
+        if (!hit) continue;
+        if (tier === "usually_wrong") {
+          const prevTok = idx > 0 ? stripDiacritics(tokens[idx - 1][0]) : "";
+          if (TITLES.includes(prevTok) || inQuotedRegion(response, start, end)) continue;
+        }
+        flags.push(makeAnno("orthography", `orthography:${cat}`, "code", token,
+          { start, end },
+          { suggested: table[hit], tier, matched_form: hit, list_version: payload.list_version },
+          ["orthographic_control"], runId));
+        flagsSummary[cat]++;
+        if (!seenForms[cat].has(hit)) {        // dedup: unique form counts once
+          seenForms[cat].add(hit);
+          uniqueWeighted[cat] += weight;
+        }
+        break outer;
+      }
+    }
+  });
+
+  const perCat = {};
+  for (const c of Object.keys(lists)) {
+    const rate = uniqueWeighted[c] / wc * 100;
+    perCat[c] = Math.max(0, Math.round(100 - rate * 8));
+  }
+  const cedVals = Object.values(perCat);
+  const ced = Math.round(cedVals.reduce((a, b) => a + b, 0) / cedVals.length);
+
+  const count = ch => (response.match(new RegExp(ch, "g")) || []).length;
+  const letterForms = {
+    hamza_yaa: count("ئ"), hamza_waw: count("ؤ"), hamza_isolated: count("ء"),
+    alif_madda: count("آ"), alif_hamza_above: count("أ"), alif_hamza_below: count("إ"),
+    taa_marbuta: count("ة"), words: wc,
+  };
+  const snapshot = makeAnno("orthography", "orthography:deterministic_snapshot", "code", "",
+    { start: 0, end: 0 },
+    { snapshot: { technical_quality: technicalQuality(response), common_error_detection: ced,
+      per_category_scores: perCat, unique_error_forms: Object.fromEntries(Object.entries(seenForms).map(([k, v]) => [k, v.size])),
+      letter_form_counts: letterForms, flags_summary: flagsSummary } },
+    ["orthographic_control"], runId);
+  return [flags, snapshot];
+}
+
+function runCodeAnnotators(task, runId) {
+  const r = task.response;
+  const [orthFlags, orthSnap] = computeArabicOrthography(r, runId);
+  return [
+    ...annotateWordCount(task, runId),
+    ...annotateDialectMarkers(r, runId),
+    ...annotatePossessiveCandidates(r, runId),
+    ...annotateCohesionSnapshot(r, runId),
+    ...orthFlags, orthSnap,
+  ];
+}
+
+/* ---------------- LLM annotators (llm_annotators.py) --------------------- */
+function fill(template, vars) {
+  let out = template;
+  for (const [k, v] of Object.entries(vars)) out = out.split("{" + k + "}").join(String(v));
+  return out;
+}
+const num = v => (typeof v === "number" && isFinite(v) ? v : null);
+const clamp01 = v => Math.max(0, Math.min(100, v));
+
+function buildRequirementList(task) {
+  let reqs = (task.task_requirements || []).map(r => ["task_requirement", r]);
+  if (!reqs.length) reqs = [["task_requirement", `Respond to the task prompt: ${task.task_prompt}`]];
+  reqs.push(["additional_development", "Additional on-topic development beyond the listed requirements"]);
+  reqs = reqs.concat((task.task_type_requirements || []).map(r => ["task_type_requirement", r]));
+  return reqs;
+}
+
+/* Audit fix 2: per-question development markers. When the TaskObject carries
+   real markers they are formatted exactly as v2 did (line ~4651); the generic
+   0-3 ladder is only the fallback. */
+function formatDevelopmentMarkers(task) {
+  const markers = task.development_markers || [];
+  if (!markers.length) {
+    return "Generic ladder per requirement — 0 (absent): not addressed. 1 (mentioned): topic named, no development. 2 (developed): topic plus a reason, detail, or example. 3 (extended): multiple connected details or extended reasoning.";
+  }
+  return markers.map((m, i) =>
+    `Requirement ${i}: ${m.point}\n  0 (absent): ${m.score_0 || "—"}\n  1 (mentioned): ${m.score_1 || "—"}\n  2 (developed): ${m.score_2 || "—"}\n  3 (extended): ${m.score_3 || "—"}`
+  ).join("\n\n");
+}
+
+const LLM_ANNOTATORS = {
+  task_coverage: async (task, complete, runId) => {
+    const requirements = buildRequirementList(task);
+    const listing = requirements.map(([src, label], i) => `${i}. [${src}] ${label}`).join("\n");
+    const data = await complete(fill(AZE_PROMPTS.TASK_COVERAGE, { requirements: listing, response: task.response }));
+    const out = [];
+    for (const check of data.checks || []) {
+      if (check.result !== "PASS") continue;
+      const rid = check.requirement_id;
+      const src = check.source || (Number.isInteger(rid) && rid < requirements.length ? requirements[rid][0] : "task_requirement");
+      out.push(makeAnno("task_coverage", "task_coverage:requirement", "llm", check.evidence || "",
+        { start: -1, end: -1 },
+        { requirement_id: rid, requirement_source: src, evidence: check.evidence || "" },
+        ["task_achievement"], runId));
+    }
+    return out;
+  },
+  intelligibility: async (task, complete, runId) => {
+    const data = await complete(fill(AZE_PROMPTS.INTELLIGIBILITY, { response: task.response }));
+    const score = num(data.intelligibility_effect_score);
+    if (score === null) return [];
+    return [makeAnno("intelligibility", "intelligibility:effect_score", "llm", "",
+      { start: -1, end: -1 },
+      { score: clamp01(score), band: data.band, reason: data.reason, grounded_in: data.grounded_in || [] },
+      ["task_achievement"], runId)];
+  },
+  register: async (task, complete, runId) => {
+    const data = await complete(fill(AZE_PROMPTS.REGISTER, { response: task.response }));
+    const out = [];
+    for (const f of data.register_findings || []) {
+      if (!["dialect_marker", "msa_marker", "register_lapse"].includes(f.subtype)) continue;
+      out.push(makeAnno("register", `register:${f.subtype}`, "llm", f.text || "",
+        { start: -1, end: -1 },
+        { subtype: f.subtype, note: f.note || "", detection_method: "llm" },
+        ["style_register"], runId));
+    }
+    return out;
+  },
+  accuracy: async (task, complete, runId) => {
+    const data = await complete(fill(AZE_PROMPTS.ACCURACY_ERRORS, { response: task.response }));
+    const valid = new Set(["agreement", "conjugation", "dual", "word_order", "sentence_formation", "other"]);
+    return (data.errors || []).map(err => {
+      const etype = valid.has(err.error_type) ? err.error_type : "other";
+      return makeAnno("accuracy", `accuracy:${etype}`, "llm", err.text || "",
+        { start: -1, end: -1 },
+        { error_type: etype, correction: err.correction || "", note: err.note || "" },
+        ["language_accuracy"], runId);
+    });
+  },
+  advanced_formal_control: async (task, complete, runId) => {
+    const data = await complete(fill(AZE_PROMPTS.ADVANCED_FORMAL_CONTROL, { response: task.response }));
+    const bools = {
+      complex_subordination: !!data.complex_subordination,
+      dual_plural_agreement: !!data.dual_plural_agreement,
+      advanced_verb_form: !!data.advanced_verb_form || (data.advanced_verb_form_type && data.advanced_verb_form_type !== "none"),
+    };
+    return [makeAnno("accuracy", "accuracy:advanced_formal_control", "llm", "",
+      { start: -1, end: -1 },
+      { ...bools, advanced_verb_form_type: data.advanced_verb_form_type || "none" },
+      [], runId)];
+  },
+  cq: async (task, complete, runId) => {
+    const requirements = (task.task_requirements || []).length
+      ? task.task_requirements : [`Respond to the task prompt: ${task.task_prompt}`];
+    const listing = requirements.map((r, i) => `${i}. ${r}`).join("\n");
+    const markerText = formatDevelopmentMarkers(task);   // audit fix 2
+    const data = await complete(fill(AZE_PROMPTS.CQ, { requirements: listing, development_markers: markerText, response: task.response }));
+    return (data.cq_scores || []).map(item => {
+      let spans = item.evidence_spans;
+      if (!spans && item.evidence_text) spans = [item.evidence_text];
+      return makeAnno("cq", `cq:requirement_${item.requirement_id ?? 0}`, "llm", "",
+        { start: -1, end: -1 },
+        { requirement_id: item.requirement_id ?? 0, score: item.score ?? 0,
+          evidence_spans: spans || [], justification: item.justification || "" },
+        ["content_quality"], runId);
+    });
+  },
+  coherence_flow: async (task, complete, runId) => {
+    const wc = wordCount(task.response);
+    const data = await complete(fill(AZE_PROMPTS.COHERENCE_FLOW,
+      { response: task.response, word_count: wc, min_words: task.min_words, max_words: task.max_words }));
+    const score = num(data.coherence_flow_score);
+    return [makeAnno("cohesion", "cohesion:coherence_flow_score", "llm", "",
+      { start: -1, end: -1 },
+      { score: score === null ? null : clamp01(score), band: data.band,
+        justification: data.justification, grounded_in: data.grounded_in || [],
+        cap_applied: data.cap_applied || null },
+      ["organisation_coherence"], runId)];
+  },
+  vocabulary: rangeAnnotator("VOCAB_DIVERSITY", "vocabulary_diversity_score", "range:vocabulary_score"),
+  morphology: rangeAnnotator("MORPH_VARIETY", "morphological_variety_score", "range:morphology_score"),
+  sentence_complexity: rangeAnnotator("SENTENCE_COMPLEXITY", "arabic_sentence_complexity_score", "range:sentence_complexity_score"),
+  orthography_llm: async (task, complete, runId) => {
+    const data = await complete(fill(AZE_PROMPTS.ORTHOGRAPHY, { response: task.response }));
+    const validSub = new Set(["hamza", "alif", "taa_marbuta", "general"]);
+    const out = (data.spelling_errors || []).map(err => {
+      const sub = validSub.has(err.error_subtype) ? err.error_subtype : "general";
+      return makeAnno("orthography", `orthography:${sub}`, "llm", err.text || "",
+        { start: -1, end: -1 },
+        { correction: err.correction || "", note: err.note || "", tier: "llm" },
+        ["orthographic_control"], runId);
+    });
+    const score = num(data.llm_orthographic_accuracy_score);
+    if (score !== null) out.push(makeAnno("orthography", "orthography:ceiling_score", "llm", "",
+      { start: -1, end: -1 },
+      { score: clamp01(score), band: data.band, justification: data.justification, grounded_in: data.grounded_in || [] },
+      ["orthographic_control"], runId));
+    return out;
+  },
+};
+function rangeAnnotator(promptKey, scoreKey, annoType) {
+  return async (task, complete, runId) => {
+    const wc = wordCount(task.response);
+    const data = await complete(fill(AZE_PROMPTS[promptKey],
+      { response: task.response, word_count: wc, min_words: task.min_words,
+        max_words: task.max_words, task_type: task.task_type || "paragraph" }));
+    const score = num(data[scoreKey]);
+    return [makeAnno("range", annoType, "llm", "", { start: -1, end: -1 },
+      { score: score === null ? null : clamp01(score), band: data.band,
+        justification: data.justification, grounded_in: data.grounded_in || [],
+        cap_applied: data.cap_applied || null },
+      ["language_range"], runId)];
+  };
+}
+const STATUS_FAMILY = { task_coverage: "task_coverage", cq: "cq", register: "register", accuracy: "accuracy" };
+
+async function runLlmAnnotators(task, complete, runId, onAnnotator, concurrency = 3, retries = 2) {
+  const names = Object.keys(LLM_ANNOTATORS);
+  const annotations = [];
+  const status = {};
+  let cursor = 0;
+  async function worker() {
+    while (cursor < names.length) {
+      const name = names[cursor++];
+      onAnnotator && onAnnotator(name, "running");
+      let lastErr = null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        if (attempt > 0) {
+          onAnnotator && onAnnotator(name, "running", 0, `retry ${attempt}/${retries}`);
+          await new Promise(r => setTimeout(r, 900 * attempt + Math.random() * 400));
+        }
+        try {
+          const got = await LLM_ANNOTATORS[name](task, complete, runId);
+          annotations.push(...got);
+          status[name] = "ok";
+          onAnnotator && onAnnotator(name, "ok", got.length);
+          lastErr = null;
+          break;
+        } catch (e) { lastErr = e; }
+      }
+      if (lastErr) {
+        status[name] = "failed";
+        status[`${name}_error`] = `${lastErr.name || "Error"}: ${lastErr.message || lastErr}`;
+        onAnnotator && onAnnotator(name, "failed", 0, String(lastErr.message || lastErr));
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, names.length) }, worker));
+  const familyStatus = {};
+  for (const [name, fam] of Object.entries(STATUS_FAMILY)) familyStatus[fam] = status[name] || "failed";
+  familyStatus._raw = status;
+  return [annotations, familyStatus];
+}
+
+/* ---------------- verifier (verifier.py) --------------------------------- */
+const FAMILIES = new Set(["word_count", "task_coverage", "claim", "intelligibility", "cq",
+  "register", "range", "cohesion", "accuracy", "orthography", "task_meta"]);
+const DIMS = ["task_achievement", "content_quality", "style_register", "language_range",
+  "organisation_coherence", "language_accuracy", "orthographic_control"];
+const DIM_SET = new Set(DIMS);
+const SPAN_BEARING = new Set(["task_coverage", "intelligibility", "cq", "register", "cohesion", "accuracy", "orthography"]);
+const NON_ANCHORED = new Set(["cohesion:deterministic_snapshot", "orthography:deterministic_snapshot",
+  "cohesion:coherence_flow_score", "orthography:ceiling_score", "intelligibility:effect_score",
+  "accuracy:advanced_formal_control", "range:vocabulary_score", "range:morphology_score",
+  "range:sentence_complexity_score"]);
+const FAMILY_SCORE_IN = {
+  word_count: ["task_achievement"], task_coverage: ["task_achievement"], claim: ["task_achievement"],
+  intelligibility: ["task_achievement"], cq: ["content_quality"], register: ["style_register"],
+  range: ["language_range"], cohesion: ["organisation_coherence"], accuracy: ["language_accuracy"],
+  orthography: ["orthographic_control"], task_meta: [],
+};
+const REAL_GRAMMAR = new Set(["agreement", "conjugation", "dual", "word_order", "sentence_formation"]);
+const NORM_MAP = { "إ": "ا", "أ": "ا", "آ": "ا", "ى": "ي", "ة": "ه", "ؤ": "و", "ئ": "ي" };
+function normaliseArabic(s) { return s.replace(/[إأآىةؤئ]/g, c => NORM_MAP[c]); }
+const intersects = (a, b) => a[0] < b[1] && b[0] < a[1];
+
+function verify(annotations, response) {
+  const protectedSpans = [];
+  for (const phrase of PROTECTED_PHRASES) {
+    let idx = response.indexOf(phrase);
+    while (idx !== -1) { protectedSpans.push([idx, idx + phrase.length]); idx = response.indexOf(phrase, idx + 1); }
+  }
+  const out = annotations.map(a => ({ ...a, span: { ...a.span }, metadata: { ...a.metadata } }));
+
+  // Pass 1
+  for (const anno of out) {
+    const failures = [];
+    if (!FAMILIES.has(anno.family)) failures.push(`schema:unknown_family:${anno.family}`);
+    if (!["code", "llm"].includes(anno.source)) failures.push(`schema:invalid_source:${anno.source}`);
+    if (typeof anno.text !== "string") failures.push("schema:text_not_string");
+    if (!anno.span || typeof anno.span.start !== "number") failures.push("schema:malformed_span");
+
+    if (!failures.length && !NON_ANCHORED.has(anno.type) && SPAN_BEARING.has(anno.family) && anno.text) {
+      const idx = response.indexOf(anno.text);
+      if (idx === -1) failures.push("text_span:not_found");
+      else if (anno.span.start < 0) anno.span = { start: idx, end: idx + anno.text.length };
+    }
+    if (!failures.length) {
+      const allowed = FAMILY_SCORE_IN[anno.family] || [];
+      for (const dim of anno.score_in || []) {
+        if (!DIM_SET.has(dim)) failures.push(`score_in:unknown_dimension:${dim}`);
+        else if (!allowed.includes(dim)) failures.push(`score_in:not_allowed_for_family:${dim}`);
+      }
+    }
+    if (!failures.length && ["accuracy", "orthography"].includes(anno.family)
+        && !NON_ANCHORED.has(anno.type) && anno.text && anno.span.start >= 0) {
+      const span = [anno.span.start, anno.span.end];
+      if (protectedSpans.some(p => intersects(span, p))) failures.push("protected_form:suppressed");
+    }
+    anno.verification_failures = failures;
+    anno.verified = failures.length === 0;
+  }
+
+  // Pass 1.5: construct-leakage
+  const dialectSpans = out.filter(a => a.verified && a.type === "register:dialect_marker" && a.span.start >= 0)
+    .map(a => [a.span.start, a.span.end]);
+  for (const anno of out) {
+    if (!anno.verified || anno.family !== "accuracy" || NON_ANCHORED.has(anno.type) || anno.span.start < 0) continue;
+    const span = [anno.span.start, anno.span.end];
+    if (!dialectSpans.some(d => intersects(span, d))) continue;
+    const realType = REAL_GRAMMAR.has(anno.metadata.error_type);
+    const note = (anno.metadata.note || "").toLowerCase();
+    const dialectJustified = ["dialect", "colloquial", "msa", "darija", "gulf"].some(w => note.includes(w));
+    if (!(realType && !dialectJustified)) {
+      anno.verified = false;
+      anno.verification_failures.push("construct_leakage:accuracy_overlaps_dialect");
+    }
+  }
+
+  // Pass 2: duplicate resolution (first-emitted-wins)
+  const seen = new Set();
+  for (const anno of out) {
+    if (!anno.verified || anno.span.start < 0 || !anno.text) continue;
+    const group = anno.family === "range" ? anno.type : anno.family;
+    for (const dim of anno.score_in || []) {
+      const key = `${dim}|${anno.span.start}|${anno.span.end}|${group}`;
+      if (seen.has(key)) {
+        anno.verified = false;
+        anno.verification_failures.push("overlap:duplicate_span_dimension");
+        break;
+      }
+      seen.add(key);
+    }
+  }
+
+  // Pass 3: single rejection_status
+  const priority = [["schema:", "invalid_schema"], ["text_span:", "invalid_span"],
+    ["score_in:", "invalid_score_in"], ["protected_form:", "protected_form_suppressed"],
+    ["construct_leakage:", "excluded_construct_leakage"], ["overlap:", "excluded_duplicate"]];
+  for (const anno of out) {
+    if (anno.verified) { anno.rejection_status = null; continue; }
+    anno.rejection_status = "rejected_other";
+    for (const [prefix, status] of priority) {
+      if (anno.verification_failures.some(f => f.startsWith(prefix))) { anno.rejection_status = status; break; }
+    }
+  }
+
+  // Pass 4: CQ evidence spans (two-tier)
+  const normResponse = normaliseArabic(response);
+  for (const anno of out) {
+    if (anno.family !== "cq" || !anno.verified) continue;
+    const meta = anno.metadata;
+    const unverified = [], withNorm = [], statuses = [];
+    for (const s of meta.evidence_spans || []) {
+      if (s && response.includes(s)) statuses.push("verified");
+      else if (s && normResponse.includes(normaliseArabic(s))) { statuses.push("verified_with_normalisation"); withNorm.push(s); }
+      else { statuses.push("partial"); unverified.push(s); }
+    }
+    meta._evidence_unverified = unverified;
+    meta._evidence_verified_with_normalisation = withNorm;
+    meta._evidence_statuses = statuses;
+  }
+  return out;
+}
+
+/* ---------------- interpretation (interpretation.py) --------------------- */
+const EXCLUDED_FROM = { "register:dialect_marker": ["language_range", "organisation_coherence", "language_accuracy"] };
+const FORMAL_SUBORDINATORS = ["الذي", "التي", "إذا", "لو", "أن", "لكي", "حيث"];
+const MSA_1SG_PAST = new Set(["ذهبت", "كتبت", "زرت", "رأيت", "شعرت", "قضيت", "تناولت", "عدت", "سافرت",
+  "تعلمت", "استمتعت", "شاهدت", "وصلت", "قرأت", "اشتريت", "التقيت", "أمضيت",
+  "بدأت", "أنهيت", "حضرت", "اكتشفت", "تجولت", "جلست", "أكلت", "شربت", "لعبت"]);
+const SEVERITY = { agreement: 1.0, conjugation: 1.2, dual: 0.7, word_order: 1.0, sentence_formation: 1.5, other: 0.8 };
+
+const V = (annos, pred) => annos.filter(a => a.verified && pred(a));
+const ofType = (annos, t) => V(annos, a => a.type === t);
+const firstMeta = (annos, t, k, d = null) => { const f = ofType(annos, t); return f.length ? (f[0].metadata[k] ?? d) : d; };
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function sentencesWithSpans(response) {
+  const out = []; let pos = 0;
+  const re = /[.؟!؛\n]+/g; let m;
+  while ((m = re.exec(response)) !== null) {
+    if (m.index > pos) out.push([response.slice(pos, m.index), pos, m.index]);
+    pos = m.index + m[0].length;
+  }
+  if (pos < response.length) out.push([response.slice(pos), pos, response.length]);
+  return out;
+}
+
+function buildGlobalProfile(task, annotations) {
+  const response = task.response;
+  const wc = Math.max(1, wordCount(response));
+  const dialect = ofType(annotations, "register:dialect_marker");
+  const msa = ofType(annotations, "register:msa_marker");
+  const dialectSpans = dialect.filter(a => a.span.start >= 0).map(a => [a.span.start, a.span.end]);
+  const errorSpans = annotations.filter(a => a.verified && a.family === "accuracy"
+    && a.metadata.error_type && a.span.start >= 0).map(a => [a.span.start, a.span.end]);
+
+  const dd = dialect.length / wc, msaD = msa.length / wc;
+
+  let subordinators = 0, sustained = 0;
+  for (const [sentence, sStart, sEnd] of sentencesWithSpans(response)) {
+    const sTokens = tokenize(sentence);
+    const sWc = Math.max(1, sTokens.length);
+    const localMarkers = dialectSpans.filter(d => sStart <= d[0] && d[0] < sEnd).length;
+    const localDensity = localMarkers / sWc;
+    const weight = localDensity >= 0.10 ? 0.3 : 1.0;
+    for (const [token] of sTokens) {
+      if (FORMAL_SUBORDINATORS.includes(stripDiacritics(token).replace(/^[وف]+/, ""))) subordinators += weight;
+    }
+    if (localDensity < 0.10 && !errorSpans.some(e => sStart <= e[0] && e[0] < sEnd)) sustained += 2;
+  }
+  subordinators = Math.round(subordinators);
+  sustained = Math.min(20, sustained);
+
+  const msaPast = tokenize(response).filter(([t]) =>
+    MSA_1SG_PAST.has(stripDiacritics(t)) || t.endsWith("تُ")).length;
+  const formalLexis = (firstMeta(annotations, "range:vocabulary_score", "grounded_in", []) || []).length;
+
+  const cas = Math.min(100, msa.length * 8 + subordinators * 6 + msaPast * 4 + formalLexis * 3);
+  const dominant = dd >= 0.10 ? "dialect_dominant" : dd >= 0.03 ? "mixed" : "msa_dominant";
+
+  return {
+    word_count: wc, target_register: task.target_register || "formal_msa",
+    dominant_register: dominant, dialect_marker_count: dialect.length,
+    msa_marker_count: msa.length,
+    dialect_density: Math.round(dd * 10000) / 10000,
+    msa_evidence_density: Math.round(msaD * 10000) / 10000,
+    construct_attempt_score: cas,
+    construct_avoidance: cas < 25 || dd >= 0.20,
+    register_tainted: dominant !== "msa_dominant",
+    msa_past_tense_count: msaPast, formal_subordinator_count: subordinators,
+    formal_lexis_count: formalLexis, sustained_agreement_score: sustained,
+  };
+}
+
+function polarity(anno) {
+  if (anno.family === "cq") {
+    const s = anno.metadata.score;
+    return s == null ? "neutral" : s >= 2 ? "positive" : "negative";
+  }
+  const t = anno.type;
+  const negative = new Set(["word_count:under", "word_count:over", "register:dialect_marker", "register:register_lapse"]);
+  const positive = new Set(["word_count:in_range", "task_coverage:requirement", "intelligibility:effect_score",
+    "register:msa_marker", "range:vocabulary_score", "range:morphology_score",
+    "range:sentence_complexity_score", "cohesion:device", "cohesion:coherence_flow_score",
+    "orthography:ceiling_score"]);
+  if (negative.has(t) || (anno.family === "accuracy" && anno.metadata.error_type)
+      || (anno.family === "orthography" && anno.metadata.correction != null
+          && !t.includes("snapshot") && !t.includes("ceiling"))) return "negative";
+  if (positive.has(t)) return "positive";
+  return "neutral";
+}
+
+function baseProfile(annotations, dimension) {
+  let pos = 0, neg = 0, neu = 0, suppressed = 0;
+  for (const anno of annotations) {
+    if (!(anno.score_in || []).includes(dimension)) continue;
+    const excluded = (EXCLUDED_FROM[anno.type] || []).includes(dimension);
+    if (!anno.verified || excluded) { suppressed++; continue; }
+    const p = polarity(anno);
+    if (p === "positive") pos++; else if (p === "negative") neg++; else neu++;
+  }
+  const usable = pos + neg + neu;
+  return { positive_evidence_count: pos, negative_evidence_count: neg, neutral_evidence_count: neu,
+    usable_evidence_count: usable, suppressed_evidence_count: suppressed, raw_signal: pos - neg,
+    interpreted_strength: usable >= 8 ? "strong" : usable >= 3 ? "moderate" : "weak",
+    notes: [], sub_scores: {} };
+}
+
+function interpretTaskAchievement(task, annotations, gp) {
+  const profile = baseProfile(annotations, "task_achievement");
+  const wcAnno = annotations.find(a => a.family === "word_count");
+  const wcMeta = wcAnno ? wcAnno.metadata : {};
+  const wc = wcMeta.word_count ?? gp.word_count;
+  const mn = wcMeta.min_words ?? task.min_words, mx = wcMeta.max_words ?? task.max_words;
+
+  let wcc;
+  if (wc >= mn && wc <= mx) wcc = 100;
+  else {
+    const midpoint = (mn + mx) / 2;
+    if (wc < mn) {
+      const edge = mn, tolEdge = Math.floor(mn * 0.9);
+      if (wc >= tolEdge) wcc = Math.round(100 - 15 * (Math.abs(wc - edge) / (Math.abs(tolEdge - edge) || 1)));
+      else wcc = Math.max(0, Math.round(85 * (wc / Math.max(1, tolEdge))));
+    } else {
+      const edge = mx, tolEdge = Math.ceil(mx * 1.1);
+      if (wc <= tolEdge) wcc = Math.round(100 - 15 * (Math.abs(wc - edge) / (Math.abs(tolEdge - edge) || 1)));
+      else {
+        const farEdge = 2 * midpoint;
+        wcc = Math.max(0, Math.round(85 * (farEdge - wc) / ((farEdge - tolEdge) || 1)));
+      }
+    }
+  }
+
+  const weights = { task_requirement: 1.0, additional_development: 1.0, task_type_requirement: 0.5 };
+  const allChecks = buildRequirementList(task);
+  const weightedTotal = allChecks.reduce((a, [src]) => a + (weights[src] ?? 1), 0);
+  const passed = ofType(annotations, "task_coverage:requirement");
+  const weightedPasses = passed.reduce((a, p) => a + (weights[p.metadata.requirement_source || "task_requirement"] ?? 1), 0);
+  let passRate;
+  if (weightedTotal > 0) passRate = Math.round(Math.min(weightedPasses, weightedTotal) / weightedTotal * 100);
+  else { passRate = null; profile.notes.push("task_coverage:zero_weighted_total — malformed TaskObject"); }
+
+  const ieRaw = firstMeta(annotations, "intelligibility:effect_score", "score");
+  const ieStatus = ieRaw !== null ? "present" : "missing";
+  let derived, confidence;
+  if (passRate === null) { derived = null; confidence = "LOW"; }
+  else if (ieStatus === "present") {
+    derived = Math.round(wcc * 0.20 + passRate * 0.50 + clampN(ieRaw, 0, 100) * 0.30);
+    confidence = "HIGH";
+  } else {
+    derived = Math.round(wcc * (20 / 70) + passRate * (50 / 70));
+    confidence = "LOW";
+    profile.ie_missing_reason = "ie_annotation_absent";
+  }
+
+  const typeChecks = allChecks.filter(([src]) => src === "task_type_requirement");
+  const typePasses = passed.filter(a => a.metadata.requirement_source === "task_type_requirement");
+  profile.format_breakdown = typeChecks.length > 0 && typePasses.length === 0;
+
+  Object.assign(profile, { derived_score: derived, confidence, ie_status: ieStatus,
+    sub_scores: { wcc, ta: passRate, ie: ieRaw } });
+  return profile;
+}
+
+function interpretContentQuality(task, annotations, gp) {
+  const profile = baseProfile(annotations, "content_quality");
+  if (gp.word_count < 30) {
+    Object.assign(profile, { derived_score: null, confidence: "UNMEASURABLE", notes: ["below 30-word floor"] });
+    return profile;
+  }
+  const cqAnnos = V(annotations, a => a.family === "cq");
+  if (!cqAnnos.length) {
+    Object.assign(profile, { derived_score: null, confidence: "LOW",
+      notes: ["no cq annotations (annotator ok, empty finding)"] });
+    return profile;
+  }
+  const events = { no_evidence_forced_zero: 0, density_capped_3_to_2: 0, density_capped_2_to_1: 0,
+    unverified_spans_excluded: 0, verified_with_normalisation_count: 0 };
+  const perRequirement = [], spanUsage = {};
+
+  for (const anno of [...cqAnnos].sort((a, b) => (a.metadata.requirement_id ?? 0) - (b.metadata.requirement_id ?? 0))) {
+    const meta = anno.metadata;
+    let score = meta.score ?? 0;
+    const original = score;
+    let capApplied = null;
+    const unverified = new Set(meta._evidence_unverified || []);
+    events.unverified_spans_excluded += unverified.size;
+    events.verified_with_normalisation_count += (meta._evidence_verified_with_normalisation || []).length;
+    const verifiedSpans = (meta.evidence_spans || []).filter(s => !unverified.has(s));
+
+    if (score > 0 && !(meta.evidence_spans || []).length) {
+      if (meta._original_score === undefined) meta._original_score = score;
+      score = 0; capApplied = "no_evidence"; events.no_evidence_forced_zero++;
+    } else if (score > 0) {
+      const spanWords = verifiedSpans.map(s => s.trim().split(/\s+/).filter(Boolean).length);
+      const longest = spanWords.length ? Math.max(...spanWords) : 0;
+      const total = spanWords.reduce((a, b) => a + b, 0);
+      let cap = null;
+      if (score === 3 && longest < 12 && total < 15) cap = 2;
+      if (score === 2 && longest < 7) cap = 1;
+      if (cap !== null && cap < score) {
+        if (meta._original_score === undefined) meta._original_score = score;
+        events[`density_capped_${score}_to_${cap}`]++;
+        capApplied = `density_score_${score}`;
+        score = cap;
+      }
+    }
+    for (const s of verifiedSpans) spanUsage[s] = (spanUsage[s] || 0) + 1;
+    perRequirement.push({ requirement_id: meta.requirement_id, score,
+      original_score: meta._original_score ?? original,
+      evidence_spans: meta.evidence_spans || [], justification: meta.justification || "",
+      cap_applied: capApplied, verification_status: meta._evidence_statuses || [] });
+  }
+
+  const meanScore = perRequirement.reduce((a, r) => a + r.score, 0) / perRequirement.length;
+  const derived = Math.round(meanScore * 100 / 3);
+  const heavy = Object.values(spanUsage).filter(n => n >= 3).length;
+  const enforcement = events.no_evidence_forced_zero || events.density_capped_3_to_2 || events.density_capped_2_to_1;
+  let confidence, reason;
+  if (enforcement) { confidence = "MEDIUM"; reason = "enforcement_events"; }
+  else if (events.unverified_spans_excluded) { confidence = "MEDIUM"; reason = "unverified_spans"; }
+  else if (derived >= 70 && heavy) { confidence = "MEDIUM"; reason = "heavy_evidence_reuse"; }
+  else { confidence = "HIGH"; reason = null; }
+
+  Object.assign(profile, { derived_score: derived, confidence, confidence_reason: reason,
+    mean_score: Math.round(meanScore * 1000) / 1000, per_requirement: perRequirement,
+    enforcement_events: events,
+    sub_scores: { mean_requirement_score: Math.round(meanScore * 100) / 100 } });
+  return profile;
+}
+
+const SR_BANDS = [
+  ["sustained_formal_msa", 0.02, [80, 100]],
+  ["mostly_msa_with_lapses", 0.05, [65, 79]],
+  ["mixed_register", 0.10, [40, 64]],
+  ["dialect_dominant_coherent", 0.20, [20, 39]],
+  ["pure_dialect_chat", 1.00, [0, 19]],
+];
+
+function interpretStyleRegister(task, annotations, gp) {
+  const profile = baseProfile(annotations, "style_register");
+  const dd = gp.dialect_density, msaD = gp.msa_evidence_density;
+  const lapses = ofType(annotations, "register:register_lapse").length;
+
+  let prev = 0, bandName = SR_BANDS[4][0], low = 0, high = 19, pos = 0.5;
+  for (const [name, densityMax, range] of SR_BANDS) {
+    if (dd <= densityMax) {
+      bandName = name; [low, high] = range;
+      const width = densityMax - prev;
+      pos = width > 0 ? clampN(1 - (dd - prev) / width, 0, 1) : 0.5;
+      break;
+    }
+    prev = densityMax;
+  }
+  let base = low + (high - low) * pos;
+  if (msaD >= 0.02) base += Math.min(5, msaD * 100);
+  base -= Math.min(5, lapses * 2);
+
+  let consistency;
+  if (dd >= 0.20 && msaD === 0) consistency = "informal_chat";
+  else if (dd >= 0.10) consistency = "dialect_consistent";
+  else if (dd >= 0.05) consistency = "mixed_register";
+  else if (dd < 0.02 && msaD > 0.02) consistency = "sustained_msa";
+  else consistency = "msa_with_lapses";
+  if (consistency === "dialect_consistent") base -= 2;
+  else if (consistency === "msa_with_lapses") base += 2;
+
+  let derived = clampN(Math.round(base), Math.max(0, low - 3), Math.min(100, high + 3));
+  let lapseCap = false;
+  if (lapses > 0 && derived > 92) { derived = 92; lapseCap = true; }
+
+  const msaConsistency = derived;
+  let ceiling = false;
+  if (gp.msa_marker_count === 0 && gp.dominant_register !== "msa_dominant" && derived > 65) {
+    derived = 65; ceiling = true;
+  }
+
+  const appropriateness = gp.target_register !== "formal_msa" ? "unknown"
+    : { msa_dominant: "strong", mixed: "moderate", dialect_dominant: "weak" }[gp.dominant_register];
+  const borderline = [0.02, 0.05, 0.10, 0.20].some(t => Math.abs(dd - t) <= 0.005);
+
+  const dialectFamilies = {};
+  for (const a of ofType(annotations, "register:dialect_marker")) {
+    const fam = a.metadata.dialect_family || "llm_detected";
+    dialectFamilies[fam] = (dialectFamilies[fam] || 0) + 1;
+  }
+
+  Object.assign(profile, { derived_score: derived, confidence: "HIGH", profile_band: bandName,
+    target_register: gp.target_register, dominant_register: gp.dominant_register,
+    dialect_density: dd, msa_evidence_density: msaD, register_lapse_count: lapses,
+    register_consistency: consistency, consistency_borderline: borderline,
+    task_appropriateness: appropriateness, lapse_cap_applied: lapseCap,
+    msa_marker_ceiling_applied: ceiling,
+    cap_reason: ceiling ? "no_msa_evidence_ceiling_65" : null,
+    msa_consistency: msaConsistency, dialect_family_counts: dialectFamilies,
+    dialect_marker_diversity: Object.keys(dialectFamilies).length,
+    sub_scores: { dialect_density: dd, msa_evidence_density: msaD } });
+  return profile;
+}
+
+function interpretLanguageRange(task, annotations, gp, sr) {
+  const profile = baseProfile(annotations, "language_range");
+  if (gp.word_count < 30) {
+    Object.assign(profile, { derived_score: null, confidence: "UNMEASURABLE", notes: ["below 30-word floor"] });
+    return profile;
+  }
+  const v = firstMeta(annotations, "range:vocabulary_score", "score");
+  const m = firstMeta(annotations, "range:morphology_score", "score");
+  const s = firstMeta(annotations, "range:sentence_complexity_score", "score");
+  const nullCount = [v, m, s].filter(x => x === null).length;
+
+  let derived, ceilingApplied = null, ceilingSource = null;
+  if (nullCount === 0) {
+    derived = Math.round(v * 0.334 + m * 0.333 + s * 0.333);
+    let dialectDominant, formalTarget;
+    if (sr.dominant_register != null) {
+      dialectDominant = sr.dominant_register === "dialect_dominant";
+      formalTarget = sr.target_register === "formal_msa" || sr.target_register == null;
+      ceilingSource = "style_register_profile";
+    } else if (gp.dominant_register != null) {
+      dialectDominant = gp.dominant_register === "dialect_dominant" || gp.dialect_density >= 0.10;
+      formalTarget = true;
+      ceilingSource = "global_profile_fallback";
+    } else {
+      dialectDominant = false; formalTarget = false;
+      ceilingSource = "no_register_signal";
+      profile.notes.push("no_register_signal — soft cap could not evaluate");
+    }
+    if (dialectDominant && formalTarget && derived > 60) {
+      derived = 60; ceilingApplied = "dialect_dominant_soft_cap_60";
+    }
+  } else if (nullCount === 3 && gp.construct_attempt_score < 20) {
+    derived = 30;
+    ceilingApplied = "construct_avoidance_floor";
+    ceilingSource = "construct_avoidance_cap_directive";
+  } else {
+    derived = null; // N/A — UNMEASURABLE, excluded
+  }
+
+  let confidence = nullCount >= 2 ? "LOW" : nullCount === 1 ? "MEDIUM" : "HIGH";
+  if (derived === null && nullCount === 3) confidence = "UNMEASURABLE";
+
+  Object.assign(profile, { derived_score: derived, confidence,
+    vocabulary_diversity_score: v, vocabulary_band: firstMeta(annotations, "range:vocabulary_score", "band"),
+    morphological_variety_score: m, morphology_band: firstMeta(annotations, "range:morphology_score", "band"),
+    sentence_complexity_score: s, complexity_band: firstMeta(annotations, "range:sentence_complexity_score", "band"),
+    ceiling_applied: ceilingApplied, ceiling_source: ceilingSource,
+    sub_scores: { vocabulary: v, morphology: m, sentence_complexity: s } });
+  return profile;
+}
+
+function interpretOrganisationCoherence(task, annotations, gp) {
+  const profile = baseProfile(annotations, "organisation_coherence");
+  if (gp.word_count < 30) {
+    Object.assign(profile, { derived_score: null, confidence: "UNMEASURABLE", notes: ["below 30-word floor"] });
+    return profile;
+  }
+  const snapshot = firstMeta(annotations, "cohesion:deterministic_snapshot", "snapshot", {}) || {};
+  const cd = snapshot.score == null ? 50 : snapshot.score;
+  const cfRaw = firstMeta(annotations, "cohesion:coherence_flow_score", "score");
+  const cf = cfRaw == null ? 50 : cfRaw;
+  const derived = Math.round(cd * 0.30 + cf * 0.70);
+
+  const distinct = snapshot.distinct_types || 0;
+  const wc = gp.word_count;
+  let confidence = (wc >= 30 && wc <= 60) || distinct === 0 || cfRaw == null ? "MEDIUM" : "HIGH";
+
+  const split = Math.abs(cd - cf);
+  let splitFlag = null;
+  if (split > 40) {
+    const narrativeLike = ["narrative", "email", "account", "recount", "description", "letter", "paragraph"]
+      .includes(task.task_type);
+    const severity = narrativeLike ? "WARNING" : "MODERATE";
+    splitFlag = { rule: "coh_dev_flow_split", severity,
+      message: `deterministic/holistic split ${split} > 40`, learner_facing: false };
+    if (severity === "MODERATE") confidence = "MEDIUM";
+  }
+
+  Object.assign(profile, { derived_score: derived, confidence,
+    cohesive_devices_score: cd,
+    cohesive_devices_breakdown: { categories: snapshot.category_breakdown || {},
+      distinct_types: distinct, per_100_words: snapshot.arabic_connectives_per_100_words || 0 },
+    coherence_flow_score: cfRaw,
+    coherence_flow_band: firstMeta(annotations, "cohesion:coherence_flow_score", "band"),
+    coherence_flow_cap_applied: firstMeta(annotations, "cohesion:coherence_flow_score", "cap_applied"),
+    split_contradiction: splitFlag,
+    sub_scores: { cohesive_devices: cd, coherence_flow: cfRaw } });
+  return profile;
+}
+
+function interpretLanguageAccuracy(task, annotations, gp, annotatorStatus) {
+  const profile = baseProfile(annotations, "language_accuracy");
+  const status = annotatorStatus.accuracy || "unknown";
+  if (status === "failed" || status === "unknown") {
+    Object.assign(profile, { derived_score: null, confidence: "LOW",
+      profile_band: "annotator_failure_retry_required", measurement_validity: null,
+      notes: ["accuracy annotator failed — guardrail flag raised, retry required; NOT scored (DIV-002)"],
+      _annotator_failed: true });
+    return profile;
+  }
+  if (status === "no_attempt") {
+    Object.assign(profile, { derived_score: null, confidence: "LOW",
+      profile_band: "not_assessed", measurement_validity: null });
+    return profile;
+  }
+
+  const cas = gp.construct_attempt_score, dd = gp.dialect_density;
+  let validity;
+  if (cas < 25 || dd >= 0.20) validity = "LOW";
+  else if (cas >= 50 && dd < 0.10) validity = "HIGH";
+  else validity = "MEDIUM";
+
+  if (validity === "LOW") {
+    const reason = cas < 25
+      ? "construct_attempt_score < 25 — insufficient MSA construct attempted"
+      : "dialect_density >= 0.20 — dialect-dominant, formal accuracy cannot be reliably scored";
+    Object.assign(profile, { derived_score: null, confidence: "LOW",
+      profile_band: "unmeasurable_construct_avoidance",
+      measurement_validity: "LOW", validity_notes: [reason] });
+    return profile;
+  }
+
+  const errors = V(annotations, a => a.family === "accuracy" && a.metadata.error_type);
+  const weightedError = errors.reduce((a, e) => a + (SEVERITY[e.metadata.error_type] ?? 0.8), 0);
+  const attemptTokens = gp.msa_marker_count + gp.formal_subordinator_count
+    + gp.msa_past_tense_count + gp.sustained_agreement_score;
+  const attemptFloor = Math.max(attemptTokens, 20);
+  const errorDensity = (weightedError / attemptFloor) * 100;
+  const pfe = Math.min(100, gp.msa_marker_count * 5 + gp.formal_subordinator_count * 4
+    + gp.sustained_agreement_score * 3 + gp.msa_past_tense_count * 2);
+
+  const caps = [];
+  let derived, band, confidence;
+  if (validity === "HIGH") {
+    let base = 100 - Math.min(60, errorDensity * 4);
+    if (base > 80 && pfe < 30) { base = 80; caps.push("pfe_lt_30_cap_80"); }
+    if (base > 90 && pfe < 60) { base = 90; caps.push("pfe_lt_60_cap_90"); }
+    const afc = ofType(annotations, "accuracy:advanced_formal_control");
+    let afcCount = 0;
+    if (afc.length) {
+      const meta = afc[0].metadata;
+      afcCount = ["complex_subordination", "dual_plural_agreement", "advanced_verb_form"]
+        .filter(k => meta[k]).length;
+    }
+    let afcCap = false;
+    if (base > 88 && afcCount < 2) { base = 88; afcCap = true; caps.push("advanced_formal_control_gate_88"); }
+    let discount = 0;
+    if (cas < 70) { discount = Math.min(20, Math.round((70 - cas) * 0.6)); base -= discount; }
+    derived = Math.round(base);
+    band = derived >= 90 ? "well_controlled" : derived >= 75 ? "mostly_controlled"
+      : derived >= 55 ? "mixed_control" : "weak_control";
+    confidence = "HIGH";
+    Object.assign(profile, { advanced_formal_control_evidence_present: afcCount >= 2,
+      advanced_formal_control_cap_applied: afcCap,
+      volume_discount_applied: discount > 0, volume_discount_factor: discount,
+      upper_band_qualified: pfe >= 30 });
+  } else {
+    let base = 70 - Math.min(35, errorDensity * 4);
+    if (base > 75) { base = 75; caps.push("medium_validity_ceiling_75"); }
+    derived = Math.round(base);
+    band = derived >= 60 ? "mixed_control" : "weak_control";
+    confidence = "MEDIUM";
+  }
+
+  Object.assign(profile, { derived_score: derived, confidence, profile_band: band,
+    measurement_validity: validity, attempt_tokens: attemptTokens,
+    weighted_error_score: Math.round(weightedError * 100) / 100,
+    positive_formal_evidence_score: pfe,
+    error_density_within_attempt: Math.round(errorDensity * 100) / 100,
+    cap_reason: caps.length ? caps : null,
+    sub_scores: { error_density: Math.round(errorDensity * 100) / 100, pfe, construct_attempt: cas } });
+  return profile;
+}
+
+const ADVANCED_CAP = 83; // DIV-031 build canonical
+
+function interpretOrthographicControl(task, annotations, gp) {
+  const profile = baseProfile(annotations, "orthographic_control");
+  const wc = gp.word_count;
+  if (wc < 10) {
+    Object.assign(profile, { derived_score: null, confidence: "UNMEASURABLE", notes: ["below 10-word floor"] });
+    return profile;
+  }
+  const det = firstMeta(annotations, "orthography:deterministic_snapshot", "snapshot", {}) || {};
+  const tq = det.technical_quality ?? 50;
+  const ced = det.common_error_detection ?? 50;
+  const llmRaw = firstMeta(annotations, "orthography:ceiling_score", "score");
+
+  const counts = det.letter_form_counts || {};
+  const forms = [counts.hamza_yaa || 0, counts.hamza_waw || 0, counts.hamza_isolated || 0, counts.alif_madda || 0];
+  const distinctUsed = forms.filter(c => c > 0).length;
+  const density100 = (forms.reduce((a, b) => a + b, 0) / Math.max(1, counts.words || wc)) * 100;
+  const advanced = distinctUsed >= 3 && density100 >= 3;
+
+  let llmCap = false, llm;
+  if (!advanced && typeof llmRaw === "number" && llmRaw > ADVANCED_CAP) { llm = ADVANCED_CAP; llmCap = true; }
+  else llm = typeof llmRaw === "number" ? llmRaw : 50;
+
+  let derived = Math.round(tq * 0.25 + ced * 0.35 + llm * 0.40);
+  let derivedCap = false;
+  if (!advanced && derived > ADVANCED_CAP) { derived = ADVANCED_CAP; derivedCap = true; }
+
+  let confidence = wc < 30 || llmRaw == null ? "MEDIUM" : "HIGH";
+  const detCombined = Math.round(tq * 25 / 60 + ced * 35 / 60);
+  const split = Math.abs(detCombined - llm);
+  let splitFlag = null;
+  if (split > 25) {
+    splitFlag = { rule: "orth_det_llm_split", severity: "MODERATE",
+      message: `deterministic/LLM split ${split} > 25`, learner_facing: false };
+    confidence = "MEDIUM";
+  }
+  const flags = det.flags_summary || {};
+  Object.assign(profile, { derived_score: derived, confidence,
+    technical_quality: tq, common_error_detection: ced,
+    llm_orthographic_score: llmRaw, llm_band: firstMeta(annotations, "orthography:ceiling_score", "band"),
+    advanced_evidence_present: advanced, cap_applied: llmCap || derivedCap,
+    cap_reason: (llmCap || derivedCap) ? `derived_score capped at ${ADVANCED_CAP} — no advanced orthographic evidence` : null,
+    split_contradiction: splitFlag,
+    evidence_summary: { taa_marbuta_flags: flags.taa_marbuta || 0, alif_flags: flags.alif || 0,
+      hamza_flags: flags.hamza || 0, general_flags: flags.general || 0 },
+    sub_scores: { technical_quality: tq, common_error_detection: ced, llm: llmRaw } });
+  return profile;
+}
+
+function interpret(task, annotations, annotatorStatus, runId) {
+  const gp = buildGlobalProfile(task, annotations);
+  const sr = interpretStyleRegister(task, annotations, gp);
+  const profiles = {
+    task_achievement: interpretTaskAchievement(task, annotations, gp),
+    content_quality: interpretContentQuality(task, annotations, gp),
+    style_register: sr,
+    language_range: interpretLanguageRange(task, annotations, gp, sr),
+    organisation_coherence: interpretOrganisationCoherence(task, annotations, gp),
+    language_accuracy: interpretLanguageAccuracy(task, annotations, gp, annotatorStatus),
+    orthographic_control: interpretOrthographicControl(task, annotations, gp),
+  };
+  const flags = [];
+  for (const [dim, profile] of Object.entries(profiles)) {
+    if (profile.split_contradiction) flags.push({ ...profile.split_contradiction, dimension: dim });
+    if (profile._annotator_failed) flags.push({
+      rule: "accuracy_annotator_failure", severity: "CRITICAL",
+      message: "Accuracy annotator failed — retry required (DIV-002)",
+      dimension: dim, learner_facing: false });
+  }
+  return { schema_version: "1.0.0", run_id: runId, task_id: task.task_id,
+    global_profile: gp, dimension_profiles: profiles, interpretation_flags: flags };
+}
+
+/* ---------------- scorer (scorer.py) -------------------------------------- */
+const DEFAULT_WEIGHTS = { task_achievement: 14.29, content_quality: 14.29, style_register: 14.29,
+  language_range: 14.29, organisation_coherence: 14.29, language_accuracy: 14.29,
+  orthographic_control: 14.26 };
+const NULL_IS_PENALTY = new Set(["language_accuracy"]);
+
+function computeScoreObject(interpretation, weights) {
+  weights = weights || DEFAULT_WEIGHTS;
+  const profiles = interpretation.dimension_profiles;
+  const dimensions = {}, subScores = {}, trace = [];
+  let numerator = 0, denominator = 0;
+  for (const dim of DIMS) {
+    const profile = profiles[dim] || {};
+    const score = profile.derived_score ?? null;
+    dimensions[dim] = score;
+    subScores[dim] = profile.sub_scores || {};
+    const w = weights[dim] / 100;
+    if (score === null) {
+      const isNA = profile.confidence === "UNMEASURABLE" && !NULL_IS_PENALTY.has(dim);
+      if (isNA) { trace.push({ dim, score: null, treatment: "na_excluded", weight: weights[dim] }); continue; }
+      denominator += w;
+      trace.push({ dim, score: null, treatment: "penalty_null", weight: weights[dim] });
+    } else {
+      numerator += score * w; denominator += w;
+      trace.push({ dim, score, treatment: "scored", weight: weights[dim] });
+    }
+  }
+  const overall = denominator > 0 ? Math.round(numerator / denominator) : 0;
+  return { word_count: interpretation.global_profile.word_count, dimensions,
+    sub_scores: subScores, overall: Math.max(0, Math.min(100, overall)), trace };
+}
+
+/* ---------------- guardrails (guardrails.py) ------------------------------ */
+const CONF_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+function computeGuardrailObject(interpretation, scoreObject, verifiedAnnotations) {
+  const profiles = interpretation.dimension_profiles;
+  const gp = interpretation.global_profile;
+  const dims = scoreObject.dimensions;
+  const overall = scoreObject.overall;
+
+  const total = verifiedAnnotations.length;
+  const failed = verifiedAnnotations.filter(a => !a.verified).length;
+  const verifiedPct = total ? Math.round(((total - failed) / total) * 1000) / 10 : 0;
+
+  const perDim = {};
+  for (const [d, p] of Object.entries(profiles)) {
+    const c = p.confidence;
+    perDim[d] = (c in CONF_ORDER) ? c : "LOW";
+  }
+  const verifierBand = verifiedPct >= 90 ? "HIGH" : verifiedPct >= 70 ? "MEDIUM" : "LOW";
+  let worst = "MEDIUM";
+  for (const c of Object.values(perDim)) if (CONF_ORDER[c] > CONF_ORDER[worst]) worst = c;
+  const confidence = CONF_ORDER[verifierBand] > CONF_ORDER[worst] ? verifierBand : worst;
+
+  const flags = [];
+  if (overall >= 95) flags.push({ code: "EXTREME_HIGH", message: `Overall ${overall} at the top extreme — review recommended.` });
+  if (overall <= 10) flags.push({ code: "EXTREME_LOW", message: `Overall ${overall} at the bottom extreme — review recommended.` });
+  const numeric = Object.values(dims).filter(v => v !== null);
+  if (numeric.length >= 2 && Math.max(...numeric) - Math.min(...numeric) > 50)
+    flags.push({ code: "DIMENSION_SPREAD",
+      message: `Spread ${Math.max(...numeric) - Math.min(...numeric)} between highest (${Math.max(...numeric)}) and lowest (${Math.min(...numeric)}) scored dimensions.` });
+
+  const contradictions = [];
+  const emit = (rule, severity, message, dimension = null) =>
+    contradictions.push({ rule, severity, message, dimension, learner_facing: false });
+
+  for (const f of interpretation.interpretation_flags || [])
+    emit(f.rule || "interpretation_flag", f.severity || "WARNING", f.message || "", f.dimension);
+
+  const la = dims.language_accuracy, oc = dims.orthographic_control;
+  if (la !== null && oc !== null && ((la >= 75 && oc <= 40) || (oc >= 75 && la <= 40)))
+    emit("high_grammar_low_orthography", "MODERATE",
+      `Language Accuracy (${la}) and Orthographic Control (${oc}) diverge sharply.`);
+  if (gp.dominant_register === "dialect_dominant" && la !== null && la >= 70)
+    emit("dialect_dominant_high_accuracy", "MODERATE",
+      `Dialect-dominant response with high Language Accuracy (${la}) — possible construct leakage.`, "language_accuracy");
+  const coh = profiles.organisation_coherence || {};
+  if (dims.organisation_coherence !== null && dims.organisation_coherence >= 70
+      && (coh.cohesive_devices_breakdown || {}).distinct_types === 0)
+    emit("high_coherence_no_connectives", "WARNING",
+      "High coherence score with zero cohesive devices found.", "organisation_coherence");
+  const srScore = dims.style_register, lr = dims.language_range;
+  if (srScore !== null && lr !== null && Math.abs(srScore - lr) > 50)
+    emit("style_range_register_split", "WARNING",
+      `Style & Register (${srScore}) and Language Range (${lr}) diverge by ${Math.abs(srScore - lr)}.`);
+
+  return { confidence, confidence_per_dimension: perDim, verified_pct: verifiedPct,
+    verifier_failures: failed, flags, contradictions,
+    moderation_required: confidence === "LOW" || flags.length > 0 || contradictions.length > 0 };
+}
+
+/* ---------------- pipeline (pipeline.py) ---------------------------------- */
+const REQUIRED_FAMILIES = ["task_coverage", "cq", "register", "accuracy"];
+
+async function scoreArabicWriting(task, completeFn, hooks = {}) {
+  const runId = `run_${Math.random().toString(36).slice(2, 14)}`;
+  const started = performance.now();
+  const stage = s => hooks.onStage && hooks.onStage(s);
+
+  stage("task");
+  stage("annotate");
+  const annotations = runCodeAnnotators(task, runId);
+  hooks.onAnnotator && hooks.onAnnotator("code_annotators", "ok", annotations.length);
+  const [llmAnnos, annotatorStatus] = await runLlmAnnotators(task, completeFn, runId, hooks.onAnnotator);
+  annotations.push(...llmAnnos);
+
+  const failedRequired = REQUIRED_FAMILIES.filter(f => annotatorStatus[f] === "failed");
+  if (failedRequired.length) {
+    stage("halt");
+    return { schema_version: "1.0.0", run_id: runId, task_id: task.task_id,
+      pipeline_status: "INCOMPLETE", failed_families: failedRequired,
+      annotator_status: annotatorStatus, annotations,
+      verified_annotations: null, interpretation: null, score: null, guardrail: null,
+      cefr_band: null, retry: true,
+      message: `Required annotator(s) failed: ${failedRequired.join(", ")}. System fault, not a learner outcome — retry the submission (DIV-002). A failed annotator must never be scored.`,
+      elapsed_seconds: Math.round((performance.now() - started) / 10) / 100 };
+  }
+
+  stage("verify");
+  const verified = verify(annotations, task.response);
+  stage("interpret");
+  const interpretation = interpret(task, verified, annotatorStatus, runId);
+  stage("score");
+  const score = computeScoreObject(interpretation, hooks.weights);
+  stage("guardrail");
+  const guardrail = computeGuardrailObject(interpretation, score, verified);
+  stage("result");
+
+  return { schema_version: "1.0.0", run_id: runId, task_id: task.task_id,
+    question_id: task.question_id, pipeline_status: "COMPLETE",
+    annotator_status: annotatorStatus, verified_annotations: verified,
+    interpretation, score, guardrail, cefr_band: cefrBandFor(score.overall),
+    elapsed_seconds: Math.round((performance.now() - started) / 10) / 100 };
+}
+
+/* ---------------- node export for offline test ---------------------------- */
+if (typeof module !== "undefined") {
+  module.exports = { scoreArabicWriting, computeScoreObject, cefrBandFor, verify,
+    runCodeAnnotators, interpret, wordCount, tokenize, AZE_PROMPTS };
+  if (typeof performance === "undefined") global.performance = { now: () => Date.now() };
+}
+
+/* ===========================================================================
+   AZE PROTOTYPE APP — samples, live/offline completion clients, UI
+   =========================================================================== */
+
+/* ---------------- samples -------------------------------------------------- */
+const SAMPLES = {
+  msa: {
+    label: "Clean MSA",
+    note: "Sustained formal MSA — expect all 7 dimensions scored",
+    text: "في الصيف الماضي ذهبت مع عائلتي في رحلة إلى مدينة العين. أولاً زرنا الحديقة الكبيرة التي تقع قرب الجبل، ثم صعدنا إلى القمة لكي نشاهد المدينة. كان المسؤول عن الرحلة رجلاً لطيفاً، وقد شرح لنا تاريخ المكان بالتفصيل. بعد ذلك تناولنا الغداء في مطعم قريب، ولكن الطقس أصبح حاراً جداً. لذلك قررنا العودة إلى الفندق. علاوة على ذلك، التقطنا صوراً جميلة سوف أتذكرها دائماً. وفي المساء كتبت في دفتري عن هذا اليوم الرائع، إذ شعرت بسعادة كبيرة.",
+  },
+  gulf: {
+    label: "Gulf dialect",
+    note: "Dialect-dominant — expect Accuracy NULL (penalty) + low Register",
+    text: "أمس رحت ويا ربعي البر وكان الجو وايد حلو. قعدنا نسولف ونشرب جاهي عقب سوينا غدا على الفحم. الحين أبا أقولكم شو صار، يوم وصلنا ما حصلنا مكان زين، بس عقب شوي لقينا مكان مال خيام قديم. ليش ما تيون ويانا المرة الياية؟ ترى البر وايد أحلى من المول. بروحي ما أقدر أسوي كل شي، عشان جذي أبا ربعي كلهم يون.",
+  },
+  mixed: {
+    label: "Mixed register",
+    note: "MSA frame with dialect lapses — expect a mixed band",
+    text: "في العطلة الماضية ذهبت مع أصدقائي إلى الشاطئ وكان الجو وايد جميل. أولاً سبحنا في البحر، ثم جلسنا على الرمل لكي نستريح. بعد ذلك تناولنا الغداء، والأكل كان لذيذاً بس الحين أشعر بالتعب. شاهدت غروب الشمس الذي كان رائعاً، وشعرت بسعادة كبيرة. عشان هذا أريد أن أعود إلى الشاطئ مرة أخرى مع عائلتي إن شاء الله.",
+  },
+  short: {
+    label: "Too short",
+    note: "Below floors — expect UNMEASURABLE / N-A handling",
+    text: "ذهبت إلى الحديقة أمس وكان يوماً جميلاً جداً.",
+  },
+};
+
+const DIM_LABELS = {
+  task_achievement: "Task Achievement", content_quality: "Content Quality",
+  style_register: "Style & Register", language_range: "Language Range",
+  organisation_coherence: "Organisation & Coherence", language_accuracy: "Language Accuracy",
+  orthographic_control: "Orthographic Control",
+};
+const ANNOTATOR_LABELS = {
+  code_annotators: "code (deterministic)", task_coverage: "task coverage", intelligibility: "intelligibility",
+  register: "register", accuracy: "accuracy errors", advanced_formal_control: "adv. formal control",
+  cq: "content quality", coherence_flow: "coherence & flow", vocabulary: "vocabulary",
+  morphology: "morphology", sentence_complexity: "sentence complexity", orthography_llm: "orthography (LLM)",
+};
+const REQUIRED_SET = new Set(["task_coverage", "cq", "register", "accuracy"]);
+
+/* ---------------- live completion client ----------------------------------
+   Audit fix 5: calls the Vercel /api/claude proxy (OpenAI-style request and
+   response shapes; the key stays server-side) instead of api.anthropic.com
+   directly, with max_tokens raised to 2000 so the register annotator does not
+   truncate on heavy-dialect responses. */
+const LIVE_MODEL = "claude-sonnet-4-6";
+const LIVE_ENDPOINT = "/api/claude";
+const LIVE_MAX_TOKENS = 2000;
+
+function repairTruncatedJson(t) {
+  // balanced scan: close an open string, drop a dangling fragment after the
+  // last complete value, then append missing closers. Downstream the verifier
+  // still rejects anything that doesn't anchor — salvage is safe.
+  let inStr = false, escp = false;
+  const stack = [];
+  let lastComplete = -1;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) {
+      if (escp) escp = false;
+      else if (c === "\\") escp = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c);
+    else if (c === "}" || c === "]") { stack.pop(); lastComplete = i; }
+  }
+  if (!stack.length && !inStr) return t;
+  // cut back to the last completed value, then close what remains open
+  let cut = t.slice(0, lastComplete + 1);
+  let inS = false, esc2 = false; const st = [];
+  for (const c of cut) {
+    if (inS) { if (esc2) esc2 = false; else if (c === "\\") esc2 = true; else if (c === '"') inS = false; continue; }
+    if (c === '"') inS = true;
+    else if (c === "{" || c === "[") st.push(c);
+    else if (c === "}" || c === "]") st.pop();
+  }
+  return cut + st.reverse().map(c => (c === "{" ? "}" : "]")).join("");
+}
+
+function extractJson(text) {
+  let t = (text || "").trim();
+  t = t.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start !== -1 && end > start) t = t.slice(start, end + 1);
+  else if (start !== -1) t = t.slice(start);
+  try { return JSON.parse(t); }
+  catch (e) { return JSON.parse(repairTruncatedJson(t)); }
+}
+
+async function liveComplete(prompt) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 700 * Math.pow(2, attempt - 1) + Math.random() * 500));
+    let response;
+    try {
+      response = await fetch(LIVE_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: LIVE_MODEL,
+          max_tokens: LIVE_MAX_TOKENS,
+          temperature: 0,
+          messages: [
+            { role: "system", content: AZE_PROMPTS.ANNO_SYS },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+    } catch (e) { lastErr = new Error(`network: ${e.message || e}`); continue; }
+    if (!response.ok) {
+      lastErr = new Error(`API HTTP ${response.status}`);
+      if ([408, 409, 429, 500, 502, 503, 504, 529].includes(response.status)) continue;
+      throw lastErr; // non-retryable (4xx)
+    }
+    let data;
+    try { data = await response.json(); } catch (e) { lastErr = new Error("API returned non-JSON envelope"); continue; }
+    if (data.error) {
+      const msg = typeof data.error === "string" ? data.error : (data.error.message || data.error.type || "unknown");
+      lastErr = new Error(`API error: ${msg}`);
+      const etype = typeof data.error === "object" ? data.error.type : "";
+      if (["overloaded_error", "rate_limit_error", "api_error"].includes(etype)) continue;
+      throw lastErr;
+    }
+    // /api/claude returns the OpenAI shape: choices[0].message.content + finish_reason
+    const choice = (data.choices || [])[0] || {};
+    const text = (choice.message && choice.message.content) || "";
+    try { return extractJson(text); }
+    catch (e) {
+      const truncated = choice.finish_reason === "max_tokens" ? " (response hit max_tokens — likely truncated JSON)" : "";
+      lastErr = new Error(`annotator returned unparseable JSON${truncated}`);
+      continue; // re-ask: temperature 0 but transient truncation/format slips happen
+    }
+  }
+  throw lastErr || new Error("live completion failed");
+}
+
+/* ---------------- offline stub client --------------------------------------
+   Deterministic canned annotator output keyed on the prompt_version marker in
+   each template. Flavor (msa vs gulf) chosen from the response's own
+   deterministic dialect density, so any pasted text demos sensibly.        */
+function detectFlavor(responseText) {
+  const runId = "run_stub";
+  const markers = annotateDialectMarkers(responseText, runId).length;
+  const wc = Math.max(1, wordCount(responseText));
+  return markers / wc >= 0.08 ? "gulf" : "msa";
+}
+function firstSentences(text, n) {
+  return sentencesWithSpansApp(text).slice(0, n).map(([s]) => s.trim()).filter(Boolean);
+}
+function sentencesWithSpansApp(response) {
+  const out = []; let pos = 0;
+  const re = /[.؟!؛\n]+/g; let m;
+  while ((m = re.exec(response)) !== null) {
+    if (m.index > pos) out.push([response.slice(pos, m.index), pos, m.index]);
+    pos = m.index + m[0].length;
+  }
+  if (pos < response.length) out.push([response.slice(pos), pos, response.length]);
+  return out;
+}
+
+function makeOfflineComplete(simulateFailure) {
+  return async (prompt) => {
+    await new Promise(r => setTimeout(r, 220 + Math.random() * 480)); // feel real
+    // recover the student response: it is the longest Arabic block in the prompt
+    const arabicBlocks = (prompt.match(/[؀-ۿ][؀-ۿ\s،؟.!:؛()«»"']{40,}/g) || []);
+    const resp = arabicBlocks.sort((a, b) => b.length - a.length)[0] || "";
+    const flavor = detectFlavor(resp);
+    const sents = firstSentences(resp, 3);
+
+    if (simulateFailure && prompt.includes("accuracy_annotator_v0.1"))
+      throw new Error("simulated annotator crash (failure drill)");
+
+    if (prompt.includes("task_coverage_v1.0.0")) return { checks: [
+      { requirement_id: 0, source: "task_requirement", result: "PASS", evidence: sents[0] || "" },
+      { requirement_id: 1, source: "additional_development", result: "PASS", evidence: sents[1] || sents[0] || "" },
+    ]};
+    if (prompt.includes("intelligibility_effect_v1.0.0"))
+      return { intelligibility_effect_score: flavor === "msa" ? 85 : 70, band: "clear", reason: "stub", grounded_in: [] };
+    if (prompt.includes("sr_annotator_v0.2")) {
+      if (flavor === "msa") {
+        const findings = [];
+        for (const m of ["علاوة على ذلك", "لذلك", "إذ", "ثم", "بعد ذلك"])
+          if (resp.includes(m)) findings.push({ subtype: "msa_marker", text: m, note: "formal connective" });
+        return { register_findings: findings.slice(0, 4) };
+      }
+      const findings = [];
+      for (const m of ["نسولف", "ربعي", "زين", "أبا", "ترى"])
+        if (resp.includes(m)) findings.push({ subtype: "dialect_marker", text: m, note: "Gulf lexis" });
+      return { register_findings: findings };
+    }
+    if (prompt.includes("accuracy_annotator_v0.1")) {
+      if (flavor === "gulf") return { errors: [] };
+      const span = sents[2] || "";
+      return { errors: span ? [{ error_type: "agreement", text: span.slice(0, 40).trim(), correction: "", note: "stubbed agreement note" }] : [] };
+    }
+    if (prompt.includes("advanced_formal_control_v0.1"))
+      return flavor === "msa"
+        ? { complex_subordination: resp.includes("التي") || resp.includes("الذي"),
+            dual_plural_agreement: false, advanced_verb_form_type: "none" }
+        : { complex_subordination: false, dual_plural_agreement: false, advanced_verb_form_type: "none" };
+    if (prompt.includes("cq_annotator_v0.2")) {
+      const ev = sents.slice(0, 2);
+      return { cq_scores: [{ requirement_id: 0, score: flavor === "msa" ? 3 : 2,
+        evidence_spans: ev, justification: "stubbed development read" }] };
+    }
+    if (prompt.includes("coherence_flow_v0.1"))
+      return flavor === "msa"
+        ? { coherence_flow_score: 80, band: "strong_progression", justification: "stub", grounded_in: ["أولاً", "ثم"], cap_applied: null }
+        : { coherence_flow_score: 58, band: "some_progression", justification: "stub", grounded_in: ["عقب"], cap_applied: "sequencing_only" };
+    if (prompt.includes("vocab_diversity_v0.1"))
+      return flavor === "msa" ? { vocabulary_diversity_score: 70, band: "good", grounded_in: [] }
+        : { vocabulary_diversity_score: 28, band: "very_limited", cap_applied: "narrow_scope", grounded_in: [] };
+    if (prompt.includes("morph_variety_v0.1"))
+      return flavor === "msa" ? { morphological_variety_score: 62, band: "moderate", grounded_in: [] }
+        : { morphological_variety_score: 23, band: "very_limited", grounded_in: [] };
+    if (prompt.includes("sentence_complexity_v0.1"))
+      return flavor === "msa" ? { arabic_sentence_complexity_score: 65, band: "moderate", grounded_in: [] }
+        : { arabic_sentence_complexity_score: 22, band: "very_limited", grounded_in: [] };
+    if (prompt.includes("orth_annotator_v0.1"))
+      return flavor === "msa"
+        ? { spelling_errors: [], llm_orthographic_accuracy_score: 90, band: "strong_advancing", justification: "stub", grounded_in: ["المسؤول"] }
+        : { spelling_errors: [], llm_orthographic_accuracy_score: 84, band: "strong_stability", justification: "stub", grounded_in: [] };
+    throw new Error("offline stub: unrecognised prompt");
+  };
+}
+
+/* ---------------- UI ------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let lastResult = null;
+let running = false;
+
+function init() {
+  const chips = $("samples");
+  for (const [key, s] of Object.entries(SAMPLES)) {
+    const b = el("button", "chip", `<strong>${s.label}</strong><span>${s.note}</span>`);
+    b.type = "button";
+    b.addEventListener("click", () => {
+      $("response").value = s.text;
+      document.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
+      b.classList.add("on");
+      updateCounter();
+    });
+    chips.appendChild(b);
+  }
+  const typeSel = $("taskType");
+  for (const t of Object.keys(AZE_DATA.taskRules.task_type_requirements)) {
+    const o = el("option"); o.value = t; o.textContent = t; typeSel.appendChild(o);
+  }
+  typeSel.value = "paragraph";
+
+  $("response").addEventListener("input", updateCounter);
+  $("minWords").addEventListener("input", updateCounter);
+  $("maxWords").addEventListener("input", updateCounter);
+  $("mode").addEventListener("change", () => {
+    $("failWrap").style.display = $("mode").value === "offline" ? "flex" : "none";
+  });
+  $("run").addEventListener("click", run);
+  $("export").addEventListener("click", exportJson);
+  // default sample
+  $("response").value = SAMPLES.msa.text;
+  document.querySelector(".chip").classList.add("on");
+  updateCounter();
+}
+
+function updateCounter() {
+  const wc = wordCount($("response").value);
+  const mn = parseInt($("minWords").value || "50", 10);
+  const mx = parseInt($("maxWords").value || "150", 10);
+  const c = $("counter");
+  c.textContent = `${wc} words · target ${mn}–${mx}`;
+  c.classList.toggle("warn", wc < mn || wc > mx);
+}
+
+const STAGES = ["task", "annotate", "verify", "interpret", "score", "guardrail", "result"];
+function setStage(stage) {
+  const idx = stage === "halt" ? 1 : STAGES.indexOf(stage);
+  document.querySelectorAll(".stage").forEach((node, i) => {
+    const done = stage === "result" ? i <= idx : i < idx;
+    node.classList.toggle("done", done);
+    node.classList.toggle("now", i === idx && stage !== "result" && stage !== "halt");
+    node.classList.toggle("halt", stage === "halt" && i === 1);
+  });
+  $("railFill").style.width = stage === "halt" ? "18%" : `${(idx / (STAGES.length - 1)) * 100}%`;
+  $("railFill").classList.toggle("haltfill", stage === "halt");
+}
+
+function annotatorChip(name) {
+  let chip = document.querySelector(`[data-anno="${name}"]`);
+  if (!chip) {
+    chip = el("div", "anno");
+    chip.dataset.anno = name;
+    chip.innerHTML = `<span class="dot"></span>${esc(ANNOTATOR_LABELS[name] || name)}${REQUIRED_SET.has(name) ? '<i title="required family">●</i>' : ""}<em></em>`;
+    $("annotators").appendChild(chip);
+  }
+  return chip;
+}
+function setAnnotator(name, status, count, err) {
+  const chip = annotatorChip(name);
+  chip.classList.remove("running", "ok", "failed");
+  chip.classList.add(status);
+  chip.querySelector("em").textContent =
+    status === "ok" ? `${count ?? 0}` : status === "failed" ? "failed" : "…";
+  if (err) chip.title = err;
+}
+
+/* Audit fix 2: parse the optional development-markers JSON from the UI.
+   Invalid JSON or a non-array falls back to [] (generic ladder) with a
+   console warning rather than blocking the run. */
+function parseDevMarkers() {
+  const raw = ($("devMarkers").value || "").trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    console.warn("development markers: expected a JSON array — using generic ladder");
+  } catch (e) {
+    console.warn("development markers: invalid JSON — using generic ladder", e);
+  }
+  return [];
+}
+
+async function run() {
+  if (running) return;
+  running = true;
+  $("run").disabled = true;
+  $("run").textContent = "Running pipeline…";
+  $("results").hidden = true;
+  $("halt").hidden = true;
+  $("annoCard").hidden = true;
+  $("wHint").hidden = true;
+  $("annotators").innerHTML = "";
+  document.querySelectorAll(".stage").forEach(n => n.classList.remove("done", "now", "halt"));
+
+  const reqLine = $("requirements").value.trim();
+  const task = {
+    version: "1.0.0", task_id: "proto_task", question_id: "q_proto",
+    cefr_level: "", task_type: $("taskType").value,
+    task_prompt: $("prompt").value.trim() || "اكتب فقرة عن رحلة قمت بها مؤخراً.",
+    min_words: parseInt($("minWords").value || "50", 10),
+    max_words: parseInt($("maxWords").value || "150", 10),
+    task_requirements: reqLine ? reqLine.split("\n").map(s => s.trim()).filter(Boolean) : [],
+    development_markers: parseDevMarkers(),
+    task_type_requirements: taskTypeRequirements($("taskType").value),
+    response: $("response").value,
+  };
+
+  const live = $("mode").value === "live";
+  const completeFn = live ? liveComplete : makeOfflineComplete($("simFail").checked);
+
+  try {
+    const result = await scoreArabicWriting(task, completeFn, {
+      onStage: setStage, onAnnotator: setAnnotator, weights: getWeights(),
+    });
+    lastResult = result;
+    if (result.pipeline_status === "INCOMPLETE") renderHalt(result);
+    else renderResults(result, task);
+  } catch (e) {
+    renderHalt({ message: `Pipeline error: ${e.message || e}`, failed_families: [] });
+  } finally {
+    running = false;
+    $("run").disabled = false;
+    $("run").textContent = "Run pipeline";
+  }
+}
+
+function renderHalt(result) {
+  setStage("halt");
+  $("halt").hidden = false;
+  $("haltMsg").textContent = result.message;
+  $("haltFams").innerHTML = (result.failed_families || [])
+    .map(f => `<span class="tag bad">${esc(f)}</span>`).join(" ");
+  const raw = (result.annotator_status && result.annotator_status._raw) || {};
+  const errs = Object.entries(raw).filter(([k]) => k.endsWith("_error"))
+    .map(([k, v]) => `<div class="gitem"><code>${esc(k.replace("_error", ""))}</code>${esc(v)}</div>`).join("");
+  $("haltErrs").innerHTML = errs;
+  renderAnnotations(result.annotations || []);
+  $("export").hidden = false;
+}
+
+function confDot(c) {
+  const cls = c === "HIGH" ? "hi" : c === "MEDIUM" ? "md" : c === "UNMEASURABLE" ? "na" : "lo";
+  return `<span class="conf ${cls}" title="confidence: ${esc(c)}"></span>`;
+}
+
+function renderResults(result, task) {
+  $("results").hidden = false;
+  $("export").hidden = false;
+  const score = result.score, interp = result.interpretation, gp = interp.global_profile;
+
+  // overall + count-up
+  const overallEl = $("overall");
+  const target = score.overall;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) overallEl.textContent = target;
+  else {
+    let v = 0; overallEl.textContent = "0";
+    const t0 = performance.now();
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / 700);
+      v = Math.round(target * (1 - Math.pow(1 - p, 3)));
+      overallEl.textContent = v;
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  $("cefr").textContent = result.cefr_band;
+  $("runMeta").textContent = `${result.run_id} · ${gp.word_count} words · ${result.elapsed_seconds}s · ${$("mode").value === "live" ? "live API" : "offline stub"}`;
+
+  renderFormula(score);
+
+  // dimensions
+  const list = $("dims");
+  list.innerHTML = "";
+  for (const dim of Object.keys(DIM_LABELS)) {
+    const p = interp.dimension_profiles[dim] || {};
+    const s = score.dimensions[dim];
+    const row = el("div", "dim");
+    const isPenalty = s === null && p.profile_band === "unmeasurable_construct_avoidance";
+    const isNA = s === null && !isPenalty;
+    let barHtml, valHtml;
+    if (isPenalty) {
+      barHtml = `<div class="bar penbar"><div class="fill" style="width:100%"></div></div>`;
+      valHtml = `<span class="tag pen">NULL — penalty, counts as 0</span>`;
+    } else if (isNA) {
+      barHtml = `<div class="bar nabar"></div>`;
+      valHtml = `<span class="tag na">N/A — excluded</span>`;
+    } else {
+      barHtml = `<div class="bar"><div class="fill" style="width:${s}%"></div></div>`;
+      valHtml = `<b class="val">${s}</b>`;
+    }
+    row.innerHTML = `
+      <button class="dimhead" type="button" aria-expanded="false">
+        <span class="dimname">${esc(DIM_LABELS[dim])} ${confDot(p.confidence || "LOW")}</span>
+        ${barHtml}
+        <span class="dimval">${valHtml}</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="dimbody" hidden></div>`;
+    const body = row.querySelector(".dimbody");
+    body.innerHTML = dimDetail(dim, p);
+    row.querySelector(".dimhead").addEventListener("click", () => {
+      const open = !body.hidden;
+      body.hidden = open;
+      row.querySelector(".dimhead").setAttribute("aria-expanded", String(!open));
+      row.classList.toggle("open", !open);
+    });
+    list.appendChild(row);
+  }
+
+  renderGlobal(gp);
+  renderEvidence(result, task);
+  renderGuardrail(result.guardrail);
+  renderAnnotations(result.verified_annotations);
+}
+
+function kv(label, value) {
+  if (value === undefined || value === null || value === "" ) return "";
+  return `<div class="kv"><span>${esc(label)}</span><b>${esc(String(value))}</b></div>`;
+}
+function dimDetail(dim, p) {
+  let rows = "";
+  rows += kv("band", p.profile_band);
+  rows += kv("confidence", p.confidence);
+  if (dim === "task_achievement") {
+    rows += kv("WCC", p.sub_scores?.wcc) + kv("pass-rate", p.sub_scores?.ta) + kv("IE", p.sub_scores?.ie)
+      + kv("ie status", p.ie_status) + (p.format_breakdown ? kv("format breakdown", "yes") : "");
+  } else if (dim === "content_quality") {
+    rows += kv("mean req. score (0–3)", p.mean_score);
+    const ev = p.enforcement_events || {};
+    rows += kv("forced-zero (no evidence)", ev.no_evidence_forced_zero)
+      + kv("density caps 3→2", ev.density_capped_3_to_2)
+      + kv("density caps 2→1", ev.density_capped_2_to_1);
+  } else if (dim === "style_register") {
+    rows += kv("dialect density", p.dialect_density) + kv("MSA evidence density", p.msa_evidence_density)
+      + kv("register consistency", p.register_consistency)
+      + kv("task appropriateness", p.task_appropriateness)
+      + (p.msa_marker_ceiling_applied ? kv("ceiling", "no-MSA-evidence ceiling 65") : "")
+      + kv("dialect families", Object.entries(p.dialect_family_counts || {}).map(([k, v]) => `${k}:${v}`).join(" "));
+  } else if (dim === "language_range") {
+    rows += kv("vocabulary", p.vocabulary_diversity_score) + kv("morphology", p.morphological_variety_score)
+      + kv("sentence complexity", p.sentence_complexity_score)
+      + kv("ceiling", p.ceiling_applied) + kv("ceiling source", p.ceiling_source);
+  } else if (dim === "organisation_coherence") {
+    rows += kv("cohesive devices (det.)", p.cohesive_devices_score)
+      + kv("coherence & flow (LLM)", p.coherence_flow_score)
+      + kv("flow cap", p.coherence_flow_cap_applied)
+      + kv("distinct connectives", p.cohesive_devices_breakdown?.distinct_types);
+  } else if (dim === "language_accuracy") {
+    rows += kv("measurement validity", p.measurement_validity)
+      + kv("construct attempt", p.sub_scores?.construct_attempt)
+      + kv("error density (in attempt)", p.error_density_within_attempt)
+      + kv("positive formal evidence", p.positive_formal_evidence_score)
+      + kv("caps", Array.isArray(p.cap_reason) ? p.cap_reason.join(", ") : p.cap_reason)
+      + ((p.validity_notes || []).map(n => kv("why null", n)).join(""));
+  } else if (dim === "orthographic_control") {
+    rows += kv("technical quality", p.technical_quality) + kv("common-error detection", p.common_error_detection)
+      + kv("LLM score", p.llm_orthographic_score)
+      + kv("advanced evidence", p.advanced_evidence_present ? "present" : "absent")
+      + kv("cap", p.cap_reason);
+  }
+  rows += (p.notes || []).map(n => kv("note", n)).join("");
+  return rows || "<div class='kv'><span>—</span></div>";
+}
+
+function renderGlobal(gp) {
+  $("global").innerHTML =
+    kv("dominant register", gp.dominant_register)
+    + kv("dialect density", gp.dialect_density)
+    + kv("MSA markers", gp.msa_marker_count) + kv("dialect markers", gp.dialect_marker_count)
+    + kv("construct attempt score", gp.construct_attempt_score)
+    + kv("construct avoidance", gp.construct_avoidance ? "yes" : "no")
+    + kv("formal subordinators", gp.formal_subordinator_count)
+    + kv("MSA past (1sg proxy)", gp.msa_past_tense_count);
+}
+
+const FAMILY_HL = {
+  "register:dialect_marker": "hl-dialect", "register:dialect_candidate": "hl-dialect",
+  "register:msa_marker": "hl-msa", "register:register_lapse": "hl-dialect",
+  "accuracy": "hl-acc", "orthography": "hl-orth", "cq": "hl-cq", "task_coverage": "hl-cq",
+};
+
+function renderEvidence(result, task) {
+  const response = task.response;
+  const annos = result.verified_annotations || [];
+  // collect verified, anchored spans
+  const marks = [];
+  for (const a of annos) {
+    if (!a.verified || a.span.start < 0 || !a.text) continue;
+    const cls = FAMILY_HL[a.type] || FAMILY_HL[a.family];
+    if (!cls) continue;
+    marks.push({ start: a.span.start, end: a.span.end, cls,
+      tip: `${a.type}${a.metadata.dialect_family ? " · " + a.metadata.dialect_family : ""}${a.metadata.suggested ? " → " + a.metadata.suggested : ""}` });
+  }
+  // CQ verified evidence spans
+  for (const a of annos.filter(x => x.family === "cq" && x.verified)) {
+    for (const s of a.metadata.evidence_spans || []) {
+      const idx = response.indexOf(s);
+      if (idx !== -1) marks.push({ start: idx, end: idx + s.length, cls: "hl-cq", tip: "cq evidence" });
+    }
+  }
+  marks.sort((a, b) => a.start - b.start || b.end - a.end);
+  // render non-overlapping (first wins)
+  let html = "", pos = 0;
+  for (const m of marks) {
+    if (m.start < pos) continue;
+    html += esc(response.slice(pos, m.start));
+    html += `<mark class="${m.cls}" title="${esc(m.tip)}">${esc(response.slice(m.start, m.end))}</mark>`;
+    pos = m.end;
+  }
+  html += esc(response.slice(pos));
+  $("evidenceText").innerHTML = html || "<i>—</i>";
+
+  // rejected annotations table
+  const rejected = annos.filter(a => !a.verified);
+  $("rejected").innerHTML = rejected.length
+    ? rejected.map(a => `<div class="rej"><span class="tag bad">${esc(a.rejection_status)}</span>
+        <code>${esc(a.type)}</code> <bdi dir="rtl">${esc((a.text || "").slice(0, 48))}</bdi></div>`).join("")
+    : `<div class="muted">No annotations rejected — every span verified verbatim.</div>`;
+  $("verifierStat").textContent =
+    `${annos.length} annotations · ${annos.filter(a => a.verified).length} verified · ${rejected.length} rejected`;
+}
+
+function renderGuardrail(g) {
+  if (!g) return;
+  $("gConf").innerHTML = `${confDot(g.confidence)} ${esc(g.confidence)}`;
+  $("gStats").textContent = `${g.verified_pct}% verified · ${g.verifier_failures} verifier failures`;
+  $("gMod").hidden = !g.moderation_required;
+  const items = [];
+  for (const f of g.flags) items.push(`<div class="gitem"><span class="tag warn">${esc(f.code)}</span>${esc(f.message)}</div>`);
+  for (const c of g.contradictions) items.push(`<div class="gitem"><span class="tag ${c.severity === "CRITICAL" ? "bad" : "warn"}">${esc(c.rule)}</span>${esc(c.message)}</div>`);
+  $("gItems").innerHTML = items.length ? items.join("") : `<div class="muted">No flags or contradictions raised.</div>`;
+}
+
+/* ---------------- all-annotations inspector ------------------------------- */
+const FAMILY_COLOR = {
+  register: "var(--rose)", accuracy: "var(--clay)", orthography: "var(--gold)",
+  cq: "var(--teal)", cohesion: "var(--teal)", task_coverage: "var(--blue)",
+  intelligibility: "var(--blue)", word_count: "var(--blue)", range: "var(--blue)",
+};
+let annoFilter = "all";
+let annoData = [];
+
+function renderAnnotations(annos) {
+  annoData = annos || [];
+  $("annoCard").hidden = annoData.length === 0;
+  if (!annoData.length) return;
+  annoFilter = "all";
+  drawAnnoFilters();
+  drawAnnoRows();
+}
+
+function annoStatus(a) {
+  if (a.verified === true) return "verified";
+  if (a.verified === false) return "rejected";
+  return "unverified"; // halt path: verifier never ran
+}
+
+function drawAnnoFilters() {
+  const counts = { all: annoData.length, verified: 0, rejected: 0, unverified: 0 };
+  const fams = {};
+  for (const a of annoData) {
+    counts[annoStatus(a)]++;
+    fams[a.family] = (fams[a.family] || 0) + 1;
+  }
+  const mk = (key, label, n) => n
+    ? `<button type="button" class="afilter ${annoFilter === key ? "on" : ""}" data-f="${key}">${label} <em>${n}</em></button>` : "";
+  let html = mk("all", "all", counts.all) + mk("verified", "verified", counts.verified)
+    + mk("rejected", "rejected", counts.rejected) + mk("unverified", "unverified", counts.unverified)
+    + `<span class="fsep"></span>`;
+  for (const f of Object.keys(fams).sort()) html += mk(`fam:${f}`, f, fams[f]);
+  $("annoFilters").innerHTML = html;
+  $("annoFilters").querySelectorAll(".afilter").forEach(b =>
+    b.addEventListener("click", () => { annoFilter = b.dataset.f; drawAnnoFilters(); drawAnnoRows(); }));
+}
+
+function drawAnnoRows() {
+  const filtered = annoData.filter(a => {
+    if (annoFilter === "all") return true;
+    if (annoFilter.startsWith("fam:")) return a.family === annoFilter.slice(4);
+    return annoStatus(a) === annoFilter;
+  });
+  // anchored first by position, then sentinels/holistic
+  const sorted = [...filtered].sort((a, b) => {
+    const ax = a.span && a.span.start >= 0 && a.text ? a.span.start : 1e9;
+    const bx = b.span && b.span.start >= 0 && b.text ? b.span.start : 1e9;
+    return ax - bx;
+  });
+  $("annoRows").innerHTML = sorted.map((a, i) => {
+    const st = annoStatus(a);
+    const stTag = st === "verified" ? `<span class="tag ok">verified</span>`
+      : st === "rejected" ? `<span class="tag bad">${esc(a.rejection_status || "rejected")}</span>`
+      : `<span class="tag na">unverified</span>`;
+    const span = a.span && a.span.start >= 0 && a.text ? `${a.span.start}–${a.span.end}` : "—";
+    const dims = (a.score_in || []).map(d => d.replace(/_/g, " ")).join(", ") || "—";
+    const color = FAMILY_COLOR[a.family] || "var(--muted)";
+    return `<div class="annorow" data-i="${i}">
+      <button type="button" class="annohead" aria-expanded="false">
+        <span class="fdot" style="background:${color}"></span>
+        <code>${esc(a.type)}</code>
+        <span class="asrc">${esc(a.source)}</span>
+        <bdi dir="rtl" class="atext">${esc(a.text || "")}</bdi>
+        <span class="aspan">${span}</span>
+        ${stTag}
+        <span class="chev">▾</span>
+      </button>
+      <div class="annometa" hidden>
+        <div class="kv"><span>score_in</span><b>${esc(dims)}</b></div>
+        ${(a.verification_failures || []).map(f => `<div class="kv"><span>failure</span><b>${esc(f)}</b></div>`).join("")}
+        <pre>${esc(JSON.stringify(a.metadata, null, 2))}</pre>
+      </div>
+    </div>`;
+  }).join("") || `<div class="muted">No annotations match this filter.</div>`;
+
+  $("annoRows").querySelectorAll(".annohead").forEach(h => {
+    h.addEventListener("click", () => {
+      const meta = h.parentElement.querySelector(".annometa");
+      const open = !meta.hidden;
+      meta.hidden = open;
+      h.setAttribute("aria-expanded", String(!open));
+      h.parentElement.classList.toggle("open", !open);
+    });
+  });
+}
+
+/* ---------------- dimension weights tab ------------------------------------ */
+function initWeights() {
+  const rows = $("weightRows");
+  for (const dim of Object.keys(DIM_LABELS)) {
+    const row = el("div", "wrow");
+    row.innerHTML = `<span>${esc(DIM_LABELS[dim])}</span>
+      <input type="range" min="0" max="40" step="0.01" value="${DEFAULT_WEIGHTS[dim]}" data-dim="${dim}" class="wSlide" aria-label="${esc(DIM_LABELS[dim])} weight">
+      <input type="number" min="0" max="100" step="0.01" value="${DEFAULT_WEIGHTS[dim]}" data-dim="${dim}" class="wIn" aria-label="${esc(DIM_LABELS[dim])} weight value">`;
+    rows.appendChild(row);
+  }
+  rows.addEventListener("input", e => {
+    const dim = e.target.dataset.dim;
+    if (!dim) return;
+    const v = parseFloat(e.target.value) || 0;
+    rows.querySelectorAll(`[data-dim="${dim}"]`).forEach(i => { if (i !== e.target) i.value = v; });
+    onWeightsChanged();
+  });
+  $("wReset").addEventListener("click", () => {
+    for (const dim of Object.keys(DIM_LABELS))
+      rows.querySelectorAll(`[data-dim="${dim}"]`).forEach(i => { i.value = DEFAULT_WEIGHTS[dim]; });
+    onWeightsChanged();
+  });
+  updateWeightTotal();
+}
+/* ---------------- tabs ------------------------------------------------------ */
+function switchTab(target) {
+  document.querySelectorAll(".tab").forEach(b => {
+    const on = b.dataset.tab === target;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+  for (const id of ["tabSubmission", "tabWeights", "tabPrompts"]) $(id).hidden = id !== target;
+}
+function initTabs() {
+  document.querySelectorAll(".tab").forEach(b =>
+    b.addEventListener("click", () => switchTab(b.dataset.tab)));
+}
+
+/* ---------------- prompt editor tab ----------------------------------------- */
+// annotator -> prompt template + the dimension(s) its output scores in
+const PROMPT_MAP = [
+  { key: "ANNO_SYS", label: "system prompt", dim: "all annotators", system: true },
+  { key: "TASK_COVERAGE", label: "task coverage", dim: "task_achievement" },
+  { key: "INTELLIGIBILITY", label: "intelligibility effect", dim: "task_achievement" },
+  { key: "CQ", label: "content quality", dim: "content_quality" },
+  { key: "REGISTER", label: "register findings", dim: "style_register" },
+  { key: "VOCAB_DIVERSITY", label: "vocabulary diversity", dim: "language_range" },
+  { key: "MORPH_VARIETY", label: "morphological variety", dim: "language_range" },
+  { key: "SENTENCE_COMPLEXITY", label: "sentence complexity", dim: "language_range" },
+  { key: "COHERENCE_FLOW", label: "coherence & flow", dim: "organisation_coherence" },
+  { key: "ACCURACY_ERRORS", label: "accuracy errors", dim: "language_accuracy" },
+  { key: "ADVANCED_FORMAL_CONTROL", label: "advanced formal control", dim: "language_accuracy" },
+  { key: "ORTHOGRAPHY", label: "orthography (LLM)", dim: "orthographic_control" },
+];
+let ORIGINAL_PROMPTS = null;
+
+function promptPlaceholders(template) {
+  return [...new Set((template.match(/\{[a-z_]+\}/g) || []))];
+}
+function promptVersionOf(template) {
+  const m = template.match(/[a-z_]+_v[0-9.]+/);
+  return m ? m[0] : "";
+}
+
+function initPrompts() {
+  ORIGINAL_PROMPTS = { ...AZE_PROMPTS };
+  const list = $("promptList");
+  for (const p of PROMPT_MAP) {
+    const original = ORIGINAL_PROMPTS[p.key];
+    const placeholders = promptPlaceholders(original);
+    const version = promptVersionOf(original);
+    const block = el("div", "pblock");
+    block.dataset.key = p.key;
+    block.innerHTML = `
+      <button type="button" class="phead" aria-expanded="false">
+        <span class="pdim">${esc(p.dim.replace(/_/g, " "))}</span>
+        <span class="pname">${esc(p.label)}</span>
+        ${version ? `<code class="pver">${esc(version)}</code>` : ""}
+        <span class="pmod tag warn" hidden>edited</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="pbody" hidden>
+        ${placeholders.length ? `<div class="pph">required: ${placeholders.map(x => `<code>${esc(x)}</code>`).join(" ")}</div>` : ""}
+        <textarea class="pedit" rows="14" spellcheck="false" dir="ltr"></textarea>
+        <div class="pfoot">
+          <span class="plen"></span>
+          <span class="pwarn"></span>
+          <button type="button" class="preset">Reset</button>
+        </div>
+      </div>`;
+    const ta = block.querySelector(".pedit");
+    ta.value = original;
+    block.querySelector(".plen").textContent = `${original.length} chars`;
+
+    block.querySelector(".phead").addEventListener("click", () => {
+      const body = block.querySelector(".pbody");
+      const open = !body.hidden;
+      body.hidden = open;
+      block.querySelector(".phead").setAttribute("aria-expanded", String(!open));
+      block.classList.toggle("open", !open);
+    });
+    ta.addEventListener("input", () => applyPromptEdit(p.key, block, ta, placeholders));
+    block.querySelector(".preset").addEventListener("click", () => {
+      ta.value = ORIGINAL_PROMPTS[p.key];
+      applyPromptEdit(p.key, block, ta, placeholders);
+    });
+    list.appendChild(block);
+  }
+  $("pReset").addEventListener("click", () => {
+    document.querySelectorAll(".pblock").forEach(block => {
+      const key = block.dataset.key;
+      const ta = block.querySelector(".pedit");
+      ta.value = ORIGINAL_PROMPTS[key];
+      applyPromptEdit(key, block, ta, promptPlaceholders(ORIGINAL_PROMPTS[key]));
+    });
+  });
+  updatePromptStatus();
+}
+
+function applyPromptEdit(key, block, ta, placeholders) {
+  AZE_PROMPTS[key] = ta.value; // runtime override — engine fills from AZE_PROMPTS
+  const modified = ta.value !== ORIGINAL_PROMPTS[key];
+  block.querySelector(".pmod").hidden = !modified;
+  block.querySelector(".plen").textContent = `${ta.value.length} chars`;
+  const missing = placeholders.filter(ph => !ta.value.includes(ph));
+  const warn = block.querySelector(".pwarn");
+  if (missing.length) {
+    warn.textContent = `missing ${missing.join(" ")} — the pipeline cannot fill this prompt`;
+    block.classList.add("broken");
+  } else {
+    warn.textContent = "";
+    block.classList.remove("broken");
+  }
+  updatePromptStatus();
+}
+
+function updatePromptStatus() {
+  if (!ORIGINAL_PROMPTS) return;
+  const edited = PROMPT_MAP.filter(p => AZE_PROMPTS[p.key] !== ORIGINAL_PROMPTS[p.key]).length;
+  $("pStatus").textContent = edited ? `${edited} prompt${edited > 1 ? "s" : ""} edited — used on the next live run` : "all prompts at spec version";
+}
+
+function getWeights() {
+  const w = {};
+  document.querySelectorAll(".wIn").forEach(i => { w[i.dataset.dim] = Math.max(0, parseFloat(i.value) || 0); });
+  const total = Object.values(w).reduce((a, b) => a + b, 0);
+  return total > 0 ? w : { ...DEFAULT_WEIGHTS };
+}
+function updateWeightTotal() {
+  const total = Object.values(getWeights()).reduce((a, b) => a + b, 0);
+  const t = $("wTotal");
+  const equal = Object.entries(getWeights()).every(([d, v]) => Math.abs(v - DEFAULT_WEIGHTS[d]) < 0.005);
+  t.innerHTML = `total <b>${Math.round(total * 100) / 100}</b>${equal ? " · equal (canonical)" : Math.abs(total - 100) > 0.01 ? " · auto-normalised" : ""}`;
+  t.classList.toggle("warn", !equal && Math.abs(total - 100) > 0.01);
+}
+function onWeightsChanged() {
+  updateWeightTotal();
+  // live re-score of the last completed run — scorer is arithmetic only
+  if (!lastResult || lastResult.pipeline_status !== "COMPLETE") return;
+  const weights = getWeights();
+  lastResult.score = computeScoreObject(lastResult.interpretation, weights);
+  lastResult.guardrail = computeGuardrailObject(lastResult.interpretation, lastResult.score, lastResult.verified_annotations);
+  lastResult.cefr_band = cefrBandFor(lastResult.score.overall);
+  $("overall").textContent = lastResult.score.overall;
+  $("cefr").textContent = lastResult.cefr_band;
+  renderFormula(lastResult.score);
+  renderGuardrail(lastResult.guardrail);
+  $("wHint").hidden = false;
+}
+
+function renderFormula(score) {
+  const parts = score.trace.filter(t => t.treatment !== "na_excluded");
+  const naCount = score.trace.filter(t => t.treatment === "na_excluded").length;
+  const equal = parts.every(t => Math.abs((t.weight ?? 0) - DEFAULT_WEIGHTS[t.dim]) < 0.005)
+    && score.trace.every(t => Math.abs((t.weight ?? 0) - DEFAULT_WEIGHTS[t.dim]) < 0.005);
+  let formula;
+  if (equal) {
+    formula = parts.map(t => t.treatment === "penalty_null"
+      ? `<b class="pen" title="${esc(DIM_LABELS[t.dim])}: null penalty — 0 in numerator, weight kept">0<sup>∅</sup></b>`
+      : `<span title="${esc(DIM_LABELS[t.dim])}">${t.score}</span>`).join(" + ");
+    formula = `overall = (${formula}) ÷ ${parts.length}`;
+  } else {
+    const wsum = Math.round(parts.reduce((a, t) => a + (t.weight ?? 0), 0) * 100) / 100;
+    formula = parts.map(t => t.treatment === "penalty_null"
+      ? `<b class="pen" title="${esc(DIM_LABELS[t.dim])}: null penalty — 0 in numerator, weight ${t.weight} kept">0<sup>∅</sup>·${t.weight}</b>`
+      : `<span title="${esc(DIM_LABELS[t.dim])}">${t.score}·${t.weight}</span>`).join(" + ");
+    formula = `overall = (${formula}) ÷ ${wsum}`;
+  }
+  $("formula").innerHTML = formula
+    + (naCount ? ` <i>· ${naCount} dimension${naCount > 1 ? "s" : ""} N/A, excluded</i>` : "")
+    + ` = <b>${score.overall}</b>`;
+}
+
+function exportJson() {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `aze_result_${lastResult.run_id || "incomplete"}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.addEventListener("DOMContentLoaded", () => { init(); initTabs(); initWeights(); initPrompts(); });
+
+</script>
+</body>
+</html>
