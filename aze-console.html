@@ -316,6 +316,10 @@ footer { text-align: center; color: var(--muted); font-size: 11.5px; padding: 0 
       <div id="tabSubmission" role="tabpanel">
       <div id="samples" role="group" aria-label="Sample responses"></div>
 
+      <label class="f" style="margin-bottom:12px">Question <span style="font-size:11px">(dev question bank — fills prompt, requirements &amp; score markers)</span>
+        <select id="question"></select>
+      </label>
+
       <label class="f">Task prompt
         <input id="prompt" type="text" value="اكتب فقرة من 50 إلى 150 كلمة عن رحلة قمت بها مؤخراً.">
       </label>
@@ -339,6 +343,10 @@ footer { text-align: center; color: var(--muted); font-size: 11.5px; padding: 0 
       <label class="f" style="margin-top:12px">Development markers <span style="font-size:11px">(optional JSON array — per-question CQ anchors; empty = generic 0–3 ladder)</span>
         <textarea id="devMarkers" rows="2" spellcheck="false" placeholder='[{"point":"...","score_0":"...","score_1":"...","score_2":"...","score_3":"..."}]'></textarea>
       </label>
+      <details id="markersPreview" style="margin-top:6px">
+        <summary class="muted" style="cursor:pointer;font-size:12px">Score markers preview — exactly as sent to the CQ annotator</summary>
+        <pre id="markersPreviewText" style="font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin:6px 0 0"></pre>
+      </details>
 
       <label class="f" style="margin-top:12px">Student response (MSA)
         <textarea id="response" dir="rtl" spellcheck="false"></textarea>
@@ -2324,6 +2332,49 @@ if (typeof module !== "undefined") {
    =========================================================================== */
 
 /* ---------------- samples -------------------------------------------------- */
+const AZE_QUESTIONS = [{"ref": "demo_travel", "label": "Travel paragraph (demo)", "cefr_level": "a2", "task_type": "paragraph", "task_prompt": "اكتب فقرة من 50 إلى 150 كلمة عن رحلة قمت بها مؤخراً.", "min_words": 50, "max_words": 150, "task_requirements": ["Where you went and when", "What you did there", "How you felt about the trip"], "development_markers": [{"point": "Where you went and when", "score_0": "Not mentioned", "score_1": "names a place OR a time with no other detail", "score_2": "names a place AND when the trip happened", "score_3": "all of 2 AND who they went with or how they travelled"}, {"point": "What you did there", "score_0": "Not mentioned", "score_1": "names one activity with no detail", "score_2": "names an activity AND a specific detail (named place, object, or person)", "score_3": "two or more activities with connected specific details"}, {"point": "How you felt about the trip", "score_0": "Not mentioned", "score_1": "names a feeling with no reason", "score_2": "names a feeling AND gives a reason for it", "score_3": "all of 2 AND ties the feeling to a specific moment or detail"}]}, {"ref": "W-B1-20260401081828", "label": "W-B1-20260401081828 — workplace and jobs (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: workplace and jobs.", "min_words": 25, "max_words": 300, "task_requirements": ["How technology has changed the workplace", "Benefits of these changes", "Challenges these changes bring"], "development_markers": [{"point": "How technology has changed the workplace", "score_0": "Not mentioned", "score_1": "names a tech change with no detail of how it changed work", "score_2": "names a tech change AND describes a specific behaviour change (e.g., email replaced memos so people respond faster)", "score_3": "all of 2 AND a named tool, place, or comparison (e.g., at my office email replaced memos and meetings dropped from daily to weekly)"}, {"point": "Benefits of these changes", "score_0": "Not mentioned", "score_1": "names a benefit with no further detail (e.g., it is faster)", "score_2": "names a benefit AND says who benefits or how (e.g., remote work helps parents stay near their children)", "score_3": "all of 2 AND a specific person, place, or measurable outcome (e.g., my colleague Anna saves 2 hours commute every day)"}, {"point": "Challenges these changes bring", "score_0": "Not mentioned", "score_1": "names a challenge with no further detail (e.g., some lose jobs)", "score_2": "names a challenge AND explains its impact (e.g., automation replaces factory workers so many become unemployed)", "score_3": "all of 2 AND a specific industry, group, or example (e.g., in my hometown the textile factory closed and 200 workers lost their jobs)"}]}, {"ref": "W-B1-20260401081932", "label": "W-B1-20260401081932 — natural world and environment (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: natural world and environment.", "min_words": 25, "max_words": 300, "task_requirements": ["Everyday actions people can take to help the environment", "Role of local government in helping the environment", "Examples from own life and community"], "development_markers": [{"point": "Everyday actions people can take to help the environment", "score_0": "Not mentioned", "score_1": "names an everyday action (e.g., recycle, plant trees) with no detail of how it helps", "score_2": "names an everyday action AND explains how it helps the environment (e.g., plant trees to replace those cut for charcoal)", "score_3": "all of 2 AND a specific behaviour, place, or example (e.g., in my community people cut trees for charcoal so we plant new ones every season)"}, {"point": "Role of local government in helping the environment", "score_0": "Not mentioned", "score_1": "states the local government has a role with no specific action", "score_2": "names a specific government action AND its purpose (e.g., strict laws on bush burning to protect soil)", "score_3": "all of 2 AND a specific policy, programme, or named example (e.g., in my district the council fines bush burning and runs tree-planting days)"}, {"point": "Examples from own life and community", "score_0": "Not mentioned", "score_1": "vague reference to community without a specific example (e.g., people in my area do this)", "score_2": "a specific example from own life or community AND a clear environmental link", "score_3": "a fully developed personal or community example with a named place, group, or outcome"}]}, {"ref": "W-B1-20260401082137", "label": "W-B1-20260401082137 — shopping, money, and personal finance (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: shopping, money, and personal finance.", "min_words": 25, "max_words": 300, "task_requirements": ["How shopping habits have changed over time", "Benefits of online shopping", "Drawbacks of online shopping"], "development_markers": [{"point": "How shopping habits have changed over time", "score_0": "Not mentioned", "score_1": "mentions a change without comparing past and present (e.g., people shop online)", "score_2": "clearly compares past and present (e.g., before people went to the high street, now most order on apps)", "score_3": "all of 2 AND a specific behaviour, year, or platform (e.g., in 2020 my mother started using Amazon for groceries; she used to walk to the corner shop)"}, {"point": "Benefits of online shopping", "score_0": "Not mentioned", "score_1": "names a benefit with no detail (e.g., it is convenient)", "score_2": "names a benefit AND explains who or why it helps (e.g., online shopping helps elderly people who cannot easily leave home)", "score_3": "all of 2 AND a specific person, situation, or example (e.g., my grandmother orders her medicine online and it arrives the same day)"}, {"point": "Drawbacks of online shopping", "score_0": "Not mentioned", "score_1": "names a drawback with no detail (e.g., it is risky)", "score_2": "names a drawback AND explains the impact (e.g., scams cost shoppers money because there is no shop to return to)", "score_3": "all of 2 AND a specific case, number, or example (e.g., last year I paid 30 euros for shoes that never arrived)"}]}, {"ref": "W-B1-20260401082235", "label": "W-B1-20260401082235 — holidays, travel, and transportation (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: holidays, travel, and transportation.", "min_words": 25, "max_words": 900, "task_requirements": ["Positive effects of tourism", "Negative effects of tourism", "Impact on local people, businesses, and environment"], "development_markers": [{"point": "Positive effects of tourism", "score_0": "Not mentioned", "score_1": "names a positive effect with no detail (e.g., tourism brings jobs)", "score_2": "names a positive effect AND explains who benefits or how (e.g., tourism brings jobs to hotels and restaurants)", "score_3": "all of 2 AND a named place, sector, or number (e.g., in my city thousands work in tourism — hotels, restaurants and tour guides)"}, {"point": "Negative effects of tourism", "score_0": "Not mentioned", "score_1": "names a negative effect with no detail (e.g., there is pollution)", "score_2": "names a negative effect AND explains the impact (e.g., crowds make daily life harder for locals)", "score_3": "all of 2 AND a named place, situation, or example (e.g., in Venice the canals are overcrowded and rents have doubled)"}, {"point": "Impact on local people, businesses, and environment", "score_0": "Not mentioned", "score_1": "mentions only one of [people / businesses / environment]", "score_2": "covers at least two of the three AND describes a specific impact for each", "score_3": "covers all three AND each with a specific impact, named place, or example"}]}, {"ref": "W-B1-20260401093728", "label": "W-B1-20260401093728 — people, relationships, and family (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: people, relationships, and family.", "min_words": 50, "max_words": 300, "task_requirements": ["Qualities that make someone a good friend", "How friendships change as people get older", "Personal example to support argument"], "development_markers": [{"point": "Qualities that make someone a good friend", "score_0": "Not mentioned", "score_1": "names one or more qualities (e.g., trust, honesty) with no explanation", "score_2": "names at least two qualities AND explains why each matters", "score_3": "all of 2 AND links a quality to a real person or situation (e.g., my friend David showed loyalty when I failed an exam — he stayed and helped me)"}, {"point": "How friendships change as people get older", "score_0": "Not mentioned", "score_1": "states friendships change without explaining how", "score_2": "describes a specific change AND a reason (e.g., we have fewer friends because work and family take more time)", "score_3": "all of 2 AND a personal or specific example (e.g., after I moved cities for university I lost touch with most school friends)"}, {"point": "Personal example to support argument", "score_0": "Not mentioned", "score_1": "a vague personal reference (e.g., my friend is great)", "score_2": "a specific anecdote with at least one named person or situation", "score_3": "a fully developed anecdote with a named person, situation, AND outcome or feeling"}]}, {"ref": "W-B1-20260401093829", "label": "W-B1-20260401093829 — natural world and environment (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: natural world and environment.", "min_words": 50, "max_words": 300, "task_requirements": ["How different seasons affect daily routine and mood", "Positive effects of different weather types", "Negative effects of different weather types"], "development_markers": [{"point": "How different seasons affect daily routine and mood", "score_0": "Not mentioned", "score_1": "names one season or weather type with no specific routine or mood change", "score_2": "names at least two seasons AND describes a specific routine or mood change for each", "score_3": "all of 2 AND a specific activity, place, or feeling (e.g., in summer I cycle to work; in winter I stay home reading)"}, {"point": "Positive effects of different weather types", "score_0": "Not mentioned", "score_1": "names a positive effect (e.g., sunny days are nice) with no reason", "score_2": "names a weather type AND a specific positive effect (e.g., sunny days give me energy to exercise outdoors)", "score_3": "all of 2 AND a specific activity, place, or example (e.g., last summer I started running in the park every morning)"}, {"point": "Negative effects of different weather types", "score_0": "Not mentioned", "score_1": "names a negative effect (e.g., winter is bad) with no reason", "score_2": "names a weather type AND a specific negative effect (e.g., rainy days make me feel low and I cancel plans)", "score_3": "all of 2 AND a specific situation, illness, or impact (e.g., every winter I get a cold and miss work for a week)"}]}, {"ref": "W-B1-20260401093929", "label": "W-B1-20260401093929 — media, arts, literature, and entertainment (essay, B1)", "cefr_level": "b1", "task_type": "essay", "task_prompt": "Write an essay on the topic: media, arts, literature, and entertainment.", "min_words": 50, "max_words": 300, "task_requirements": ["When and why you listen to music", "How music affects your mood", "Personal example to support argument"], "development_markers": [{"point": "When and why you listen to music", "score_0": "Not mentioned", "score_1": "says they listen to music with no specific time or reason", "score_2": "names at least one specific time/situation AND a specific reason (e.g., I listen on the bus to work because it makes the commute pass faster)", "score_3": "all of 2 AND a NAMED song title (e.g., 'Yesterday'), artist name (Coldplay, Beyoncé), or real genre (gospel, amapiano, hip-hop, classical, rock). Mood-based or function-based categories like 'spiritual songs', 'motivational songs', 'sad songs' do NOT count."}, {"point": "How music affects your mood", "score_0": "Not mentioned", "score_1": "states music affects mood with no specific change", "score_2": "describes a specific mood change AND links it to a type of music (e.g., fast songs energise me; slow songs calm me)", "score_3": "all of 2 AND a NAMED song, artist, or specific situation. Categorical descriptions like 'spiritual songs' or 'motivational songs' do NOT satisfy 'named song/artist'."}, {"point": "Personal example to support argument", "score_0": "Not mentioned", "score_1": "vague reference to a personal music experience (e.g., I love music)", "score_2": "a specific anecdote with at least one named song, occasion, or feeling", "score_3": "a fully developed anecdote with NAMED music (actual title or artist), specific situation, AND emotional outcome. A description like 'a song I memorised' does NOT count as named music."}]}];
+
+/* Question picker: selecting a bank question fills prompt, task type, word
+   range, requirements AND development markers, so Task Achievement coverage
+   and Content Quality score against the real per-question anchors. */
+function currentQuestion() {
+  const sel = document.getElementById("question");
+  if (!sel || sel.value === "custom") return null;
+  return AZE_QUESTIONS.find(q => q.ref === sel.value) || null;
+}
+function updateMarkersPreview() {
+  const pre = document.getElementById("markersPreviewText");
+  if (!pre) return;
+  pre.textContent = formatDevelopmentMarkers({ development_markers: parseDevMarkers() });
+}
+function applyQuestion(q) {
+  document.getElementById("prompt").value = q.task_prompt;
+  document.getElementById("taskType").value = q.task_type;
+  document.getElementById("minWords").value = q.min_words;
+  document.getElementById("maxWords").value = q.max_words;
+  document.getElementById("requirements").value = q.task_requirements.join("\n");
+  document.getElementById("devMarkers").value = JSON.stringify(q.development_markers, null, 1);
+  updateMarkersPreview();
+  updateCounter();
+}
+function initQuestions() {
+  const sel = document.getElementById("question");
+  for (const q of AZE_QUESTIONS) {
+    const o = document.createElement("option");
+    o.value = q.ref; o.textContent = q.label;
+    sel.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = "custom"; custom.textContent = "Custom — edit the fields below";
+  sel.appendChild(custom);
+  sel.addEventListener("change", () => {
+    const q = currentQuestion();
+    if (q) applyQuestion(q);
+  });
+  document.getElementById("devMarkers").addEventListener("input", updateMarkersPreview);
+  applyQuestion(AZE_QUESTIONS[0]); // travel demo default — real requirements + markers
+}
+
 const SAMPLES = {
   msa: {
     label: "Clean MSA",
@@ -2491,15 +2542,24 @@ function makeOfflineComplete(simulateFailure) {
     const arabicBlocks = (prompt.match(/[؀-ۿ][؀-ۿ\s،؟.!:؛()«»"']{40,}/g) || []);
     const resp = arabicBlocks.sort((a, b) => b.length - a.length)[0] || "";
     const flavor = detectFlavor(resp);
-    const sents = firstSentences(resp, 3);
+    const sents = firstSentences(resp, 6);
 
     if (simulateFailure && prompt.includes("accuracy_annotator_v0.1"))
       throw new Error("simulated annotator crash (failure drill)");
 
-    if (prompt.includes("task_coverage_v1.0.0")) return { checks: [
-      { requirement_id: 0, source: "task_requirement", result: "PASS", evidence: sents[0] || "" },
-      { requirement_id: 1, source: "additional_development", result: "PASS", evidence: sents[1] || sents[0] || "" },
-    ]};
+    if (prompt.includes("task_coverage_v1.0.0")) {
+      // one check per listed requirement (parsed from the filled prompt)
+      const block = (prompt.match(/REQUIREMENTS:\n([\s\S]*?)\n\nRESPONSE:/) || [])[1] || "";
+      const lines = block.split("\n").filter(l => /^\d+\.\s\[/.test(l));
+      const checks = lines.map((l, i) => {
+        const srcName = (l.match(/\[([a-z_]+)\]/) || [])[1] || "task_requirement";
+        const pass = flavor === "msa" || srcName !== "task_type_requirement";
+        return { requirement_id: i, source: srcName, result: pass ? "PASS" : "FAIL",
+          evidence: pass ? (sents[i % Math.max(1, sents.length)] || sents[0] || "") : "" };
+      });
+      return { checks: checks.length ? checks : [
+        { requirement_id: 0, source: "task_requirement", result: "PASS", evidence: sents[0] || "" }] };
+    }
     if (prompt.includes("intelligibility_effect_v1.0.0"))
       return { intelligibility_effect_score: flavor === "msa" ? 85 : 70, band: "clear", reason: "stub", grounded_in: [] };
     if (prompt.includes("sr_annotator_v0.2")) {
@@ -2525,9 +2585,14 @@ function makeOfflineComplete(simulateFailure) {
             dual_plural_agreement: false, advanced_verb_form_type: "none" }
         : { complex_subordination: false, dual_plural_agreement: false, advanced_verb_form_type: "none" };
     if (prompt.includes("cq_annotator_v0.2")) {
-      const ev = sents.slice(0, 2);
-      return { cq_scores: [{ requirement_id: 0, score: flavor === "msa" ? 3 : 2,
-        evidence_spans: ev, justification: "stubbed development read" }] };
+      // one score per listed requirement (parsed from the filled prompt)
+      const block = (prompt.match(/TASK REQUIREMENTS:\n([\s\S]*?)\n\nDEVELOPMENT MARKERS:/) || [])[1] || "";
+      const n = Math.max(1, block.split("\n").filter(l => /^\d+\./.test(l)).length);
+      return { cq_scores: Array.from({ length: n }, (_, i) => ({
+        requirement_id: i,
+        score: flavor === "msa" ? (i === 0 ? 3 : 2) : (i === 0 ? 2 : 1),
+        evidence_spans: [sents[i % Math.max(1, sents.length)]].filter(Boolean),
+        justification: "stubbed development read" })) };
     }
     if (prompt.includes("coherence_flow_v0.1"))
       return flavor === "msa"
@@ -2662,8 +2727,9 @@ async function run() {
 
   const reqLine = $("requirements").value.trim();
   const task = {
-    version: "1.0.0", task_id: "proto_task", question_id: "q_proto",
-    cefr_level: "", task_type: $("taskType").value,
+    version: "1.0.0", task_id: "proto_task",
+    question_id: (currentQuestion() || { ref: "q_custom" }).ref,
+    cefr_level: (currentQuestion() || { cefr_level: "" }).cefr_level, task_type: $("taskType").value,
     task_prompt: $("prompt").value.trim() || "اكتب فقرة عن رحلة قمت بها مؤخراً.",
     min_words: parseInt($("minWords").value || "50", 10),
     max_words: parseInt($("maxWords").value || "150", 10),
@@ -3194,7 +3260,7 @@ function exportJson() {
   URL.revokeObjectURL(a.href);
 }
 
-document.addEventListener("DOMContentLoaded", () => { init(); initTabs(); initWeights(); initPrompts(); });
+document.addEventListener("DOMContentLoaded", () => { init(); initQuestions(); initTabs(); initWeights(); initPrompts(); });
 
 </script>
 </body>
